@@ -1,0 +1,31 @@
+.heading {
+    text-align: center;
+    font-size: 50px;
+}
+
+.inst {
+    text-align: center;
+    font-size: 25px;
+}
+
+.gameTable {
+    margin-left: 33%;
+    height:500px;
+    width:500px;
+}
+
+.gameBox {
+    border: 1px solid black;
+    height:33.3%;
+    width:33.3%;
+}
+
+.backgroundO {
+    background-image: url("o.png");
+    background-size: cover;
+}
+
+.backgroundX {
+    background-image: url("x.png");
+    background-size: cover;
+}

@@ -1,0 +1,145 @@
+/* Refer mdn */
+
+h1 {
+    color:orange;
+}
+
+
+/*
+p {
+
+    color:rgb(255,0,255);
+}
+*/
+
+button {
+    color:blue;
+    background-color: #5fed5f;
+}
+
+body {
+    background-color: yellow;
+    margin:0;
+    padding:0;
+}
+
+hr {
+    background-color:brown;
+    height:5px;
+}
+
+#Heading1 {
+    color:indigo;
+}
+
+.myClass {
+    color:red;
+}
+
+#box {
+    background-color: #4242e8;
+    height: 60px;
+    width: 200px;
+    /*border-width: 5px;*/
+    /*border-style: double;*/
+    /*border-color: #5fb85f;*/
+    border: 5px double #5fb85f;
+    text-align: center;
+    font-size: 20px;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 10px;
+}
+
+#textfontproperties {
+    text-align: center;
+    text-decoration: blue dotted underline;
+    text-transform: lowercase;
+    font-weight: 300;
+    font-family: Arial, serif;
+    font-size: 25px;
+    line-height: 20px;
+
+}
+
+a {
+    text-decoration: none;
+}
+
+#Exercise1 {
+    background-color: green;
+    height: 100px;
+    width: 100px;
+    border-radius: 50%;
+}
+
+.displayExample {
+    height: 100px;
+    width: 100px;
+    padding: 25px;
+    margin: 5px;
+    display: inline-block;
+}
+
+#Box1 {
+    background-color: rgba(255,0,255,0.5);
+}
+
+#Box2 {
+    background-color: green;
+}
+
+#Box3 {
+    background-color: blue;
+}
+
+
+.position {
+    height:100px;
+    width:100px;
+    border: 5px solid black;
+    display: inline-block;
+    background-color: blue;
+}
+
+#p1 {
+    background-image: url("notebook.jpg");
+    background-size: cover;
+}
+
+/*#p2 {*/
+/*    position: relative;*/
+/*    top:10px;*/
+/*    margin:10px;*/
+/*}*/
+
+/*#p3 {*/
+/*    position: absolute;*/
+/*    right:10px;*/
+/*    margin:10px;*/
+
+/*}*/
+
+/*#p4 {*/
+/*    position: fixed;*/
+/*    width: 100%;*/
+/*    bottom:0;*/
+/*    left:0;*/
+/*    height:50px;*/
+/*}*/
+
+#practice5 {
+    height: 100px;
+    width: 100px;
+    position: fixed;
+    right: 10px;
+    bottom: 0px;
+    background-image: url("notebook.jpg");
+    background-size: cover;
+
+}
+
+.newClass {
+    background-color : blue;
+}
+

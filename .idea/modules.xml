@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/AlphaPulse.iml" filepath="$PROJECT_DIR$/AlphaPulse.iml" />
+      <module fileurl="file://$PROJECT_DIR$/TradePulseAI.iml" filepath="$PROJECT_DIR$/TradePulseAI.iml" />
     </modules>
   </component>
 </project>
