@@ -1,6 +1,6 @@
 # TradePulseAI
 
-**TradePulseAI** is a web application that allows users to track stocks, buy and sell shares, view analytics, and monitor their portfolio. The platform integrates AI based predictions to provide insights and support informed trading decisions. Future updates will include LLM and generative AI features for enhanced recommendations.
+**TradePulseAI** is a web application that allows users to track stocks, buy and sell shares, view analytics, and monitor their portfolio. The platform integrates AI  based predictions to provide insights and support informed trading decisions. Future updates will include LLM and generative AI features for enhanced recommendations.
 
 ---
 
