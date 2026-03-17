@@ -88,10 +88,12 @@ export function HomePage() {
           <p className="home-eyebrow">Market pulse in real time</p>
           <h1>Track stocks, read AI signals, and trade with confidence.</h1>
           <p className="home-subtitle">Search your favorite stocks, view recommendations, and unlock deeper analytics after sign in.</p>
-          <div className="home-hero-actions">
-            <Link to="/login" className="home-btn-primary">Sign in</Link>
-            <Link to="/registration" className="home-btn-secondary">Create account</Link>
-          </div>
+              <div className="home-hero-actions">
+                <Link to="/login" className="home-btn-primary">Sign in</Link>
+                <Link to="/registration" className="home-btn-secondary">Create account</Link>
+                <Link to="/watchlist" className="home-btn-secondary">📋 Watchlist</Link>
+                <Link to="/about" className="home-btn-secondary">About us</Link>
+              </div>
         </section>
 
         <div className="home-section-shell">
