@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { fas } from '@fortawesome/free-solid-svg-icons'
 import { CartProvider } from './context/CartContext'
+import { OrdersProvider } from './context/OrdersContext'
 import { WatchlistProvider } from './context/WatchlistContext'
 import './index.css'
 import App from './App.tsx'
@@ -14,9 +15,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <CartProvider>
-        <WatchlistProvider>
-          <App />
-        </WatchlistProvider>
+        <OrdersProvider>
+          <WatchlistProvider>
+            <App />
+          </WatchlistProvider>
+        </OrdersProvider>
       </CartProvider>
     </BrowserRouter>
   </StrictMode>,
