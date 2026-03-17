@@ -1,0 +1,118 @@
+.payment-page {
+  margin-top: 60px;
+  min-height: calc(100vh - 60px);
+  padding: 34px 20px 60px;
+  background: linear-gradient(180deg, #f4f6ff 0%, #f9fbff 100%);
+}
+
+.payment-container {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.2fr 0.8fr;
+}
+
+.payment-form-card,
+.payment-summary-card,
+.payment-success,
+.payment-empty {
+  background: #fff;
+  border: 1px solid rgba(84, 63, 160, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 10px 32px rgba(36, 16, 77, 0.08);
+  padding: 22px;
+}
+
+.payment-form-card h1,
+.payment-success h1,
+.payment-empty h1 {
+  margin: 0 0 16px;
+  color: #1f2440;
+}
+
+.payment-form {
+  display: grid;
+  gap: 8px;
+}
+
+.payment-form label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2a3358;
+}
+
+.payment-form input {
+  border: 1px solid #d4dbf2;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 0.95rem;
+}
+
+.payment-form input:focus {
+  outline: none;
+  border-color: #6d2aa3;
+  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.12);
+}
+
+.payment-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.payment-primary-btn,
+.payment-link-btn {
+  margin-top: 10px;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  cursor: pointer;
+}
+
+.payment-summary-card h2 {
+  margin: 0 0 12px;
+  color: #1f2440;
+}
+
+.payment-items {
+  border-bottom: 1px solid #ebeffa;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.payment-items p,
+.payment-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0;
+  color: #4f5677;
+}
+
+.payment-summary-row.total {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #ebeffa;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2440;
+}
+
+.payment-success,
+.payment-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .payment-container {
+    grid-template-columns: 1fr;
+  }
+}
+

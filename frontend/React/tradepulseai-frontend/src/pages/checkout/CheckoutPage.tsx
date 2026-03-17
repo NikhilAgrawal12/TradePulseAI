@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart, type CartItem } from "../../context/CartContext";
 import "./CheckoutPage.css";
@@ -7,7 +8,8 @@ import "./CheckoutPage.css";
 export function CheckoutPage() {
   useEffect(() => { document.title = "Order Cart | TradePulseAI"; }, []);
 
-  const { cart, removeFromCart, updateQuantity, clearCart } = useCart();
+  const navigate = useNavigate();
+  const { cart, removeFromCart, updateQuantity } = useCart();
 
   const totalPrice = cart.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
 
@@ -17,8 +19,15 @@ export function CheckoutPage() {
   };
 
   const handleCheckout = () => {
-    alert(`Order placed for $${totalPrice.toFixed(2)}!`);
-    clearCart();
+    const tax = totalPrice * 0.08;
+    navigate("/payment", {
+      state: {
+        subtotal: totalPrice,
+        tax,
+        total: totalPrice + tax,
+        items: cart,
+      },
+    });
   };
 
   return (
