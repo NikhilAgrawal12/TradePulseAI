@@ -2,10 +2,14 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { stocks } from "../../data/stocks";
+import { useCart } from "../../context/CartContext";
+import { useWatchlist } from "../../context/WatchlistContext";
 import "./HomePage.css";
 
 
 export function HomePage() {
+  const { addToCart } = useCart();
+  const { addToWatchlist } = useWatchlist();
   const [searchText, setSearchText] = useState("");
 
   const topGainers = useMemo(() => [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 4), []);
@@ -142,6 +146,21 @@ export function HomePage() {
                   </div>
 
                   <p className="stock-rating">AI confidence {stock.rating.score}/5 ({stock.rating.analysts} analysts)</p>
+                  
+                  <div className="stock-card-actions">
+                    <button 
+                      className="stock-add-to-cart-btn"
+                      onClick={() => addToCart(stock.id, stock.symbol, stock.price, 1)}
+                    >
+                      🛒 Add to cart
+                    </button>
+                    <button 
+                      className="stock-add-to-watchlist-btn"
+                      onClick={() => addToWatchlist(stock.id, stock.symbol, stock.price, 1)}
+                    >
+                      ⭐ Add to watchlist
+                    </button>
+                  </div>
                 </article>
               );
             })}

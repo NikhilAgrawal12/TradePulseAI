@@ -226,6 +226,46 @@
   font-size: 0.84rem;
 }
 
+.stock-card-actions {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.stock-add-to-cart-btn,
+.stock-add-to-watchlist-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.stock-add-to-cart-btn {
+  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(77, 91, 215, 0.2);
+}
+
+.stock-add-to-cart-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(77, 91, 215, 0.28);
+}
+
+.stock-add-to-watchlist-btn {
+  background: #fff3e0;
+  color: #e67e22;
+  border: 1px solid #ffe0b2;
+}
+
+.stock-add-to-watchlist-btn:hover {
+  background: #ffe0b2;
+  transform: translateY(-1px);
+}
+
 .empty-search-state {
   margin-top: 16px;
   border: 1px dashed #ced6ff;

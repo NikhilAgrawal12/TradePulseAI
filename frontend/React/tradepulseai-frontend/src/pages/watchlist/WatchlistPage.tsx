@@ -1,31 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "../../components/Header.tsx";
 import { stocks } from "../../data/stocks";
+import { useCart } from "../../context/CartContext";
+import { useWatchlist } from "../../context/WatchlistContext";
 import "./WatchlistPage.css";
-
-type WatchlistEntry = {
-  stockId: string;
-  refPrice: number;
-  quantity: number;
-};
-
-const DEFAULT_WATCHLIST: WatchlistEntry[] = [
-  { stockId: "stk-001-aapl", refPrice: 198.5, quantity: 10 },
-  { stockId: "stk-005-nvda", refPrice: 875.0, quantity: 5  },
-  { stockId: "stk-007-tsla", refPrice: 245.3, quantity: 8  },
-  { stockId: "stk-002-msft", refPrice: 410.0, quantity: 6  },
-];
 
 export function WatchlistPage() {
   useEffect(() => { document.title = "Watchlist | TradePulseAI"; }, []);
 
-  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>(DEFAULT_WATCHLIST);
-  const [search,    setSearch]    = useState("");
+  const { addToCart } = useCart();
+  const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
+  const [search, setSearch] = useState("");
   const [addSearch, setAddSearch] = useState("");
-  const [addQty,    setAddQty]    = useState(1);
-  const [addRef,    setAddRef]    = useState("");
-  const [addStock,  setAddStock]  = useState("");
-  const [showAdd,   setShowAdd]   = useState(false);
+  const [addQty, setAddQty] = useState(1);
+  const [addRef, setAddRef] = useState("");
+  const [addStock, setAddStock] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
 
   const watchlistStocks = useMemo(() =>
     watchlist.map((entry) => {
@@ -65,12 +55,12 @@ export function WatchlistPage() {
     if (!addStock) return;
     const stock    = stocks.find((s) => s.id === addStock)!;
     const refPrice = parseFloat(addRef) || stock.price;
-    setWatchlist((prev) => [...prev, { stockId: addStock, refPrice, quantity: addQty }]);
+    addToWatchlist(addStock, stock.symbol, refPrice, addQty);
     setAddStock(""); setAddSearch(""); setAddRef(""); setAddQty(1); setShowAdd(false);
   };
 
   const handleRemove = (stockId: string) =>
-    setWatchlist((prev) => prev.filter((e) => e.stockId !== stockId));
+    removeFromWatchlist(stockId);
 
   return (
     <>
@@ -201,6 +191,7 @@ export function WatchlistPage() {
                   <th>Change ($)</th>
                   <th>Change (%)</th>
                   <th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -224,6 +215,14 @@ export function WatchlistPage() {
                     </td>
                     <td className={pnlPct >= 0 ? "price-up" : "price-down"}>
                       {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="wl-add-to-cart-btn"
+                        onClick={() => addToCart(stock.id, stock.symbol, stock.price, quantity)}
+                        title="Add to cart"
+                      >🛒</button>
                     </td>
                     <td>
                       <button

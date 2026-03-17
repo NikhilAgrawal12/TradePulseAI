@@ -319,6 +319,21 @@
 
 .wl-remove-btn:hover { background: #fde0e0; }
 
+/* Add to cart button */
+.wl-add-to-cart-btn {
+  border: none;
+  background: #e9f8ef;
+  color: #0d8a4c;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.wl-add-to-cart-btn:hover { background: #d4f0e1; }
+
 /* ── Empty state ── */
 .wl-empty {
   background: #fff;
