@@ -126,20 +126,27 @@
   margin-top: 16px;
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .stock-card {
   border: 1px solid #e4e8fa;
   border-radius: 14px;
   background: #fcfdff;
-  padding: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .stock-card-header {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+}
+
+.stock-card-header > div {
+  min-width: 0;
 }
 
 .stock-card-header h3 {
@@ -151,6 +158,7 @@
   margin: 4px 0 0;
   color: #61688b;
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .recommendation-badge {
@@ -199,18 +207,26 @@
 }
 
 .stock-meta-grid {
-  margin-top: 10px;
+  margin-top: 6px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px 10px;
 }
 
 .stock-meta-grid p {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   color: #4f5677;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 24px;
+  min-width: 0;
+}
+
+.metric-item-full {
+  grid-column: 1 / -1;
 }
 
 .stock-meta-grid span {
@@ -220,26 +236,46 @@
   letter-spacing: 0.05em;
 }
 
+.metric-value {
+  color: #2d3560;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: right;
+  min-width: 0;
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .stock-rating {
-  margin-top: 10px;
+  margin-top: 3px;
   color: #5d6691;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
 }
 
 .stock-card-actions {
-  margin-top: 12px;
-  display: grid;
+  margin-top: 6px;
+  padding-top: 0;
+  display: flex;
   gap: 8px;
-  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .stock-add-to-cart-btn,
 .stock-add-to-watchlist-btn {
+  flex: 1;
+  min-width: 0;
   border: none;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 9px 8px;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.74rem;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+  text-align: center;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
 }

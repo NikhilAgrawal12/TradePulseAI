@@ -139,10 +139,10 @@ export function HomePage() {
                   </div>
 
                   <div className="stock-meta-grid">
-                    <p><span>Sector</span>{stock.sector}</p>
-                    <p><span>Exchange</span>{stock.exchange}</p>
-                    <p><span>Market Cap</span>${stock.marketCapBillion}B</p>
-                    <p><span>Volume</span>{stock.volume.toLocaleString()}</p>
+                    <p className="metric-item metric-item-full"><span>Sector</span><strong className="metric-value">{stock.sector}</strong></p>
+                    <p className="metric-item"><span>Exchange</span><strong className="metric-value">{stock.exchange}</strong></p>
+                    <p className="metric-item"><span>Market Cap</span><strong className="metric-value">${stock.marketCapBillion}B</strong></p>
+                    <p className="metric-item"><span>Volume</span><strong className="metric-value">{stock.volume.toLocaleString()}</strong></p>
                   </div>
 
                   <p className="stock-rating">AI confidence {stock.rating.score}/5 ({stock.rating.analysts} analysts)</p>
