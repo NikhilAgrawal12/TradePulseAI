@@ -1,0 +1,370 @@
+.home-page {
+  margin-top: 60px;
+  padding: 30px 20px 50px;
+  background: linear-gradient(180deg, #f4f6ff 0%, #f9fbff 100%);
+  min-height: calc(100vh - 60px);
+}
+
+.home-hero {
+  max-width: 1100px;
+  margin: 0 auto 26px;
+  background: #ffffff;
+  border: 1px solid rgba(84, 63, 160, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 14px 42px rgba(36, 16, 77, 0.08);
+  padding: 30px 24px;
+}
+
+.home-eyebrow {
+  color: #6d2aa3;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.home-hero h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  color: #1f2440;
+}
+
+.home-subtitle {
+  color: #4f5677;
+  line-height: 1.6;
+  max-width: 760px;
+}
+
+.home-hero-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-btn-primary,
+.home-btn-secondary {
+  display: inline-block;
+  border-radius: 10px;
+  padding: 11px 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.home-btn-primary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+}
+
+.home-btn-secondary {
+  color: #4d5bd7;
+  background: #eef1ff;
+  border: 1px solid #ced6ff;
+}
+
+.home-stocks-section {
+  background: #ffffff;
+  border: 1px solid rgba(84, 63, 160, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 14px 42px rgba(36, 16, 77, 0.08);
+  padding: 24px;
+}
+
+.home-section-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.stocks-top-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stocks-top-row h2 {
+  margin: 0;
+  color: #1f2440;
+}
+
+.stocks-top-row p {
+  color: #5f678a;
+  font-weight: 600;
+}
+
+.search-wrapper {
+  margin-top: 12px;
+}
+
+.search-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #262f52;
+}
+
+.stock-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d2d8f2;
+  border-radius: 10px;
+  background: #fbfcff;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+}
+
+.stock-search-input:focus {
+  outline: none;
+  border-color: #6d2aa3;
+  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.15);
+}
+
+.stocks-grid {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.stock-card {
+  border: 1px solid #e4e8fa;
+  border-radius: 14px;
+  background: #fcfdff;
+  padding: 14px;
+}
+
+.stock-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stock-card-header h3 {
+  margin: 0;
+  color: #1f2440;
+}
+
+.stock-card-header p {
+  margin: 4px 0 0;
+  color: #61688b;
+  font-size: 0.88rem;
+}
+
+.recommendation-badge {
+  align-self: flex-start;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 9px;
+}
+
+.recommendation-badge.buy {
+  color: #0c7a40;
+  background: #e9f8ef;
+}
+
+.recommendation-badge.hold {
+  color: #8f6400;
+  background: #fff7de;
+}
+
+.recommendation-badge.sell {
+  color: #b02a2a;
+  background: #ffecec;
+}
+
+.stock-price-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stock-price-row strong {
+  font-size: 1.15rem;
+  color: #1f2440;
+}
+
+.price-up {
+  color: #138a4f;
+  font-weight: 700;
+}
+
+.price-down {
+  color: #c0392b;
+  font-weight: 700;
+}
+
+.stock-meta-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stock-meta-grid p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #4f5677;
+  display: grid;
+  gap: 2px;
+}
+
+.stock-meta-grid span {
+  font-size: 0.72rem;
+  color: #7a83a8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stock-rating {
+  margin-top: 10px;
+  color: #5d6691;
+  font-size: 0.84rem;
+}
+
+.empty-search-state {
+  margin-top: 16px;
+  border: 1px dashed #ced6ff;
+  border-radius: 12px;
+  background: #f7f9ff;
+  padding: 18px;
+  text-align: center;
+}
+
+.clear-search-btn {
+  margin-top: 8px;
+  border: 1px solid #cdd3f1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: #444d77;
+}
+
+.market-news-ticker {
+  border: 1px solid rgba(84, 63, 160, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.ticker-track {
+  white-space: nowrap;
+  display: inline-block;
+  padding: 10px 0;
+  color: #3f4871;
+  font-weight: 600;
+  animation: ticker-slide 35s linear infinite;
+}
+
+.ticker-track span {
+  margin-right: 36px;
+}
+
+@keyframes ticker-slide {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.market-insights-grid,
+.news-alerts-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.insight-card,
+.news-card,
+.daily-summary-card,
+.indices-section {
+  background: #ffffff;
+  border: 1px solid rgba(84, 63, 160, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(36, 16, 77, 0.08);
+  padding: 20px;
+}
+
+.insight-card h3,
+.news-card h3,
+.indices-section h3,
+.daily-summary-card h3 {
+  margin: 0;
+  color: #1f2440;
+}
+
+.insight-card p,
+.news-card p {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: #4f5677;
+}
+
+.news-card p {
+  display: block;
+  border-bottom: 1px solid #eceffa;
+  padding-bottom: 10px;
+}
+
+.news-card p:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.news-card span {
+  display: block;
+  margin-top: 4px;
+  color: #7a83a8;
+  font-size: 0.84rem;
+}
+
+.indices-section {
+}
+
+.indices-grid {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.index-card {
+  border: 1px solid #e4e8fa;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfcff;
+}
+
+.index-card p {
+  margin: 0;
+  color: #5f678a;
+  font-size: 0.84rem;
+}
+
+.index-card strong {
+  display: block;
+  margin-top: 6px;
+  color: #1f2440;
+}
+
+.index-card span {
+  display: block;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.daily-summary-card {
+}
+
+.daily-summary-card p {
+  margin: 10px 0 0;
+  color: #4f5677;
+  line-height: 1.6;
+}
+

@@ -3,5 +3,10 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react({
+    // @ts-ignore
+    babel: {
+      plugins: [['babel-plugin-react-compiler', { target: '19' }]],
+    },
+  })]
 })
