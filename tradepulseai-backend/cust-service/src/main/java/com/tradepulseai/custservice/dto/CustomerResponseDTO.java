@@ -1,56 +1,24 @@
-package com.tradepulseai.custservice.model;
+package com.tradepulseai.custservice.dto;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
+public class CustomerResponseDTO {
 
-import java.time.LocalDate;
-import java.util.UUID;
-
-@Entity
-public class Customer {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID customerId;
-
-    @NotNull
+    private String customerId;
     private String firstName;
-
-    @NotNull
     private String lastName;
-
-    @NotNull
-    @Email
-    @Column(unique = true)
     private String email;
-
-    @NotNull
     private String phoneNumber;
-
-    @NotNull
     private String address;
-
-    @NotNull
     private String city;
-
-    @NotNull
     private String state;
-
-    @NotNull
     private String country;
+    private String dateOfBirth;
 
-    @NotNull
-    private LocalDate dateOfBirth;
 
-    @NotNull
-    private LocalDate registrationDate;
-
-    public UUID getCustomerId() {
+    public String getCustomerId() {
         return customerId;
     }
 
-    public void setCustomerId(UUID customerId) {
+    public void setCustomerId(String customerId) {
         this.customerId = customerId;
     }
 
@@ -118,19 +86,11 @@ public class Customer {
         this.country = country;
     }
 
-    public LocalDate getDateOfBirth() {
+    public String getDateOfBirth() {
         return dateOfBirth;
     }
 
-    public void setDateOfBirth(LocalDate dateOfBirth) {
+    public void setDateOfBirth(String dateOfBirth) {
         this.dateOfBirth = dateOfBirth;
-    }
-
-    public LocalDate getRegistrationDate() {
-        return registrationDate;
-    }
-
-    public void setRegistrationDate(LocalDate registrationDate) {
-        this.registrationDate = registrationDate;
     }
 }
