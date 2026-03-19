@@ -1,8 +1,8 @@
-POST http://localhost:4000/customers
+PUT http://localhost:4000/customers/123e4567-e89b-12d3-a456-426614174000
 Content-Type: application/json
 
 {
-  "firstName": "John",
+  "firstName": "John Updated",
   "lastName": "Doe",
   "email": "johndoe2@gmail.com",
   "phoneNumber": "6173456745",
@@ -10,6 +10,5 @@ Content-Type: application/json
   "city": "Boston",
   "state": "MA",
   "country": "USA",
-  "dateOfBirth": "1993-06-18",
-  "registeredDate": "2026-02-04"
+  "dateOfBirth": "1993-06-18"
 }

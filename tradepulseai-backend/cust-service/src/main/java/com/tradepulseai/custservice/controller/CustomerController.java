@@ -2,34 +2,40 @@ package com.tradepulseai.custservice.controller;
 
 import com.tradepulseai.custservice.dto.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.CustomerResponseDTO;
-import com.tradepulseai.custservice.repository.CustomerRepository;
 import com.tradepulseai.custservice.service.CustomerService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.groups.Default;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 
 @RestController
 @RequestMapping("/customers")
 public class CustomerController {
-    private final CustomerService customerservice;
+    private final CustomerService customerService;
 
     public CustomerController(CustomerService customerservice) {
-        this.customerservice = customerservice;
+        this.customerService = customerservice;
     }
 
     @GetMapping
     public ResponseEntity<List<CustomerResponseDTO>> getCustomers() {
-        List<CustomerResponseDTO> users = customerservice.getCustomers();
+        List<CustomerResponseDTO> users = customerService.getCustomers();
         return ResponseEntity.ok().body(users);
     }
 
     @PostMapping
     public ResponseEntity<CustomerResponseDTO> createUser(@Validated({Default.class, CreateUserValidationGroup.class}) @RequestBody CustomerRequestDTO customerRequestDTO){
-        CustomerResponseDTO custResponseDTO = customerservice.createCustomer(customerRequestDTO);
+        CustomerResponseDTO custResponseDTO = customerService.createCustomer(customerRequestDTO);
+        return ResponseEntity.ok().body(custResponseDTO);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<CustomerResponseDTO>  updateUser(@PathVariable UUID id, @Validated({Default.class}) @RequestBody CustomerRequestDTO customerRequestDTO){
+        CustomerResponseDTO custResponseDTO = customerService.updateCustomer(id, customerRequestDTO);
         return ResponseEntity.ok().body(custResponseDTO);
     }
 
