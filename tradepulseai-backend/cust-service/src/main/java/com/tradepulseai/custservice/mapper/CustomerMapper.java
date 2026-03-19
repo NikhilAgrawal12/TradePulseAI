@@ -1,7 +1,10 @@
 package com.tradepulseai.custservice.mapper;
 
+import com.tradepulseai.custservice.dto.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.CustomerResponseDTO;
 import com.tradepulseai.custservice.model.Customer;
+
+import java.time.LocalDate;
 
 public class CustomerMapper {
 
@@ -20,18 +23,18 @@ public class CustomerMapper {
         return custDTO;
     }
 
-//    public static Appcust toModel(custRequestDTO custRequestDTO){
-//        Appcust cust = new Appcust();
-//        cust.setFirstName(custRequestDTO.getFirstName());
-//        cust.setLastName(custRequestDTO.getLastName());
-//        cust.setEmail(custRequestDTO.getEmail());
-//        cust.setPhoneNumber(custRequestDTO.getPhoneNumber());
-//        cust.setAddress(custRequestDTO.getAddress());
-//        cust.setCity(custRequestDTO.getCity());
-//        cust.setState(custRequestDTO.getState());
-//        cust.setCountry(custRequestDTO.getCountry());
-//        cust.setDateOfBirth(LocalDate.parse(custRequestDTO.getDateOfBirth()));
-//        cust.setRegistrationDate(LocalDate.parse(custRequestDTO.getRegisteredDate()));
-//        return cust;
-//    }
+    public static Customer toModel(CustomerRequestDTO custRequestDTO){
+        Customer cust = new Customer();
+        cust.setFirstName(custRequestDTO.getFirstName());
+        cust.setLastName(custRequestDTO.getLastName());
+        cust.setEmail(custRequestDTO.getEmail());
+        cust.setPhoneNumber(custRequestDTO.getPhoneNumber());
+        cust.setAddress(custRequestDTO.getAddress());
+        cust.setCity(custRequestDTO.getCity());
+        cust.setState(custRequestDTO.getState());
+        cust.setCountry(custRequestDTO.getCountry());
+        cust.setDateOfBirth(LocalDate.parse(custRequestDTO.getDateOfBirth()));
+        cust.setRegistrationDate(LocalDate.parse(custRequestDTO.getRegisteredDate()));
+        return cust;
+    }
 }

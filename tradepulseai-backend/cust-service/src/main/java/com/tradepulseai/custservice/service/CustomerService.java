@@ -1,5 +1,6 @@
 package com.tradepulseai.custservice.service;
 
+import com.tradepulseai.custservice.dto.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.CustomerResponseDTO;
 import com.tradepulseai.custservice.mapper.CustomerMapper;
 import com.tradepulseai.custservice.model.Customer;
@@ -21,5 +22,13 @@ public class CustomerService {
         return users.stream().map(CustomerMapper::toDTO).toList();
     }
 
+    public CustomerResponseDTO createCustomer(CustomerRequestDTO customerRequestDTO) {
 
+        if (customerRepository.existsByEmail(customerRequestDTO.getEmail())) {
+            throw new EmailAlreadyExistsException("A user with this email already exists " + customerRequestDTO.getEmail());
+        }
+
+        Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
+        return CustomerMapper.toDTO(customer);
+    }
 }
