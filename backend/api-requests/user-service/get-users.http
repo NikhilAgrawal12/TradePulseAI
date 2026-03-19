@@ -1,6 +1,0 @@
-### GETT request to get all patients
-
-#GET http://localhost:4000/users
-
-GET http://localhost:4004/api/users
-Authorization: Bearer {{token}}

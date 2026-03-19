@@ -14,6 +14,9 @@
         <option value="$PROJECT_DIR$/gate/pom.xml" />
         <option value="$PROJECT_DIR$/auth-service/pom.xml" />
         <option value="$PROJECT_DIR$/authentication-service/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulseai-backend/user-service/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulseai-backend/customer-service/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulseai-backend/cust-service/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
@@ -26,6 +29,8 @@
         <option value="$PROJECT_DIR$/gateway/pom.xml" />
         <option value="$PROJECT_DIR$/test-module/pom.xml" />
         <option value="$PROJECT_DIR$/test-module2/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulseai-backend/customer-service/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulseai-backend/user-service/pom.xml" />
         <option value="$PROJECT_DIR$/user-service/pom.xml" />
       </set>
     </option>

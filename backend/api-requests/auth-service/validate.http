@@ -1,3 +1,0 @@
-### GET request to validate Token
-GET http://localhost:4004/auth/validate
-Authorization: Bearer {{token}}

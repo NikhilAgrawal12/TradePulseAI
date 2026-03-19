@@ -6,6 +6,7 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="cust-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -13,11 +14,12 @@
       <module name="api-gateway" target="24" />
       <module name="authentication-service" target="24" />
       <module name="billing-service" target="21" />
+      <module name="customer-service" target="21" />
       <module name="gate" target="24" />
       <module name="gateway" target="21" />
       <module name="test-module2" target="21" />
       <module name="user-auth-service" target="24" />
-      <module name="user-service" target="25" />
+      <module name="user-service" target="21" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
@@ -26,6 +28,8 @@
       <module name="api-gateway" options="-parameters" />
       <module name="authentication-service" options="-parameters" />
       <module name="billing-service" options="-parameters" />
+      <module name="cust-service" options="-parameters" />
+      <module name="customer-service" options="-parameters" />
       <module name="gate" options="-parameters" />
       <module name="gateway" options="-parameters" />
       <module name="test-module2" options="-parameters" />
