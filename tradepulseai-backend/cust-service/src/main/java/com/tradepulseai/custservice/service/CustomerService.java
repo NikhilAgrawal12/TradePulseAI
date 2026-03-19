@@ -2,6 +2,7 @@ package com.tradepulseai.custservice.service;
 
 import com.tradepulseai.custservice.dto.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.CustomerResponseDTO;
+import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
 import com.tradepulseai.custservice.mapper.CustomerMapper;
 import com.tradepulseai.custservice.model.Customer;
 import com.tradepulseai.custservice.repository.CustomerRepository;
