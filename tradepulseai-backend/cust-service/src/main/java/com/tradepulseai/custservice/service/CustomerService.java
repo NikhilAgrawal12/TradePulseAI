@@ -7,9 +7,7 @@ import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
 import com.tradepulseai.custservice.mapper.CustomerMapper;
 import com.tradepulseai.custservice.model.Customer;
 import com.tradepulseai.custservice.repository.CustomerRepository;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PutMapping;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -42,7 +40,7 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(id).orElseThrow(() -> new CustomerNotFoundException("Patient not found with ID: " + id));
 
-        if (customerRepository.existsByEmailAndIdNot(customerRequestDTO.getEmail(),id)) {
+        if (customerRepository.existsByEmailAndCustomerIdNot(customerRequestDTO.getEmail(),id)) {
             throw new EmailAlreadyExistsException("A customer with this email already exists " + customerRequestDTO.getEmail());
         }
 
@@ -59,5 +57,10 @@ public class CustomerService {
         Customer updatedcustomer = customerRepository.save(customer);
         return CustomerMapper.toDTO(updatedcustomer);
 
+    }
+
+
+    public void deleteCustomer(UUID id) {
+        customerRepository.deleteById(id);
     }
 }

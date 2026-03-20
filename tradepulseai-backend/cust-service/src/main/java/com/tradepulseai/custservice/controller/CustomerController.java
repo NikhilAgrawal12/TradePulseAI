@@ -2,6 +2,7 @@ package com.tradepulseai.custservice.controller;
 
 import com.tradepulseai.custservice.dto.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.CustomerResponseDTO;
+import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
 import com.tradepulseai.custservice.service.CustomerService;
 import jakarta.validation.groups.Default;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +29,7 @@ public class CustomerController {
     }
 
     @PostMapping
-    public ResponseEntity<CustomerResponseDTO> createUser(@Validated({Default.class, CreateUserValidationGroup.class}) @RequestBody CustomerRequestDTO customerRequestDTO){
+    public ResponseEntity<CustomerResponseDTO> createUser(@Validated({Default.class, CreateCustomerValidationGroup.class}) @RequestBody CustomerRequestDTO customerRequestDTO){
         CustomerResponseDTO custResponseDTO = customerService.createCustomer(customerRequestDTO);
         return ResponseEntity.ok().body(custResponseDTO);
     }
@@ -37,6 +38,12 @@ public class CustomerController {
     public ResponseEntity<CustomerResponseDTO>  updateUser(@PathVariable UUID id, @Validated({Default.class}) @RequestBody CustomerRequestDTO customerRequestDTO){
         CustomerResponseDTO custResponseDTO = customerService.updateCustomer(id, customerRequestDTO);
         return ResponseEntity.ok().body(custResponseDTO);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void>  deleteUser(@PathVariable UUID id){
+        customerService.deleteCustomer(id);
+        return ResponseEntity.noContent().build();
     }
 
 

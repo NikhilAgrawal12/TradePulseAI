@@ -1,5 +1,6 @@
 package com.tradepulseai.custservice.dto;
 
+import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -41,7 +42,8 @@ public class CustomerRequestDTO {
     @NotBlank(message = "Date of birth is required")
     private String dateOfBirth;
 
-    @NotBlank(message = "Registration date is required")
+
+    @NotBlank(groups = CreateCustomerValidationGroup.class, message = "Registration date is required")
     private String registeredDate;
 
     public String getFirstName() {
