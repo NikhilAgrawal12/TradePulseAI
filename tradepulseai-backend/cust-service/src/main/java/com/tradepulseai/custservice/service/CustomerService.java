@@ -40,7 +40,7 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(id).orElseThrow(() -> new CustomerNotFoundException("Patient not found with ID: " + id));
 
-        if (customerRepository.existsByEmailAndCustomerIdNot(customerRequestDTO.getEmail(),id)) {
+        if (customerRepository.existsByEmailAndCustomerIdNot(customerRequestDTO.getEmail(), id)) {
             throw new EmailAlreadyExistsException("A customer with this email already exists " + customerRequestDTO.getEmail());
         }
 
