@@ -7,6 +7,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="cust-service" />
+        <module name="payment-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -32,6 +33,7 @@
       <module name="customer-service" options="-parameters" />
       <module name="gate" options="-parameters" />
       <module name="gateway" options="-parameters" />
+      <module name="payment-service" options="-parameters" />
       <module name="test-module2" options="-parameters" />
       <module name="user-auth-service" options="-parameters" />
       <module name="user-service" options="-parameters" />
