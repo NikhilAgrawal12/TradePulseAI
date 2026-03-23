@@ -28,6 +28,8 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <!-- Default for local Windows dev; overridden by OS profiles below -->
+        <protobuf.classifier>windows-x86_64</protobuf.classifier>
     </properties>
     <dependencies>
         <dependency>
@@ -76,15 +78,57 @@
 
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>windows</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                </os>
+            </activation>
+            <properties>
+                <protobuf.classifier>windows-x86_64</protobuf.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                    <name>Linux</name>
+                </os>
+            </activation>
+            <properties>
+                <protobuf.classifier>linux-x86_64</protobuf.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>mac-intel</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <properties>
+                <protobuf.classifier>osx-x86_64</protobuf.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>mac-apple-silicon</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <protobuf.classifier>osx-aarch_64</protobuf.classifier>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
-        <extensions>
-            <!-- Ensure OS compatibility for protoc -->
-            <extension>
-                <groupId>kr.motd.maven</groupId>
-                <artifactId>os-maven-plugin</artifactId>
-                <version>1.7.0</version>
-            </extension>
-        </extensions>
         <plugins>
             <!-- Spring boot / maven  -->
             <plugin>
@@ -98,12 +142,14 @@
                 <artifactId>protobuf-maven-plugin</artifactId>
                 <version>0.6.1</version>
                 <configuration>
-                    <protocArtifact>com.google.protobuf:protoc:4.29.1:exe:${os.detected.classifier}</protocArtifact>
+                    <protoSourceRoot>${project.basedir}/src/proto</protoSourceRoot>
+                    <protocArtifact>com.google.protobuf:protoc:4.29.1:exe:${protobuf.classifier}</protocArtifact>
                     <pluginId>grpc-java</pluginId>
-                    <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.69.0:exe:${os.detected.classifier}</pluginArtifact>
+                    <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.69.0:exe:${protobuf.classifier}</pluginArtifact>
                 </configuration>
                 <executions>
                     <execution>
+                        <phase>generate-sources</phase>
                         <goals>
                             <goal>compile</goal>
                             <goal>compile-custom</goal>
