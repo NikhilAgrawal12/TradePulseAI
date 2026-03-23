@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/TradePulseAI.iml" filepath="$PROJECT_DIR$/TradePulseAI.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tradepulseai-backend/payment-service/payment-service.iml" filepath="$PROJECT_DIR$/tradepulseai-backend/payment-service/payment-service.iml" />
     </modules>
   </component>
 </project>
