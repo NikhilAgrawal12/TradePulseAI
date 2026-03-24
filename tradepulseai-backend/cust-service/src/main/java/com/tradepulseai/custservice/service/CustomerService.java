@@ -5,6 +5,7 @@ import com.tradepulseai.custservice.dto.CustomerResponseDTO;
 import com.tradepulseai.custservice.exception.CustomerNotFoundException;
 import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
 import com.tradepulseai.custservice.grpc.PaymentServiceGrpcClient;
+import com.tradepulseai.custservice.kafka.kafkaProducer;
 import com.tradepulseai.custservice.mapper.CustomerMapper;
 import com.tradepulseai.custservice.model.Customer;
 import com.tradepulseai.custservice.repository.CustomerRepository;
@@ -18,11 +19,13 @@ import java.util.UUID;
 public class CustomerService {
     private final CustomerRepository customerRepository;
     private final PaymentServiceGrpcClient paymentServiceGrpcClient;
+    private final kafkaProducer kafkaProducer;
 
-    public CustomerService(CustomerRepository customerRepository, PaymentServiceGrpcClient paymentServiceGrpcClient) {
+    public CustomerService(CustomerRepository customerRepository, PaymentServiceGrpcClient paymentServiceGrpcClient, kafkaProducer kafkaProducer) {
 
         this.customerRepository = customerRepository;
         this.paymentServiceGrpcClient = paymentServiceGrpcClient;
+        this.kafkaProducer = kafkaProducer;
     }
 
     public List<CustomerResponseDTO> getCustomers() {
@@ -40,6 +43,8 @@ public class CustomerService {
         Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
 
             paymentServiceGrpcClient.createPaymentAccount(customer.getCustomerId().toString(), customer.getFirstName(), customer.getEmail());
+
+            kafkaProducer.sendEvent(customer);
         return CustomerMapper.toDTO(customer);
     }
 
