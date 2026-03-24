@@ -4,6 +4,7 @@ import com.tradepulseai.custservice.dto.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.CustomerResponseDTO;
 import com.tradepulseai.custservice.exception.CustomerNotFoundException;
 import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
+import com.tradepulseai.custservice.grpc.PaymentServiceGrpcClient;
 import com.tradepulseai.custservice.mapper.CustomerMapper;
 import com.tradepulseai.custservice.model.Customer;
 import com.tradepulseai.custservice.repository.CustomerRepository;
@@ -16,8 +17,12 @@ import java.util.UUID;
 @Service
 public class CustomerService {
     private final CustomerRepository customerRepository;
-    public CustomerService(CustomerRepository customerRepository) {
+    private final PaymentServiceGrpcClient paymentServiceGrpcClient;
+
+    public CustomerService(CustomerRepository customerRepository, PaymentServiceGrpcClient paymentServiceGrpcClient) {
+
         this.customerRepository = customerRepository;
+        this.paymentServiceGrpcClient = paymentServiceGrpcClient;
     }
 
     public List<CustomerResponseDTO> getCustomers() {
@@ -33,6 +38,8 @@ public class CustomerService {
         }
 
         Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
+
+            paymentServiceGrpcClient.createPaymentAccount(customer.getCustomerId().toString(), customer.getFirstName(), customer.getEmail());
         return CustomerMapper.toDTO(customer);
     }
 
