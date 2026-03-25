@@ -6,13 +6,13 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="analytics-service" />
+        <module name="api-gateway" />
         <module name="cust-service" />
         <module name="payment-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="analytics-service" target="21" />
-      <module name="api-gateway" target="24" />
       <module name="authentication-service" target="24" />
       <module name="billing-service" target="21" />
       <module name="customer-service" target="21" />

@@ -1,0 +1,30 @@
+server:
+  port: 4004 # Gateway listens on port 4004
+
+spring:
+  cloud:
+    gateway:
+      routes:
+
+        - id: customer-service-route
+          uri: http://cust-service:4000
+          predicates:
+            - Path=/api/customers/**
+          filters:
+            - StripPrefix=1
+
+
+        - id: api-docs-customer-route
+          uri: http://cust-service:4000
+          predicates:
+            - Path=/api-docs/customers
+          filters:
+            - RewritePath=/api-docs/customers,/v3/api-docs
+
+
+
+
+
+
+
+

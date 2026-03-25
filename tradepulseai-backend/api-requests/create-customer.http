@@ -3,8 +3,8 @@ Content-Type: application/json
 
 {
   "firstName": "John",
-  "lastName": "Doe with kafka",
-  "email": "johndoe2222@gmail.com",
+  "lastName": "Doe with kafka test4",
+  "email": "kafka_tes4@gmail.com",
   "phoneNumber": "6173456745",
   "address": "123 main street",
   "city": "Boston",
