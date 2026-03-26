@@ -20,6 +20,7 @@
         <option value="$PROJECT_DIR$/tradepulseai-backend/payment-service/pom.xml" />
         <option value="$PROJECT_DIR$/tradepulseai-backend/analytics-service/pom.xml" />
         <option value="$PROJECT_DIR$/tradepulseai-backend/api-gateway/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulseai-backend/auth-service/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">
