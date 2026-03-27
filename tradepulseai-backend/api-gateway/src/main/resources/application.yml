@@ -6,6 +6,13 @@ spring:
     gateway:
       routes:
 
+        - id: auth-service-route
+          uri: http://auth-service:4005
+          predicates:
+            - Path=/auth/**
+          filters:
+            - StripPrefix=1
+
         - id: customer-service-route
           uri: http://cust-service:4000
           predicates:
