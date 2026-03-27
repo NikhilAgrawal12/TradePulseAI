@@ -1,2 +1,3 @@
 #GET http://localhost:4000/customers
 GET http://localhost:4004/api/customers
+Authorization: Bearer {{token}}
