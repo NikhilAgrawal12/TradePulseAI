@@ -1,4 +1,5 @@
 PUT http://localhost:4000/customers/b7d178d4-79a0-4739-b89c-3fe6ea6c0c33
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {

@@ -8,5 +8,15 @@ export default defineConfig({
     babel: {
       plugins: [['babel-plugin-react-compiler', { target: '19' }]],
     },
-  })]
+  })],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4004'
+      },
+      '/auth': {
+        target: 'http://localhost:4004'
+      }
+    }
+  }
 })

@@ -1,7 +1,9 @@
 import {Fragment} from "react";
+import { useNavigate } from 'react-router';
 import dayjs from "dayjs";
 
 export function OrderDetailsGrid({order}){
+    const navigate = useNavigate();
 
     return(
         <div className="order-details-grid">
@@ -29,19 +31,17 @@ export function OrderDetailsGrid({order}){
                         </div>
 
                         <div className="product-actions">
-                            <a href="/tracking">
-                                <button className="track-package-button button-secondary">
-                                    Track package
-                                </button>
-                            </a>
+                            <button
+                                type="button"
+                                className="track-package-button button-secondary"
+                                onClick={() => navigate('/tracking')}
+                            >
+                                Track package
+                            </button>
                         </div>
-
-
                     </Fragment>
-
                 );
             })}
-
 
         </div>
     );

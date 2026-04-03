@@ -20,6 +20,14 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    public User createUser(String email, String encodedPassword, String role) {
+        User user = new User();
+        user.setEmail(email);
+        user.setPassword(encodedPassword);
+        user.setRole(role);
+        return userRepository.save(user);
+    }
+
 
 }
 

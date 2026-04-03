@@ -29,7 +29,7 @@ public class JwtValidationGatewayFilterFactory extends AbstractGatewayFilterFact
             return webClient.get()
                     .uri("/validate")
                     .header(HttpHeaders.AUTHORIZATION,token)
-                    .retrieve()
+                    .retrieve()  // Exception handling
                     .toBodilessEntity()
                     .then(chain.filter(exchange));
         };

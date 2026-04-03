@@ -1,10 +1,11 @@
 POST http://localhost:4004/api/customers
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "firstName": "John",
-  "lastName": "Doe with kafka test5",
-  "email": "kafka_test5@gmail.com",
+  "lastName": "Doe with kafka 6",
+  "email": "kafka_test6@gmail.com",
   "phoneNumber": "6173456745",
   "address": "123 main street",
   "city": "Boston",

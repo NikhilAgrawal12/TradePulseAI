@@ -2,6 +2,8 @@ package com.tradepulseai.authservice.controller;
 
 import com.tradepulseai.authservice.dto.LoginRequestDTO;
 import com.tradepulseai.authservice.dto.LoginResponseDTO;
+import com.tradepulseai.authservice.dto.RegisterRequestDTO;
+import com.tradepulseai.authservice.model.User;
 import com.tradepulseai.authservice.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.HttpStatus;
@@ -44,6 +46,13 @@ public class AuthController {
         return authService.validateToken(authHeader.substring(7))
                 ? ResponseEntity.ok().build()
                 : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
+    @Operation(summary="Register a new user")
+    @PostMapping("/register")
+    public ResponseEntity<User> register(@RequestBody RegisterRequestDTO registerRequestDTO){
+        User user = authService.register(registerRequestDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
 }

@@ -2,25 +2,18 @@ package com.tradepulseai.custservice.dto;
 
 public class CustomerResponseDTO {
 
-    private String customerId;
     private String firstName;
     private String lastName;
     private String email;
     private String phoneNumber;
-    private String address;
+    private String addressLine1;
+    private String addressLine2;
     private String city;
     private String state;
+    private String postalCode;
     private String country;
     private String dateOfBirth;
 
-
-    public String getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
-    }
 
     public String getFirstName() {
         return firstName;
@@ -54,12 +47,20 @@ public class CustomerResponseDTO {
         this.phoneNumber = phoneNumber;
     }
 
-    public String getAddress() {
-        return address;
+    public String getAddressLine1() {
+        return addressLine1;
     }
 
-    public void setAddress(String address) {
-        this.address = address;
+    public void setAddressLine1(String addressLine1) {
+        this.addressLine1 = addressLine1;
+    }
+
+    public String getAddressLine2() {
+        return addressLine2;
+    }
+
+    public void setAddressLine2(String addressLine2) {
+        this.addressLine2 = addressLine2;
     }
 
     public String getCity() {
@@ -76,6 +77,14 @@ public class CustomerResponseDTO {
 
     public void setState(String state) {
         this.state = state;
+    }
+
+    public String getPostalCode() {
+        return postalCode;
+    }
+
+    public void setPostalCode(String postalCode) {
+        this.postalCode = postalCode;
     }
 
     public String getCountry() {

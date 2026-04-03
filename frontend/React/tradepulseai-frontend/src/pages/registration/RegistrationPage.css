@@ -69,6 +69,43 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
+.password-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-field input {
+  flex: 1;
+}
+
+.password-toggle {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 8px 6px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover:not(:disabled) {
+  background-color: rgba(109, 42, 163, 0.08);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(109, 42, 163, 0.3);
+  outline-offset: 1px;
+}
+
+.password-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .registration-form input[type="text"]:focus,
 .registration-form input[type="email"]:focus,
 .registration-form input[type="password"]:focus,
@@ -142,6 +179,35 @@
   text-decoration: underline;
 }
 
+.registration-error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.registration-form input:disabled,
+.registration-form select:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.registration-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.registration-submit-btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 12px 24px rgba(77, 91, 215, 0.25);
+}
+
 @media (max-width: 520px) {
   .registration-page {
     padding: 24px 12px;
@@ -152,4 +218,3 @@
     border-radius: 14px;
   }
 }
-

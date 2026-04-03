@@ -1,6 +1,7 @@
 package com.tradepulseai.authservice.service;
 
 import com.tradepulseai.authservice.dto.LoginRequestDTO;
+import com.tradepulseai.authservice.dto.RegisterRequestDTO;
 import com.tradepulseai.authservice.model.User;
 import com.tradepulseai.authservice.util.JwtUtil;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,13 @@ public class AuthService {
         } catch (JwtException e){
             return false;
         }
+    }
+
+    public User register(RegisterRequestDTO registerRequestDTO) {
+        // Encode password using BCryptPasswordEncoder bean
+        String encodedPassword = passwordEncoder.encode(registerRequestDTO.getPassword());
+        // Create user with role "User" as default
+        return userService.createUser(registerRequestDTO.getEmail(), encodedPassword, "User");
     }
 
 
