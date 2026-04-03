@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
+import axios from "axios";
 import { Header } from "../../components/Header.tsx";
 import "./RegistrationPage.css";
 
@@ -44,55 +45,38 @@ export function RegistrationPage() {
 
     try {
       // Step 1: Register user in auth-service
-      const authResponse = await fetch("/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+      await axios.post("/auth/register", {
+        email,
+        password,
       });
-
-      if (!authResponse.ok) {
-        const errorData = await authResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to register user in auth service");
-      }
 
       // Step 2: Create customer in cust-service
       const registeredDate = new Date().toISOString().split('T')[0];
 
-      const custResponse = await fetch("/api/customers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          phoneNumber,
-          dateOfBirth,
-          addressLine1,
-          addressLine2,
-          city,
-          state,
-          postalCode,
-          country,
-          registeredDate,
-        }),
+      await axios.post("/api/customers", {
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+        dateOfBirth,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        postalCode,
+        country,
+        registeredDate,
       });
-
-      if (!custResponse.ok) {
-        const errorData = await custResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create customer profile");
-      }
 
       // Success - redirect to login
       navigate("/login");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      if (axios.isAxiosError(err)) {
+        const message = err.response?.data?.message;
+        setError(typeof message === "string" ? message : "Registration failed");
+      } else {
+        setError("Registration failed");
+      }
     } finally {
       setLoading(false);
     }
