@@ -59,9 +59,11 @@ public class CustomerService {
         customer.setFirstName(customerRequestDTO.getFirstName());
         customer.setLastName(customerRequestDTO.getLastName());
         customer.setEmail(customerRequestDTO.getEmail());
-        customer.setAddress(customerRequestDTO.getAddress());
+        customer.setAddressLine1(customerRequestDTO.getAddressLine1());
+        customer.setAddressLine2(customerRequestDTO.getAddressLine2());
         customer.setCity(customerRequestDTO.getCity());
         customer.setState(customerRequestDTO.getState());
+        customer.setPostalCode(customerRequestDTO.getPostalCode());
         customer.setCountry(customerRequestDTO.getCountry());
         customer.setDateOfBirth(LocalDate.parse(customerRequestDTO.getDateOfBirth()));
         customer.setPhoneNumber(customerRequestDTO.getPhoneNumber());

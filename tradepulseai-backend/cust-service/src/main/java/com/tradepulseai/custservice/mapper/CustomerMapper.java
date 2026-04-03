@@ -10,14 +10,15 @@ public class CustomerMapper {
 
     public static CustomerResponseDTO toDTO(Customer cust){
         CustomerResponseDTO custDTO = new CustomerResponseDTO();
-        custDTO.setCustomerId(cust.getCustomerId().toString());
         custDTO.setFirstName(cust.getFirstName());
         custDTO.setLastName(cust.getLastName());
         custDTO.setEmail(cust.getEmail());
         custDTO.setPhoneNumber(cust.getPhoneNumber());
-        custDTO.setAddress(cust.getAddress());
+        custDTO.setAddressLine1(cust.getAddressLine1());
+        custDTO.setAddressLine2(cust.getAddressLine2());
         custDTO.setCity(cust.getCity());
         custDTO.setState(cust.getState());
+        custDTO.setPostalCode(cust.getPostalCode());
         custDTO.setCountry(cust.getCountry());
         custDTO.setDateOfBirth(cust.getDateOfBirth().toString());
         return custDTO;
@@ -29,9 +30,11 @@ public class CustomerMapper {
         cust.setLastName(custRequestDTO.getLastName());
         cust.setEmail(custRequestDTO.getEmail());
         cust.setPhoneNumber(custRequestDTO.getPhoneNumber());
-        cust.setAddress(custRequestDTO.getAddress());
+        cust.setAddressLine1(custRequestDTO.getAddressLine1());
+        cust.setAddressLine2(custRequestDTO.getAddressLine2());
         cust.setCity(custRequestDTO.getCity());
         cust.setState(custRequestDTO.getState());
+        cust.setPostalCode(custRequestDTO.getPostalCode());
         cust.setCountry(custRequestDTO.getCountry());
         cust.setDateOfBirth(LocalDate.parse(custRequestDTO.getDateOfBirth()));
         cust.setRegistrationDate(LocalDate.parse(custRequestDTO.getRegisteredDate()));
