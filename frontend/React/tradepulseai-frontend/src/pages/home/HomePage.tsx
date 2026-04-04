@@ -78,17 +78,17 @@ export function HomePage() {
       <Header />
 
       <main className="home-page">
-        <section className="home-hero">
-          <p className="home-eyebrow">Market pulse in real time</p>
-          <h1>Track stocks, read AI signals, and trade with confidence.</h1>
-          <p className="home-subtitle">View recommendations and unlock deeper analytics after sign in.</p>
-          {!isLoggedIn && (
+        {!isLoggedIn && (
+          <section className="home-hero">
+            <p className="home-eyebrow">Market pulse in real time</p>
+            <h1>Track stocks, read AI signals, and trade with confidence.</h1>
+            <p className="home-subtitle">View recommendations and unlock deeper analytics after sign in.</p>
             <div className="home-hero-actions">
               <Link to="/login" className="home-btn-primary">Sign in</Link>
               <Link to="/registration" className="home-btn-secondary">Create account</Link>
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         <div className="home-section-shell">
         <section className="home-stocks-section" aria-labelledby="stocks-heading">

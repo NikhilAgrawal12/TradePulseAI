@@ -1,9 +1,11 @@
 import { Link } from 'react-router';
 import { useCart } from '../context/CartContext';
+import { useWatchlist } from '../context/WatchlistContext';
 import './Header.css';
 
 export function Header() {
     const { totalItems } = useCart();
+    const { totalWatchlistItems } = useWatchlist();
 
     return (
         <header className="header">
@@ -15,7 +17,10 @@ export function Header() {
                 </div>
 
                 <nav className="center-section" aria-label="Main actions">
-                    <Link className="nav-link header-link" to="/watchlist">Watchlist</Link>
+                    <Link className="watchlist-link nav-link header-link" to="/watchlist">
+                        Watchlist
+                        {totalWatchlistItems > 0 && <span className="watchlist-quantity">{totalWatchlistItems}</span>}
+                    </Link>
                     <Link className="cart-link header-link" to="/checkout" aria-label="Go to cart">
                         <img className="cart-icon" src="images/icons/cart-icon.png" alt="Cart" />
                         <span className="cart-text">Cart</span>

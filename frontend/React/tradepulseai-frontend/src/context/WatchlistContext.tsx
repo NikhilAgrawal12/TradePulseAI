@@ -9,6 +9,7 @@ export type WatchlistEntry = {
 
 type WatchlistContextType = {
   watchlist: WatchlistEntry[];
+  totalWatchlistItems: number;
   addToWatchlist: (stockId: string, symbol: string, refPrice: number, quantity: number) => void;
   removeFromWatchlist: (stockId: string) => void;
   updateWatchlistEntry: (stockId: string, refPrice: number, quantity: number) => void;
@@ -50,8 +51,12 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   const clearWatchlist = () => setWatchlist([]);
 
+  const totalWatchlistItems = watchlist.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
-    <WatchlistContext.Provider value={{ watchlist, addToWatchlist, removeFromWatchlist, updateWatchlistEntry, clearWatchlist }}>
+    <WatchlistContext.Provider
+      value={{ watchlist, totalWatchlistItems, addToWatchlist, removeFromWatchlist, updateWatchlistEntry, clearWatchlist }}
+    >
       {children}
     </WatchlistContext.Provider>
   );

@@ -154,6 +154,28 @@
   box-shadow: 0 3px 8px rgba(6, 61, 36, 0.22);
 }
 
+.header .watchlist-link {
+  position: relative;
+  padding-right: 20px;
+}
+
+.header .watchlist-quantity {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 22px;
+  line-height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0c5d39;
+  background: linear-gradient(180deg, #b8ffe2 0%, #82f1c3 100%);
+  border: 1px solid rgba(13, 91, 57, 0.25);
+  box-shadow: 0 3px 8px rgba(6, 61, 36, 0.22);
+}
+
 @media (max-width: 900px) {
   .header-inner {
     gap: 8px;
@@ -185,6 +207,10 @@
 
   .header .cart-text {
     font-size: 0.8rem;
+  }
+
+  .header .watchlist-link {
+    padding-right: 18px;
   }
 }
 
@@ -222,6 +248,13 @@
   }
 
   .header .cart-quantity {
+    top: -6px;
+    right: -7px;
+    min-width: 19px;
+    font-size: 10px;
+  }
+
+  .header .watchlist-quantity {
     top: -6px;
     right: -7px;
     min-width: 19px;
