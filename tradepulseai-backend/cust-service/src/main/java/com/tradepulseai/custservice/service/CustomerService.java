@@ -34,6 +34,12 @@ public class CustomerService {
         return customers.stream().map(CustomerMapper::toDTO).toList();
     }
 
+    public CustomerResponseDTO getCustomerByEmail(String email) {
+        Customer customer = customerRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with email: " + email));
+        return CustomerMapper.toDTO(customer);
+    }
+
     public CustomerResponseDTO createCustomer(CustomerRequestDTO customerRequestDTO) {
 
         if (customerRepository.existsByEmail(customerRequestDTO.getEmail())) {

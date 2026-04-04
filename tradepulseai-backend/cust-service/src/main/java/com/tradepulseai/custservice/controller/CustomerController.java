@@ -33,6 +33,13 @@ public class CustomerController {
         return ResponseEntity.ok().body(users);
     }
 
+    @GetMapping("/email/{email}")
+    @Operation(summary="Get customer by email")
+    public ResponseEntity<CustomerResponseDTO> getCustomerByEmail(@PathVariable String email) {
+        CustomerResponseDTO customer = customerService.getCustomerByEmail(email);
+        return ResponseEntity.ok().body(customer);
+    }
+
     @PostMapping
     @Operation(summary="Create a new customer")
     public ResponseEntity<CustomerResponseDTO> createUser(@Validated({Default.class, CreateCustomerValidationGroup.class}) @RequestBody CustomerRequestDTO customerRequestDTO){

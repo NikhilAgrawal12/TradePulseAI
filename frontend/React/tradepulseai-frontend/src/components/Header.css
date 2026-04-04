@@ -176,6 +176,51 @@
   box-shadow: 0 3px 8px rgba(6, 61, 36, 0.22);
 }
 
+.header .avatar-menu {
+  position: relative;
+}
+
+.header .avatar-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(22, 11, 58, 0.26);
+}
+
+.header .avatar-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 140px;
+  border-radius: 10px;
+  border: 1px solid rgba(84, 63, 160, 0.2);
+  background: #ffffff;
+  box-shadow: 0 14px 26px rgba(25, 12, 63, 0.2);
+  overflow: hidden;
+  z-index: 120;
+}
+
+.header .avatar-dropdown-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  color: #2a3157;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.header .avatar-dropdown-item:hover {
+  background: #f2efff;
+}
+
 @media (max-width: 900px) {
   .header-inner {
     gap: 8px;
@@ -259,6 +304,17 @@
     right: -7px;
     min-width: 19px;
     font-size: 10px;
+  }
+
+  .header .avatar-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+  }
+
+  .header .avatar-dropdown {
+    right: -6px;
+    min-width: 128px;
   }
 }
 

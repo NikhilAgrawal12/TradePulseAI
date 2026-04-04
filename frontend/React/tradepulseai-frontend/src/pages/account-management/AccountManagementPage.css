@@ -270,6 +270,29 @@
   color: #ffffff;
 }
 
+/* Status messages */
+.am-message {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: #f1f4ff;
+  color: #35407a;
+}
+
+.am-message.am-error {
+  background: #fff0f3;
+  color: #a12650;
+  border: 1px solid rgba(190, 52, 100, 0.25);
+}
+
+.am-message.am-success {
+  background: #ecfff5;
+  color: #157746;
+  border: 1px solid rgba(25, 140, 83, 0.25);
+}
+
 /* ── Responsive ── */
 @media (max-width: 720px) {
   .am-container {
@@ -301,4 +324,3 @@
     padding: 22px 16px;
   }
 }
-
