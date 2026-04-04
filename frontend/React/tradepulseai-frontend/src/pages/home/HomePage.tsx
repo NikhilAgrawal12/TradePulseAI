@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { stocks } from "../../data/stocks";
@@ -10,7 +10,10 @@ import "./HomePage.css";
 export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
-  const [searchText, setSearchText] = useState("");
+
+  const isLoggedIn = useMemo(() => {
+    return Boolean(localStorage.getItem("authToken") || sessionStorage.getItem("authToken"));
+  }, []);
 
   const topGainers = useMemo(() => [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 4), []);
   const topLosers = useMemo(() => [...stocks].sort((a, b) => a.changePercent - b.changePercent).slice(0, 4), []);
@@ -70,19 +73,6 @@ export function HomePage() {
     { label: "Dividend", company: "Procter & Gamble (PG)", when: "Ex-date: Mar 28" },
   ];
 
-  const filteredStocks = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-
-    if (!query) {
-      return stocks;
-    }
-
-    return stocks.filter((stock) => {
-      const haystack = [stock.symbol, stock.name, stock.sector, stock.exchange, stock.keywords.join(" ")].join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [searchText]);
-
   return (
     <>
       <Header />
@@ -91,36 +81,24 @@ export function HomePage() {
         <section className="home-hero">
           <p className="home-eyebrow">Market pulse in real time</p>
           <h1>Track stocks, read AI signals, and trade with confidence.</h1>
-          <p className="home-subtitle">Search your favorite stocks, view recommendations, and unlock deeper analytics after sign in.</p>
-              <div className="home-hero-actions">
-                <Link to="/login" className="home-btn-primary">Sign in</Link>
-                <Link to="/registration" className="home-btn-secondary">Create account</Link>
-                <Link to="/watchlist" className="home-btn-secondary">📋 Watchlist</Link>
-                <Link to="/about" className="home-btn-secondary">About us</Link>
-              </div>
+          <p className="home-subtitle">View recommendations and unlock deeper analytics after sign in.</p>
+          {!isLoggedIn && (
+            <div className="home-hero-actions">
+              <Link to="/login" className="home-btn-primary">Sign in</Link>
+              <Link to="/registration" className="home-btn-secondary">Create account</Link>
+            </div>
+          )}
         </section>
 
         <div className="home-section-shell">
         <section className="home-stocks-section" aria-labelledby="stocks-heading">
           <div className="stocks-top-row">
             <h2 id="stocks-heading">Explore stocks</h2>
-            <p>{filteredStocks.length} result{filteredStocks.length === 1 ? "" : "s"}</p>
-          </div>
-
-          <div className="search-wrapper">
-            <label htmlFor="stock-search" className="search-label">Search by symbol, company, sector, or keyword</label>
-            <input
-              id="stock-search"
-              type="search"
-              className="stock-search-input"
-              placeholder="Try: AAPL, technology, banking, ai"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-            />
+            <p>{stocks.length} results</p>
           </div>
 
           <div className="stocks-grid">
-            {filteredStocks.map((stock) => {
+            {stocks.map((stock) => {
               const isPositive = stock.changePercent >= 0;
 
               return (
@@ -146,15 +124,15 @@ export function HomePage() {
                   </div>
 
                   <p className="stock-rating">AI confidence {stock.rating.score}/5 ({stock.rating.analysts} analysts)</p>
-                  
+
                   <div className="stock-card-actions">
-                    <button 
+                    <button
                       className="stock-add-to-cart-btn"
                       onClick={() => addToCart(stock.id, stock.symbol, stock.price, 1)}
                     >
                       🛒 Add to cart
                     </button>
-                    <button 
+                    <button
                       className="stock-add-to-watchlist-btn"
                       onClick={() => addToWatchlist(stock.id, stock.symbol, stock.price, 1)}
                     >
@@ -165,13 +143,6 @@ export function HomePage() {
               );
             })}
           </div>
-
-          {filteredStocks.length === 0 && (
-            <div className="empty-search-state">
-              <p>No stocks matched your search.</p>
-              <button type="button" className="clear-search-btn" onClick={() => setSearchText("")}>Clear search</button>
-            </div>
-          )}
         </section>
 
         <section className="market-news-ticker" aria-label="Market news ticker">

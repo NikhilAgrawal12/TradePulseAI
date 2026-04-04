@@ -20,6 +20,10 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
     public User createUser(String email, String encodedPassword, String role) {
         User user = new User();
         user.setEmail(email);

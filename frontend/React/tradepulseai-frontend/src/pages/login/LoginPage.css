@@ -149,6 +149,17 @@
   text-decoration: underline;
 }
 
+.login-error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(205, 42, 77, 0.35);
+  background-color: rgba(255, 236, 241, 0.8);
+  color: #9e1a3f;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 @media (max-width: 520px) {
   .login-page {
     padding: 24px 12px;
@@ -164,4 +175,3 @@
     align-items: flex-start;
   }
 }
-

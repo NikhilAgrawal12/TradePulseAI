@@ -50,9 +50,14 @@ public class AuthController {
 
     @Operation(summary="Register a new user")
     @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody RegisterRequestDTO registerRequestDTO){
-        User user = authService.register(registerRequestDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+    public ResponseEntity<?> register(@RequestBody RegisterRequestDTO registerRequestDTO){
+        try {
+            User user = authService.register(registerRequestDTO);
+            return ResponseEntity.status(HttpStatus.CREATED).body(user);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("message", e.getMessage()));
+        }
     }
 
 }

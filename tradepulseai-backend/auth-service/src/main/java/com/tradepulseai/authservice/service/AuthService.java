@@ -49,6 +49,9 @@ public class AuthService {
     }
 
     public User register(RegisterRequestDTO registerRequestDTO) {
+        if (userService.existsByEmail(registerRequestDTO.getEmail())) {
+            throw new IllegalArgumentException("An account with this email already exists");
+        }
         // Encode password using BCryptPasswordEncoder bean
         String encodedPassword = passwordEncoder.encode(registerRequestDTO.getPassword());
         // Create user with role "User" as default

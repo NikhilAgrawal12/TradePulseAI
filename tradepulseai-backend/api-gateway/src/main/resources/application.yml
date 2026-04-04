@@ -13,6 +13,14 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: customer-register-route
+          uri: http://cust-service:4000
+          predicates:
+            - Path=/api/customers
+            - Method=POST
+          filters:
+            - StripPrefix=1
+
         - id: customer-service-route
           uri: http://cust-service:4000
           predicates:

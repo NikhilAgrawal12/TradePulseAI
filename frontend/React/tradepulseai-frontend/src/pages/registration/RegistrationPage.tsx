@@ -59,6 +59,8 @@ export function RegistrationPage() {
         email,
         phoneNumber,
         dateOfBirth,
+        // Keep temporary backward compatibility with older cust-service expecting `address`.
+        address: addressLine1,
         addressLine1,
         addressLine2,
         city,
@@ -72,8 +74,15 @@ export function RegistrationPage() {
       navigate("/login");
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        const message = err.response?.data?.message;
-        setError(typeof message === "string" ? message : "Registration failed");
+        const data = err.response?.data;
+        if (typeof data?.message === "string") {
+          setError(data.message);
+        } else if (data && typeof data === "object") {
+          const firstError = Object.values(data).find((value) => typeof value === "string");
+          setError(typeof firstError === "string" ? firstError : "Registration failed");
+        } else {
+          setError("Registration failed");
+        }
       } else {
         setError("Registration failed");
       }
