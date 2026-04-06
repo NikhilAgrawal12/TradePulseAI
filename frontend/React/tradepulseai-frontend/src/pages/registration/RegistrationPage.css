@@ -80,20 +80,24 @@
 }
 
 .password-toggle {
-  border: none;
-  background: none;
+  border: 1px solid #d2d8f2;
+  background: #ffffff;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 8px 6px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4d5bd7;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  min-width: 62px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .password-toggle:hover:not(:disabled) {
-  background-color: rgba(109, 42, 163, 0.08);
+  background-color: #f3f5ff;
+  border-color: #bcc6f5;
 }
 
 .password-toggle:focus-visible {

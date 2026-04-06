@@ -4,6 +4,8 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/TradePulseAI.iml" filepath="$PROJECT_DIR$/TradePulseAI.iml" />
       <module fileurl="file://$PROJECT_DIR$/tradepulseai-backend/analytics-service/analytics-service.iml" filepath="$PROJECT_DIR$/tradepulseai-backend/analytics-service/analytics-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tradepulseai-backend/cust-service/cust-service.iml" filepath="$PROJECT_DIR$/tradepulseai-backend/cust-service/cust-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tradepulseai-backend/payment-service/payment-service.iml" filepath="$PROJECT_DIR$/tradepulseai-backend/payment-service/payment-service.iml" />
     </modules>
   </component>
 </project>

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "../../components/Header.tsx";
-import { stocks } from "../../data/stocks";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
+import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
 
 export function WatchlistPage() {
@@ -10,6 +10,7 @@ export function WatchlistPage() {
 
   const { addToCart } = useCart();
   const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
+  const { stocks, loading, error } = useStocks();
   const [search, setSearch] = useState("");
   const [addSearch, setAddSearch] = useState("");
   const [addQty, setAddQty] = useState(1);
@@ -17,16 +18,22 @@ export function WatchlistPage() {
   const [addStock, setAddStock] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
+  const stockMap = useMemo(() => new Map(stocks.map((stock) => [stock.id, stock])), [stocks]);
+
   const watchlistStocks = useMemo(() =>
-    watchlist.map((entry) => {
-      const stock        = stocks.find((s) => s.id === entry.stockId)!;
+    watchlist.flatMap((entry) => {
+      const stock = stockMap.get(entry.stockId);
+      if (!stock) {
+        return [];
+      }
+
       const currentValue = stock.price * entry.quantity;
-      const refValue     = entry.refPrice * entry.quantity;
-      const pnl          = currentValue - refValue;
-      const pnlPct       = ((stock.price - entry.refPrice) / entry.refPrice) * 100;
-      return { ...entry, stock, currentValue, refValue, pnl, pnlPct };
+      const refValue = entry.refPrice * entry.quantity;
+      const pnl = currentValue - refValue;
+      const pnlPct = entry.refPrice > 0 ? ((stock.price - entry.refPrice) / entry.refPrice) * 100 : 0;
+      return [{ ...entry, stock, currentValue, refValue, pnl, pnlPct }];
     }),
-  [watchlist]);
+  [stockMap, watchlist]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -53,7 +60,8 @@ export function WatchlistPage() {
 
   const handleAdd = () => {
     if (!addStock) return;
-    const stock    = stocks.find((s) => s.id === addStock)!;
+    const stock = stockMap.get(addStock);
+    if (!stock) return;
     const refPrice = parseFloat(addRef) || stock.price;
     addToWatchlist(addStock, stock.symbol, refPrice, addQty);
     setAddStock(""); setAddSearch(""); setAddRef(""); setAddQty(1); setShowAdd(false);
@@ -66,6 +74,7 @@ export function WatchlistPage() {
     <>
       <Header />
       <main className="wl-page">
+        {error && <p>{error}</p>}
 
         {/* ── Summary stats ── */}
         <section className="wl-stats">
@@ -116,19 +125,25 @@ export function WatchlistPage() {
                   onChange={(e) => setAddSearch(e.target.value)}
                 />
                 <div className="wl-add-dropdown">
-                  {addCandidates.slice(0, 6).map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className={`wl-add-option ${addStock === s.id ? "selected" : ""}`}
-                      onClick={() => { setAddStock(s.id); setAddSearch(s.symbol); }}
-                    >
-                      <strong>{s.symbol}</strong> — {s.name}
-                      <span className={s.changePercent >= 0 ? "price-up" : "price-down"}>
-                        ${s.price.toFixed(2)} ({s.changePercent >= 0 ? "+" : ""}{s.changePercent.toFixed(2)}%)
-                      </span>
-                    </button>
-                  ))}
+                  {loading ? (
+                    <p>Loading stocks...</p>
+                  ) : addCandidates.length === 0 ? (
+                    <p>No stocks available to add.</p>
+                  ) : (
+                    addCandidates.slice(0, 6).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className={`wl-add-option ${addStock === s.id ? "selected" : ""}`}
+                        onClick={() => { setAddStock(s.id); setAddSearch(s.symbol); }}
+                      >
+                        <strong>{s.symbol}</strong> — {s.name}
+                        <span className={s.changePercent >= 0 ? "price-up" : "price-down"}>
+                          ${s.price.toFixed(2)} ({s.changePercent >= 0 ? "+" : ""}{s.changePercent.toFixed(2)}%)
+                        </span>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 

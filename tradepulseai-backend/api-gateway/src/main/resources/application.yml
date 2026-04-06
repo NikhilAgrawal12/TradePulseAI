@@ -24,10 +24,17 @@ spring:
         - id: customer-service-route
           uri: http://cust-service:4000
           predicates:
-            - Path=/api/customers/**
+            - Path=/api/customers,/api/customers/**
           filters:
             - StripPrefix=1
             - JwtValidation
+
+        - id: stock-service-route
+          uri: http://stock-service:4003
+          predicates:
+            - Path=/api/stocks,/api/stocks/**
+          filters:
+            - StripPrefix=1
 
 
         - id: api-docs-customer-route
@@ -36,6 +43,13 @@ spring:
             - Path=/api-docs/customers
           filters:
             - RewritePath=/api-docs/customers,/v3/api-docs
+
+        - id: api-docs-stock-route
+          uri: http://stock-service:4003
+          predicates:
+            - Path=/api-docs/stocks
+          filters:
+            - RewritePath=/api-docs/stocks,/v3/api-docs
 
 
 

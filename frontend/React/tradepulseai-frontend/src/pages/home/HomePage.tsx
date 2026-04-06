@@ -1,23 +1,24 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
-import { stocks } from "../../data/stocks";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
+import { useStocks } from "../../utils/useStocks";
 import "./HomePage.css";
 
 
 export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
+  const { stocks, loading, error } = useStocks();
 
   const isLoggedIn = useMemo(() => {
     return Boolean(localStorage.getItem("authToken") || sessionStorage.getItem("authToken"));
   }, []);
 
-  const topGainers = useMemo(() => [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 4), []);
-  const topLosers = useMemo(() => [...stocks].sort((a, b) => a.changePercent - b.changePercent).slice(0, 4), []);
-  const mostActive = useMemo(() => [...stocks].sort((a, b) => b.volume - a.volume).slice(0, 5), []);
+  const topGainers = useMemo(() => [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 4), [stocks]);
+  const topLosers = useMemo(() => [...stocks].sort((a, b) => a.changePercent - b.changePercent).slice(0, 4), [stocks]);
+  const mostActive = useMemo(() => [...stocks].sort((a, b) => b.volume - a.volume).slice(0, 5), [stocks]);
 
   const sectorOverview = useMemo(() => {
     const totals = new Map<string, { total: number; count: number }>();
@@ -36,15 +37,18 @@ export function HomePage() {
         avgChange: data.total / data.count,
       }))
       .sort((a, b) => b.avgChange - a.avgChange);
-  }, []);
+  }, [stocks]);
 
   const strongestSector = sectorOverview[0];
   const weakestSector = sectorOverview[sectorOverview.length - 1];
 
   const marketAverage = useMemo(() => {
+    if (stocks.length === 0) {
+      return 0;
+    }
     const total = stocks.reduce((sum, stock) => sum + stock.changePercent, 0);
     return total / stocks.length;
-  }, []);
+  }, [stocks]);
 
   const indexSnapshot = [
     { name: "S&P 500", value: "5,318.24", change: 0.78 },
@@ -94,55 +98,61 @@ export function HomePage() {
         <section className="home-stocks-section" aria-labelledby="stocks-heading">
           <div className="stocks-top-row">
             <h2 id="stocks-heading">Explore stocks</h2>
-            <p>{stocks.length} results</p>
+            <p>{loading ? "Loading..." : `${stocks.length} results`}</p>
           </div>
 
-          <div className="stocks-grid">
-            {stocks.map((stock) => {
-              const isPositive = stock.changePercent >= 0;
+          {error ? (
+            <p>{error}</p>
+          ) : loading ? (
+            <p>Loading stocks from backend...</p>
+          ) : (
+            <div className="stocks-grid">
+              {stocks.map((stock) => {
+                const isPositive = stock.changePercent >= 0;
 
-              return (
-                <article className="stock-card" key={stock.id}>
-                  <div className="stock-card-header">
-                    <div>
-                      <h3>{stock.symbol}</h3>
-                      <p>{stock.name}</p>
+                return (
+                  <article className="stock-card" key={stock.id}>
+                    <div className="stock-card-header">
+                      <div>
+                        <h3>{stock.symbol}</h3>
+                        <p>{stock.name}</p>
+                      </div>
+                      <span className={`recommendation-badge ${stock.recommendation.toLowerCase()}`}>{stock.recommendation}</span>
                     </div>
-                    <span className={`recommendation-badge ${stock.recommendation.toLowerCase()}`}>{stock.recommendation}</span>
-                  </div>
 
-                  <div className="stock-price-row">
-                    <strong>${stock.price.toFixed(2)}</strong>
-                    <span className={isPositive ? "price-up" : "price-down"}>{isPositive ? "+" : ""}{stock.changePercent.toFixed(2)}%</span>
-                  </div>
+                    <div className="stock-price-row">
+                      <strong>${stock.price.toFixed(2)}</strong>
+                      <span className={isPositive ? "price-up" : "price-down"}>{isPositive ? "+" : ""}{stock.changePercent.toFixed(2)}%</span>
+                    </div>
 
-                  <div className="stock-meta-grid">
-                    <p className="metric-item metric-item-full"><span>Sector</span><strong className="metric-value">{stock.sector}</strong></p>
-                    <p className="metric-item"><span>Exchange</span><strong className="metric-value">{stock.exchange}</strong></p>
-                    <p className="metric-item"><span>Market Cap</span><strong className="metric-value">${stock.marketCapBillion}B</strong></p>
-                    <p className="metric-item"><span>Volume</span><strong className="metric-value">{stock.volume.toLocaleString()}</strong></p>
-                  </div>
+                    <div className="stock-meta-grid">
+                      <p className="metric-item metric-item-full"><span>Sector</span><strong className="metric-value">{stock.sector}</strong></p>
+                      <p className="metric-item"><span>Exchange</span><strong className="metric-value">{stock.exchange}</strong></p>
+                      <p className="metric-item"><span>Market Cap</span><strong className="metric-value">${stock.marketCapBillion}B</strong></p>
+                      <p className="metric-item"><span>Volume</span><strong className="metric-value">{stock.volume.toLocaleString()}</strong></p>
+                    </div>
 
-                  <p className="stock-rating">AI confidence {stock.rating.score}/5 ({stock.rating.analysts} analysts)</p>
+                    <p className="stock-rating">AI confidence {stock.rating.score}/5 ({stock.rating.analysts} analysts)</p>
 
-                  <div className="stock-card-actions">
-                    <button
-                      className="stock-add-to-cart-btn"
-                      onClick={() => addToCart(stock.id, stock.symbol, stock.price, 1)}
-                    >
-                      🛒 Add to cart
-                    </button>
-                    <button
-                      className="stock-add-to-watchlist-btn"
-                      onClick={() => addToWatchlist(stock.id, stock.symbol, stock.price, 1)}
-                    >
-                      ⭐ Add to watchlist
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                    <div className="stock-card-actions">
+                      <button
+                        className="stock-add-to-cart-btn"
+                        onClick={() => addToCart(stock.id, stock.symbol, stock.price, 1)}
+                      >
+                        🛒 Add to cart
+                      </button>
+                      <button
+                        className="stock-add-to-watchlist-btn"
+                        onClick={() => addToWatchlist(stock.id, stock.symbol, stock.price, 1)}
+                      >
+                        ⭐ Add to watchlist
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className="market-news-ticker" aria-label="Market news ticker">

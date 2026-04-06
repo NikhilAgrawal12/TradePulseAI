@@ -154,7 +154,7 @@ export function RegistrationPage() {
                 disabled={loading}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? "🙈" : "👁️"}
+                {showPassword ? "Hide" : "Show"}
               </button>
             </div>
 
@@ -176,7 +176,7 @@ export function RegistrationPage() {
                 disabled={loading}
                 aria-label={showConfirmPassword ? "Hide password" : "Show password"}
               >
-                {showConfirmPassword ? "🙈" : "👁️"}
+                {showConfirmPassword ? "Hide" : "Show"}
               </button>
             </div>
 
