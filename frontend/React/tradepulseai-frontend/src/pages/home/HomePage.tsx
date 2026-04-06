@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
+import { isUserAuthenticated } from "../../utils/auth";
 import { useStocks } from "../../utils/useStocks";
 import "./HomePage.css";
 
@@ -13,7 +14,7 @@ export function HomePage() {
   const { stocks, loading, error } = useStocks();
 
   const isLoggedIn = useMemo(() => {
-    return Boolean(localStorage.getItem("authToken") || sessionStorage.getItem("authToken"));
+    return isUserAuthenticated();
   }, []);
 
   const topGainers = useMemo(() => [...stocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 4), [stocks]);

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { isUserAuthenticated, showSignInRequiredMessage } from "../utils/auth";
 
 export type CartItem = {
   stockId: string;
@@ -22,6 +23,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const addToCart = (stockId: string, symbol: string, price: number, qty: number) => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.stockId === stockId);
       if (existing) {

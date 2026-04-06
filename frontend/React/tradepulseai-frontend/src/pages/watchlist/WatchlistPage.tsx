@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
+import { isUserAuthenticated, showSignInRequiredMessage } from "../../utils/auth";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
 
@@ -67,6 +68,15 @@ export function WatchlistPage() {
     setAddStock(""); setAddSearch(""); setAddRef(""); setAddQty(1); setShowAdd(false);
   };
 
+  const toggleAddPanel = () => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
+    setShowAdd((v) => !v);
+  };
+
   const handleRemove = (stockId: string) =>
     removeFromWatchlist(stockId);
 
@@ -107,7 +117,7 @@ export function WatchlistPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className="wl-add-btn" onClick={() => setShowAdd((v) => !v)}>
+          <button className="wl-add-btn" onClick={toggleAddPanel}>
             {showAdd ? "✕ Cancel" : "+ Add stock"}
           </button>
         </div>

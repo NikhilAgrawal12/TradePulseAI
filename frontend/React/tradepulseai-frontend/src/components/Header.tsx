@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useWatchlist } from '../context/WatchlistContext';
-import { clearStoredToken, getEmailFromToken, getStoredToken } from '../utils/auth';
+import {
+    clearStoredToken,
+    getEmailFromToken,
+    getStoredToken,
+    showSignInRequiredMessage,
+} from '../utils/auth';
 import './Header.css';
 
 export function Header() {
@@ -12,6 +17,7 @@ export function Header() {
     const location = useLocation();
 
     const [menuOpen, setMenuOpen] = useState(false);
+    const [authNotice, setAuthNotice] = useState('');
     const menuRef = useRef<HTMLDivElement | null>(null);
 
     const token = getStoredToken();
@@ -25,10 +31,23 @@ export function Header() {
 
     useEffect(() => {
         setMenuOpen(false);
+        setAuthNotice('');
     }, [location.pathname]);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleAuthRequired = (event: Event) => {
+            const customEvent = event as CustomEvent<{ message?: string }>;
+            setAuthNotice(customEvent.detail?.message ?? 'Please sign in before continuing.');
+        };
+
+        window.addEventListener('tradepulseai:auth-required', handleAuthRequired as EventListener);
+        return () => {
+            window.removeEventListener('tradepulseai:auth-required', handleAuthRequired as EventListener);
+        };
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside: EventListener = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setMenuOpen(false);
             }
@@ -46,6 +65,15 @@ export function Header() {
         navigate('/login');
     };
 
+    const handleProtectedNavigation = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+        if (isLoggedIn) {
+            return;
+        }
+
+        event.preventDefault();
+        showSignInRequiredMessage();
+    };
+
     return (
         <header className="header">
             <div className="header-inner">
@@ -56,11 +84,11 @@ export function Header() {
                 </div>
 
                 <nav className="center-section" aria-label="Main actions">
-                    <Link className="watchlist-link nav-link header-link" to="/watchlist">
+                    <Link className="watchlist-link nav-link header-link" to="/watchlist" onClick={handleProtectedNavigation}>
                         Watchlist
                         {totalWatchlistItems > 0 && <span className="watchlist-quantity">{totalWatchlistItems}</span>}
                     </Link>
-                    <Link className="cart-link header-link" to="/checkout" aria-label="Go to cart">
+                    <Link className="cart-link header-link" to="/checkout" aria-label="Go to cart" onClick={handleProtectedNavigation}>
                         <img className="cart-icon" src="images/icons/cart-icon.png" alt="Cart" />
                         <span className="cart-text">Cart</span>
                         {totalItems > 0 && <span className="cart-quantity">{totalItems}</span>}
@@ -110,6 +138,15 @@ export function Header() {
                     )}
                 </nav>
             </div>
+
+            {authNotice && (
+                <div className="header-notice" role="alert" aria-live="polite">
+                    <span>{authNotice}</span>
+                    <button type="button" className="header-notice-close" onClick={() => setAuthNotice('')} aria-label="Dismiss message">
+                        ×
+                    </button>
+                </div>
+            )}
         </header>
     );
 }

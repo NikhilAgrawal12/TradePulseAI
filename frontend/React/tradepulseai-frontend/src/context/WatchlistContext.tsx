@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { isUserAuthenticated, showSignInRequiredMessage } from "../utils/auth";
 
 export type WatchlistEntry = {
   stockId: string;
@@ -22,6 +23,11 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
 
   const addToWatchlist = (stockId: string, symbol: string, refPrice: number, quantity: number) => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
     setWatchlist((prev) => {
       const existing = prev.find((item) => item.stockId === stockId);
       if (existing) {
