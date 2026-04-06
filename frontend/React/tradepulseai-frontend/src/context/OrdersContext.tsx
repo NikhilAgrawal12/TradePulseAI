@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import type { CartItem } from "./CartContext";
+import type { CartItem } from "../types/cart";
 
 const STORAGE_KEY = "tradepulseai-orders";
 

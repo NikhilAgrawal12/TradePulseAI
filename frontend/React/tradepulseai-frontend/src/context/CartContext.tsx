@@ -1,65 +1,123 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { isUserAuthenticated, showSignInRequiredMessage } from "../utils/auth";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { CartItem } from "../types/cart";
+import { isUserAuthenticated, showSignInRequiredMessage, getStoredToken } from "../utils/auth";
+import { addCartItem, clearCartItems, fetchCartItems, removeCartItem, updateCartItemQuantity } from "../utils/cartApi";
 
-export type CartItem = {
-  stockId: string;
-  symbol: string;
-  price: number;
-  quantity: number;
-};
+const CART_ERROR_MESSAGE = "Unable to update cart right now. Please try again.";
 
 type CartContextType = {
   cart: CartItem[];
   totalItems: number;
-  addToCart: (stockId: string, symbol: string, price: number, qty: number) => void;
-  removeFromCart: (stockId: string) => void;
-  updateQuantity: (stockId: string, qty: number) => void;
-  clearCart: () => void;
+  addToCart: (stockId: string, symbol: string, price: number, qty: number) => Promise<void>;
+  removeFromCart: (stockId: string) => Promise<void>;
+  updateQuantity: (stockId: string, qty: number) => Promise<void>;
+  clearCart: () => Promise<void>;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const token = getStoredToken();
 
-  const addToCart = (stockId: string, symbol: string, price: number, qty: number) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCart = async () => {
+      if (!isUserAuthenticated()) {
+        if (!cancelled) {
+          setCart([]);
+        }
+        return;
+      }
+
+      try {
+        const items = await fetchCartItems();
+        if (!cancelled) {
+          setCart(items);
+        }
+      } catch {
+        if (!cancelled) {
+          setCart([]);
+        }
+      }
+    };
+
+    void loadCart();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const addToCart = async (stockId: string, symbol: string, price: number, qty: number) => {
     if (!isUserAuthenticated()) {
       showSignInRequiredMessage();
       return;
     }
 
-    setCart((prev) => {
-      const existing = prev.find((item) => item.stockId === stockId);
-      if (existing) {
-        return prev.map((item) =>
-          item.stockId === stockId
-            ? { ...item, quantity: item.quantity + qty }
-            : item
-        );
-      }
-      return [...prev, { stockId, symbol, price, quantity: qty }];
-    });
-  };
+    try {
+      const updatedCart = await addCartItem({
+        stockId,
+        symbol,
+        price,
+        quantity: qty,
+      });
 
-  const removeFromCart = (stockId: string) => {
-    setCart((prev) => prev.filter((item) => item.stockId !== stockId));
-  };
-
-  const updateQuantity = (stockId: string, qty: number) => {
-    if (qty <= 0) {
-      removeFromCart(stockId);
-    } else {
-      setCart((prev) =>
-        prev.map((item) =>
-          item.stockId === stockId ? { ...item, quantity: qty } : item
-        )
-      );
+      setCart(updatedCart);
+    } catch {
+      showSignInRequiredMessage(CART_ERROR_MESSAGE);
     }
   };
 
-  const clearCart = () => setCart([]);
+  const removeFromCart = async (stockId: string) => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+    try {
+      const updatedCart = await removeCartItem(stockId);
+      setCart(updatedCart);
+    } catch {
+      showSignInRequiredMessage(CART_ERROR_MESSAGE);
+    }
+  };
+
+  const updateQuantity = async (stockId: string, qty: number) => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
+    if (qty <= 0) {
+      await removeFromCart(stockId);
+      return;
+    }
+
+    try {
+      const updatedCart = await updateCartItemQuantity(stockId, { quantity: qty });
+      setCart(updatedCart);
+    } catch {
+      showSignInRequiredMessage(CART_ERROR_MESSAGE);
+    }
+  };
+
+  const clearCart = async () => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
+    try {
+      const updatedCart = await clearCartItems();
+      setCart(updatedCart);
+    } catch {
+      showSignInRequiredMessage(CART_ERROR_MESSAGE);
+    }
+  };
+
+  const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
   return (
     <CartContext.Provider value={{ cart, totalItems, addToCart, removeFromCart, updateQuantity, clearCart }}>
@@ -75,5 +133,4 @@ export function useCart() {
   }
   return context;
 }
-
 

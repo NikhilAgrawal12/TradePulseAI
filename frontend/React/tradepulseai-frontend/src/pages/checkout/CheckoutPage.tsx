@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { Link } from "react-router";
 import { useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
-import { useCart, type CartItem } from "../../context/CartContext";
+import { useCart } from "../../context/CartContext";
+import type { CartItem } from "../../types/cart";
 import "./CheckoutPage.css";
 
 export function CheckoutPage() {
@@ -15,7 +16,7 @@ export function CheckoutPage() {
 
   const handleQuantityChange = (stockId: string, qty: string) => {
     const newQty = parseInt(qty) || 0;
-    updateQuantity(stockId, newQty);
+    void updateQuantity(stockId, newQty);
   };
 
   const handleCheckout = () => {
@@ -73,7 +74,7 @@ export function CheckoutPage() {
                         <td>
                           <button
                             className="remove-btn"
-                            onClick={() => removeFromCart(item.stockId)}
+                            onClick={() => void removeFromCart(item.stockId)}
                             title="Remove from cart"
                           >✕</button>
                         </td>

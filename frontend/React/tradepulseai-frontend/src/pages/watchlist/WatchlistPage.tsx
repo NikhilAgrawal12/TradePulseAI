@@ -245,7 +245,7 @@ export function WatchlistPage() {
                       <button
                         type="button"
                         className="wl-add-to-cart-btn"
-                        onClick={() => addToCart(stock.id, stock.symbol, stock.price, quantity)}
+                        onClick={() => void addToCart(stock.id, stock.symbol, stock.price, quantity)}
                         title="Add to cart"
                       >🛒</button>
                     </td>

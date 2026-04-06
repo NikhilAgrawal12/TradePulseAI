@@ -138,7 +138,7 @@ export function HomePage() {
                     <div className="stock-card-actions">
                       <button
                         className="stock-add-to-cart-btn"
-                        onClick={() => addToCart(stock.id, stock.symbol, stock.price, 1)}
+                        onClick={() => void addToCart(stock.id, stock.symbol, stock.price, 1)}
                       >
                         🛒 Add to cart
                       </button>

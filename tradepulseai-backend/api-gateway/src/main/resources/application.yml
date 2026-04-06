@@ -36,6 +36,14 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: order-service-route
+          uri: http://order-service:4006
+          predicates:
+            - Path=/api/cart,/api/cart/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
 
         - id: api-docs-customer-route
           uri: http://cust-service:4000
@@ -50,6 +58,13 @@ spring:
             - Path=/api-docs/stocks
           filters:
             - RewritePath=/api-docs/stocks,/v3/api-docs
+
+        - id: api-docs-order-route
+          uri: http://order-service:4006
+          predicates:
+            - Path=/api-docs/orders
+          filters:
+            - RewritePath=/api-docs/orders,/v3/api-docs
 
 
 

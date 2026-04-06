@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
-import { useCart, type CartItem } from "../../context/CartContext";
+import { useCart } from "../../context/CartContext";
 import { useOrders } from "../../context/OrdersContext";
+import type { CartItem } from "../../types/cart";
 import "./PaymentPage.css";
 
 export function PaymentPage() {
@@ -32,7 +33,7 @@ export function PaymentPage() {
   const tax = useMemo(() => state?.tax ?? subtotal * 0.08, [state?.tax, subtotal]);
   const total = useMemo(() => state?.total ?? subtotal + tax, [state?.total, subtotal, tax]);
 
-  const handlePayNow = (event: FormEvent<HTMLFormElement>) => {
+  const handlePayNow = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     addOrder({
@@ -43,7 +44,7 @@ export function PaymentPage() {
     });
 
     setPaidTotal(total);
-    clearCart();
+    await clearCart();
     setShowSuccess(true);
   };
 
