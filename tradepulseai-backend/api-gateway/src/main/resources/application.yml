@@ -36,6 +36,14 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: watchlist-service-route
+          uri: http://cust-service:4000
+          predicates:
+            - Path=/api/watchlist,/api/watchlist/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
         - id: order-service-route
           uri: http://order-service:4006
           predicates:

@@ -1,63 +1,122 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { isUserAuthenticated, showSignInRequiredMessage } from "../utils/auth";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { WatchlistEntry } from "../types/watchlist";
+import { getStoredToken, isUserAuthenticated, showSignInRequiredMessage } from "../utils/auth";
+import { addWatchlistItem, clearWatchlistItems, fetchWatchlistItems, removeWatchlistItem, updateWatchlistItem } from "../utils/watchlistApi";
 
-export type WatchlistEntry = {
-  stockId: string;
-  symbol: string;
-  refPrice: number;
-  quantity: number;
-};
+const WATCHLIST_ERROR_MESSAGE = "Unable to update watchlist right now. Please try again.";
 
 type WatchlistContextType = {
   watchlist: WatchlistEntry[];
   totalWatchlistItems: number;
-  addToWatchlist: (stockId: string, symbol: string, refPrice: number, quantity: number) => void;
-  removeFromWatchlist: (stockId: string) => void;
-  updateWatchlistEntry: (stockId: string, refPrice: number, quantity: number) => void;
-  clearWatchlist: () => void;
+  addToWatchlist: (stockId: string, symbol: string, refPrice: number, quantity: number) => Promise<void>;
+  removeFromWatchlist: (stockId: string) => Promise<void>;
+  updateWatchlistEntry: (stockId: string, refPrice: number, quantity: number) => Promise<void>;
+  clearWatchlist: () => Promise<void>;
 };
 
 const WatchlistContext = createContext<WatchlistContextType | undefined>(undefined);
 
 export function WatchlistProvider({ children }: { children: ReactNode }) {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
+  const token = getStoredToken();
 
-  const addToWatchlist = (stockId: string, symbol: string, refPrice: number, quantity: number) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWatchlist = async () => {
+      if (!isUserAuthenticated()) {
+        if (!cancelled) {
+          setWatchlist([]);
+        }
+        return;
+      }
+
+      try {
+        const items = await fetchWatchlistItems();
+        if (!cancelled) {
+          setWatchlist(items);
+        }
+      } catch {
+        if (!cancelled) {
+          setWatchlist([]);
+        }
+      }
+    };
+
+    void loadWatchlist();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const addToWatchlist = async (stockId: string, symbol: string, refPrice: number, quantity: number) => {
     if (!isUserAuthenticated()) {
       showSignInRequiredMessage();
       return;
     }
 
-    setWatchlist((prev) => {
-      const existing = prev.find((item) => item.stockId === stockId);
-      if (existing) {
-        return prev.map((item) =>
-          item.stockId === stockId
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { stockId, symbol, refPrice, quantity }];
-    });
+    try {
+      const updatedWatchlist = await addWatchlistItem({
+        stockId,
+        symbol,
+        refPrice,
+        quantity,
+      });
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
   };
 
-  const removeFromWatchlist = (stockId: string) => {
-    setWatchlist((prev) => prev.filter((item) => item.stockId !== stockId));
+  const removeFromWatchlist = async (stockId: string) => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
+    try {
+      const updatedWatchlist = await removeWatchlistItem(stockId);
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
   };
 
-  const updateWatchlistEntry = (stockId: string, refPrice: number, quantity: number) => {
-    setWatchlist((prev) =>
-      prev.map((item) =>
-        item.stockId === stockId
-          ? { ...item, refPrice, quantity }
-          : item
-      )
-    );
+  const updateWatchlistEntry = async (stockId: string, refPrice: number, quantity: number) => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
+
+    if (quantity <= 0) {
+      await removeFromWatchlist(stockId);
+      return;
+    }
+
+    try {
+      const updatedWatchlist = await updateWatchlistItem(stockId, { refPrice, quantity });
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
   };
 
-  const clearWatchlist = () => setWatchlist([]);
+  const clearWatchlist = async () => {
+    if (!isUserAuthenticated()) {
+      showSignInRequiredMessage();
+      return;
+    }
 
-  const totalWatchlistItems = watchlist.reduce((sum, item) => sum + item.quantity, 0);
+    try {
+      const updatedWatchlist = await clearWatchlistItems();
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
+  };
+
+  const totalWatchlistItems = useMemo(() => watchlist.reduce((sum, item) => sum + item.quantity, 0), [watchlist]);
 
   return (
     <WatchlistContext.Provider
@@ -75,4 +134,3 @@ export function useWatchlist() {
   }
   return context;
 }
-

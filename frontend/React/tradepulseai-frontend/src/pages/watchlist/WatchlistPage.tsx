@@ -64,7 +64,7 @@ export function WatchlistPage() {
     const stock = stockMap.get(addStock);
     if (!stock) return;
     const refPrice = parseFloat(addRef) || stock.price;
-    addToWatchlist(addStock, stock.symbol, refPrice, addQty);
+    void addToWatchlist(addStock, stock.symbol, refPrice, addQty);
     setAddStock(""); setAddSearch(""); setAddRef(""); setAddQty(1); setShowAdd(false);
   };
 
@@ -78,7 +78,7 @@ export function WatchlistPage() {
   };
 
   const handleRemove = (stockId: string) =>
-    removeFromWatchlist(stockId);
+    void removeFromWatchlist(stockId);
 
   return (
     <>

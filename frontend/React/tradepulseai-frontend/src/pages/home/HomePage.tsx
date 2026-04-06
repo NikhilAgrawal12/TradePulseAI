@@ -144,7 +144,7 @@ export function HomePage() {
                       </button>
                       <button
                         className="stock-add-to-watchlist-btn"
-                        onClick={() => addToWatchlist(stock.id, stock.symbol, stock.price, 1)}
+                        onClick={() => void addToWatchlist(stock.id, stock.symbol, stock.price, 1)}
                       >
                         ⭐ Add to watchlist
                       </button>
