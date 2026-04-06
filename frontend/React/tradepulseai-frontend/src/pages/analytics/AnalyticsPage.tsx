@@ -1,6 +1,11 @@
+import { useEffect } from "react";
 import {Header} from "../../components/Header.tsx";
 
 export function AnalyticsPage() {
+    useEffect(() => {
+        document.title = "Analytics | TradePulseAI";
+    }, []);
+
     return (
         <>
             <Header />

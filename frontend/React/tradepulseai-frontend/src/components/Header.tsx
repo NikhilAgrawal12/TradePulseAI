@@ -6,7 +6,8 @@ import {
     clearStoredToken,
     getEmailFromToken,
     getStoredToken,
-    showSignInRequiredMessage,
+    requireSignIn,
+    subscribeToAuthChanges,
 } from '../utils/auth';
 import './Header.css';
 
@@ -18,9 +19,9 @@ export function Header() {
 
     const [menuOpen, setMenuOpen] = useState(false);
     const [authNotice, setAuthNotice] = useState('');
+    const [token, setToken] = useState<string | null>(() => getStoredToken());
     const menuRef = useRef<HTMLDivElement | null>(null);
 
-    const token = getStoredToken();
     const isLoggedIn = Boolean(token);
     const email = getEmailFromToken(token);
 
@@ -36,14 +37,28 @@ export function Header() {
 
     useEffect(() => {
         const handleAuthRequired = (event: Event) => {
-            const customEvent = event as CustomEvent<{ message?: string }>;
-            setAuthNotice(customEvent.detail?.message ?? 'Please sign in before continuing.');
+            const customEvent = event as CustomEvent<{ message?: string; redirectToLogin?: boolean }>;
+            const message = customEvent.detail?.message;
+            if (typeof message === 'string' && message.trim().length > 0) {
+                setAuthNotice(message);
+            }
+
+            if (customEvent.detail?.redirectToLogin && location.pathname !== '/login') {
+                navigate('/login');
+            }
         };
 
         window.addEventListener('tradepulseai:auth-required', handleAuthRequired as EventListener);
         return () => {
             window.removeEventListener('tradepulseai:auth-required', handleAuthRequired as EventListener);
         };
+    }, [location.pathname, navigate]);
+
+    useEffect(() => {
+        return subscribeToAuthChanges(() => {
+            setToken(getStoredToken());
+            setMenuOpen(false);
+        });
     }, []);
 
     useEffect(() => {
@@ -71,7 +86,7 @@ export function Header() {
         }
 
         event.preventDefault();
-        showSignInRequiredMessage();
+        requireSignIn();
     };
 
     return (
@@ -96,7 +111,7 @@ export function Header() {
                 </nav>
 
                 <nav className="right-section" aria-label="Secondary navigation">
-                    <Link className="nav-link header-link" to="/orders">Orders</Link>
+                    <Link className="nav-link header-link" to="/orders" onClick={handleProtectedNavigation}>Orders</Link>
                     {!isLoggedIn && <Link className="nav-link header-link about-link" to="/about">About Us</Link>}
                     {isLoggedIn && (
                         <div className="avatar-menu" ref={menuRef}>

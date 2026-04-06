@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CartItem } from "../types/cart";
-import { isUserAuthenticated, showSignInRequiredMessage, getStoredToken } from "../utils/auth";
+import { isUserAuthenticated, requireSignIn, showSignInRequiredMessage, subscribeToAuthChanges } from "../utils/auth";
 import { addCartItem, clearCartItems, fetchCartItems, removeCartItem, updateCartItemQuantity } from "../utils/cartApi";
 
 const CART_ERROR_MESSAGE = "Unable to update cart right now. Please try again.";
@@ -18,7 +18,13 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const token = getStoredToken();
+  const [authVersion, setAuthVersion] = useState(0);
+
+  useEffect(() => {
+    return subscribeToAuthChanges(() => {
+      setAuthVersion((current) => current + 1);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,11 +54,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [authVersion]);
 
   const addToCart = async (stockId: string, symbol: string, price: number, qty: number) => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 
@@ -72,7 +78,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeFromCart = async (stockId: string) => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 
@@ -86,7 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const updateQuantity = async (stockId: string, qty: number) => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 
@@ -105,7 +111,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = async () => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 

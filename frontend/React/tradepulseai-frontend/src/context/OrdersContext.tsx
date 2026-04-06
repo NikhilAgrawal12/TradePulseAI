@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CartItem } from "../types/cart";
+import { isUserAuthenticated, subscribeToAuthChanges } from "../utils/auth";
 
 const STORAGE_KEY = "tradepulseai-orders";
 
@@ -34,6 +35,15 @@ function readStoredOrders(): Order[] {
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(() => readStoredOrders());
+
+  useEffect(() => {
+    return subscribeToAuthChanges(() => {
+      if (!isUserAuthenticated()) {
+        localStorage.removeItem(STORAGE_KEY);
+        setOrders([]);
+      }
+    });
+  }, []);
 
   const value = useMemo<OrdersContextType>(() => ({
     orders,

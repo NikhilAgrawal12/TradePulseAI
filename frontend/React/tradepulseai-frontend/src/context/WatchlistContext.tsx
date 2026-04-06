@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { WatchlistEntry } from "../types/watchlist";
-import { getStoredToken, isUserAuthenticated, showSignInRequiredMessage } from "../utils/auth";
+import { isUserAuthenticated, requireSignIn, showSignInRequiredMessage, subscribeToAuthChanges } from "../utils/auth";
 import { addWatchlistItem, clearWatchlistItems, fetchWatchlistItems, removeWatchlistItem, updateWatchlistItem } from "../utils/watchlistApi";
 
 const WATCHLIST_ERROR_MESSAGE = "Unable to update watchlist right now. Please try again.";
@@ -18,7 +18,13 @@ const WatchlistContext = createContext<WatchlistContextType | undefined>(undefin
 
 export function WatchlistProvider({ children }: { children: ReactNode }) {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
-  const token = getStoredToken();
+  const [authVersion, setAuthVersion] = useState(0);
+
+  useEffect(() => {
+    return subscribeToAuthChanges(() => {
+      setAuthVersion((current) => current + 1);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,11 +54,11 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [authVersion]);
 
   const addToWatchlist = async (stockId: string, symbol: string, refPrice: number, quantity: number) => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 
@@ -71,7 +77,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   const removeFromWatchlist = async (stockId: string) => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 
@@ -85,7 +91,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   const updateWatchlistEntry = async (stockId: string, refPrice: number, quantity: number) => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 
@@ -104,7 +110,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   const clearWatchlist = async () => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 

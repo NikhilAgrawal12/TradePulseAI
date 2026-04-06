@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
-import { isUserAuthenticated, showSignInRequiredMessage } from "../../utils/auth";
+import { isUserAuthenticated, requireSignIn } from "../../utils/auth";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
 
@@ -70,7 +70,7 @@ export function WatchlistPage() {
 
   const toggleAddPanel = () => {
     if (!isUserAuthenticated()) {
-      showSignInRequiredMessage();
+      requireSignIn();
       return;
     }
 

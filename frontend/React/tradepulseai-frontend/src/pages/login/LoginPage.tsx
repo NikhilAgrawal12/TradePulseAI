@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import axios from "axios";
 import { Header } from "../../components/Header.tsx";
+import { setStoredToken } from "../../utils/auth";
 import "./LoginPage.css";
 
 export function LoginPage() {
@@ -32,14 +33,7 @@ export function LoginPage() {
         return;
       }
 
-      // Keep only one active token store based on user choice.
-      if (rememberMe) {
-        localStorage.setItem("authToken", token);
-        sessionStorage.removeItem("authToken");
-      } else {
-        sessionStorage.setItem("authToken", token);
-        localStorage.removeItem("authToken");
-      }
+      setStoredToken(token, rememberMe);
 
       navigate("/");
     } catch (err) {

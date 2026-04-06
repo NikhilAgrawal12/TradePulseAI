@@ -1,6 +1,11 @@
+import { useEffect } from "react";
 import {Header} from "../../components/Header.tsx";
 
 export function PortfolioPage() {
+    useEffect(() => {
+        document.title = "Portfolio | TradePulseAI";
+    }, []);
+
     return (
         <>
             <Header />

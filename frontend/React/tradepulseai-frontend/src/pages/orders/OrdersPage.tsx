@@ -1,12 +1,22 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useOrders } from "../../context/OrdersContext";
+import { isUserAuthenticated } from "../../utils/auth";
 import "./OrdersPage.css";
 
 export function OrdersPage() {
+  const navigate = useNavigate();
+
   useEffect(() => {
     document.title = "Orders | TradePulseAI";
   }, []);
+
+  useEffect(() => {
+    if (!isUserAuthenticated()) {
+      navigate("/login");
+    }
+  }, [navigate]);
 
   const { orders } = useOrders();
 

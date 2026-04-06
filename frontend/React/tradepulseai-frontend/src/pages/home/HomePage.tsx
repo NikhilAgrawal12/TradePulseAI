@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
@@ -12,6 +12,10 @@ export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
   const { stocks, loading, error } = useStocks();
+
+  useEffect(() => {
+    document.title = "Home | TradePulseAI";
+  }, []);
 
   const isLoggedIn = useMemo(() => {
     return isUserAuthenticated();
