@@ -2,6 +2,7 @@ package com.tradepulseai.custservice.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -39,7 +40,7 @@ public class GlobalExceptionHandler {
         log.warn("Customer Not Found : {}", ex.getMessage());
         Map<String, String> errors = new HashMap<>();
         errors.put("message", "Customer Not Found");
-        return ResponseEntity.badRequest().body(errors);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errors);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

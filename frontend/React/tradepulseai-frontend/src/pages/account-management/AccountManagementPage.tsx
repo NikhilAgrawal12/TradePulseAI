@@ -77,8 +77,18 @@ export function AccountManagementPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfile(response.data);
-      } catch {
-        setError("Unable to load profile details.");
+      } catch (err) {
+        if (axios.isAxiosError(err)) {
+          if (err.response?.status === 404) {
+            setError("Customer profile not found. Please complete registration details.");
+          } else if (typeof err.response?.data?.message === "string") {
+            setError(err.response.data.message);
+          } else {
+            setError("Unable to load profile details.");
+          }
+        } else {
+          setError("Unable to load profile details.");
+        }
       } finally {
         setLoading(false);
       }

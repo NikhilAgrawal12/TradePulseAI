@@ -35,14 +35,17 @@ public class CustomerService {
     }
 
     public CustomerResponseDTO getCustomerByEmail(String email) {
-        Customer customer = customerRepository.findByEmail(email)
-                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with email: " + email));
+        String normalizedEmail = normalizeEmail(email);
+        Customer customer = customerRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with email: " + normalizedEmail));
         return CustomerMapper.toDTO(customer);
     }
 
     public CustomerResponseDTO createCustomer(CustomerRequestDTO customerRequestDTO) {
+        String normalizedEmail = normalizeEmail(customerRequestDTO.getEmail());
+        customerRequestDTO.setEmail(normalizedEmail);
 
-        if (customerRepository.existsByEmail(customerRequestDTO.getEmail())) {
+        if (customerRepository.existsByEmailIgnoreCase(normalizedEmail)) {
             throw new EmailAlreadyExistsException("A customer with this email already exists " + customerRequestDTO.getEmail());
         }
 
@@ -55,16 +58,18 @@ public class CustomerService {
     }
 
     public CustomerResponseDTO updateCustomer(UUID id, CustomerRequestDTO customerRequestDTO) {
+        String normalizedEmail = normalizeEmail(customerRequestDTO.getEmail());
+        customerRequestDTO.setEmail(normalizedEmail);
 
         Customer customer = customerRepository.findById(id).orElseThrow(() -> new CustomerNotFoundException("Patient not found with ID: " + id));
 
-        if (customerRepository.existsByEmailAndCustomerIdNot(customerRequestDTO.getEmail(), id)) {
+        if (customerRepository.existsByEmailIgnoreCaseAndCustomerIdNot(normalizedEmail, id)) {
             throw new EmailAlreadyExistsException("A customer with this email already exists " + customerRequestDTO.getEmail());
         }
 
         customer.setFirstName(customerRequestDTO.getFirstName());
         customer.setLastName(customerRequestDTO.getLastName());
-        customer.setEmail(customerRequestDTO.getEmail());
+        customer.setEmail(normalizedEmail);
         customer.setAddressLine1(customerRequestDTO.getAddressLine1());
         customer.setAddressLine2(customerRequestDTO.getAddressLine2());
         customer.setCity(customerRequestDTO.getCity());
@@ -82,5 +87,13 @@ public class CustomerService {
 
     public void deleteCustomer(UUID id) {
         customerRepository.deleteById(id);
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            throw new IllegalArgumentException("Email is required");
+        }
+
+        return email.trim().toLowerCase();
     }
 }
