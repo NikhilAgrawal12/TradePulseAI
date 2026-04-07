@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "order_payment";
+
+service OrderPaymentService {
+  rpc CompletePayment (OrderPaymentRequest) returns (OrderPaymentResponse);
+}
+
+message OrderPaymentRequest {
+  string cart_item_id = 1;
+  string user_email = 2;
+  string stock_id = 3;
+  string symbol = 4;
+  double price = 5;
+  int32 quantity = 6;
+}
+
+message OrderPaymentResponse {
+  string account_id = 1;
+  string status = 2;
+}
