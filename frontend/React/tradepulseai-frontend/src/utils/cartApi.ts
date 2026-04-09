@@ -52,8 +52,38 @@ export async function clearCartItems(): Promise<CartItem[]> {
 }
 
 export async function completeOrder(): Promise<CompleteOrderResponse> {
-  const response = await axios.post<CompleteOrderResponse>("/api/cart/complete-order", null, {
-    headers: buildAuthHeaders(),
-  });
-  return response.data;
+  const token = getStoredToken();
+  const email = getEmailFromToken(token);
+
+  if (!token || !email) {
+    throw new Error("Missing valid authentication token. Please log in again.");
+  }
+
+  try {
+    const response = await axios.post<CompleteOrderResponse>(
+      "/api/cart/complete-order",
+      null,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-User-Email": email,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to complete order";
+      console.error("Complete order error:", {
+        status: error.response?.status,
+        message,
+        data: error.response?.data,
+      });
+      throw new Error(message);
+    }
+    throw error;
+  }
 }

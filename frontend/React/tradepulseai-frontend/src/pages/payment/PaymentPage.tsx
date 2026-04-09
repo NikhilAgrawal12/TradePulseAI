@@ -58,8 +58,10 @@ export function PaymentPage() {
       await clearCart();
       setPaidTotal(total);
       setShowSuccess(true);
-    } catch {
-      setError("Unable to complete payment right now. Please try again.");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to complete payment right now. Please try again.";
+      console.error("Payment error:", errorMessage);
+      setError(errorMessage);
     } finally {
       setProcessing(false);
     }

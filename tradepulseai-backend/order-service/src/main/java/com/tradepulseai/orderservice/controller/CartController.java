@@ -76,16 +76,26 @@ public class CartController {
 
     @PostMapping("/complete-order")
     @Operation(summary = "Complete order by processing payment for all cart items")
-    public ResponseEntity<CompleteOrderResponseDTO> completeOrder(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(cartService.completeOrder(normalizeUserEmail(userEmail)));
+    public ResponseEntity<CompleteOrderResponseDTO> completeOrder(@RequestHeader(value = USER_EMAIL_HEADER, required = false) String userEmail) {
+        String normalizedEmail = normalizeUserEmail(userEmail);
+        return ResponseEntity.ok(cartService.completeOrder(normalizedEmail));
     }
 
     private String normalizeUserEmail(String userEmail) {
         if (userEmail == null || userEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException("Missing required header: " + USER_EMAIL_HEADER);
+            throw new IllegalArgumentException(
+                    String.format("Missing required header: %s. Please ensure you are logged in.", USER_EMAIL_HEADER)
+            );
         }
 
-        return userEmail.trim().toLowerCase();
+        String trimmedEmail = userEmail.trim().toLowerCase();
+        if (!trimmedEmail.contains("@")) {
+            throw new IllegalArgumentException(
+                    String.format("Invalid email format in header %s: %s", USER_EMAIL_HEADER, trimmedEmail)
+            );
+        }
+
+        return trimmedEmail;
     }
 }
 
