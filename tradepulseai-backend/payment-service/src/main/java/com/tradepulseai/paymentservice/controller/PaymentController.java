@@ -1,6 +1,7 @@
 package com.tradepulseai.paymentservice.controller;
 
-import com.tradepulseai.paymentservice.model.Payment;
+import com.tradepulseai.paymentservice.dto.PaymentResponseDTO;
+import com.tradepulseai.paymentservice.mapper.PaymentMapperDTO;
 import com.tradepulseai.paymentservice.repository.PaymentRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,20 +26,34 @@ public class PaymentController {
 
     @GetMapping("/user/{userEmail}")
     @Operation(summary = "Get all payments for a user")
-    public ResponseEntity<List<Payment>> getPaymentsByUserEmail(@PathVariable String userEmail) {
-        return ResponseEntity.ok(paymentRepository.findByUserEmail(userEmail.toLowerCase()));
+    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByUserEmail(@PathVariable String userEmail) {
+        return ResponseEntity.ok(
+                paymentRepository.findByUserEmail(userEmail.toLowerCase())
+                        .stream()
+                        .map(PaymentMapperDTO::toDTO)
+                        .toList()
+        );
     }
 
     @GetMapping("/stock/{stockId}")
     @Operation(summary = "Get all payments for a stock")
-    public ResponseEntity<List<Payment>> getPaymentsByStockId(@PathVariable String stockId) {
-        return ResponseEntity.ok(paymentRepository.findByStockId(stockId));
+    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByStockId(@PathVariable String stockId) {
+        return ResponseEntity.ok(
+                paymentRepository.findByStockId(stockId)
+                        .stream()
+                        .map(PaymentMapperDTO::toDTO)
+                        .toList()
+        );
     }
 
     @GetMapping
     @Operation(summary = "Get all payments")
-    public ResponseEntity<List<Payment>> getAllPayments() {
-        return ResponseEntity.ok(paymentRepository.findAll());
+    public ResponseEntity<List<PaymentResponseDTO>> getAllPayments() {
+        return ResponseEntity.ok(
+                paymentRepository.findAll()
+                        .stream()
+                        .map(PaymentMapperDTO::toDTO)
+                        .toList()
+        );
     }
 }
-

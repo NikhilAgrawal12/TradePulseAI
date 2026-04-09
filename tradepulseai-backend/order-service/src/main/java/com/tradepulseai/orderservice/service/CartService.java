@@ -4,6 +4,7 @@ import com.tradepulseai.orderservice.dto.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
+import com.tradepulseai.orderservice.mapper.CartItemMapper;
 import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.repository.CartItemRepository;
 import order_payment.OrderPaymentResponse;
@@ -29,7 +30,7 @@ public class CartService {
     public List<CartItemResponseDTO> getCart(String userEmail) {
         return cartItemRepository.findByUserEmailOrderByUpdatedAtDesc(userEmail)
                 .stream()
-                .map(this::toResponse)
+                .map(CartItemMapper::toDTO)
                 .toList();
     }
 
@@ -95,15 +96,4 @@ public class CartService {
         cartItemRepository.deleteByUserEmail(userEmail);
         return new CompleteOrderResponseDTO(accountId, PAYMENT_STATUS_COMPLETED);
     }
-
-    private CartItemResponseDTO toResponse(CartItem cartItem) {
-        CartItemResponseDTO response = new CartItemResponseDTO();
-        response.setId(cartItem.getId());
-        response.setStockId(cartItem.getStockId());
-        response.setSymbol(cartItem.getSymbol());
-        response.setPrice(cartItem.getPrice());
-        response.setQuantity(cartItem.getQuantity());
-        return response;
-    }
 }
-
