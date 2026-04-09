@@ -2,8 +2,11 @@ package com.tradepulseai.orderservice.service;
 
 import com.tradepulseai.orderservice.dto.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
+import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
+import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
 import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.repository.CartItemRepository;
+import order_payment.OrderPaymentResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,10 +15,14 @@ import java.util.List;
 @Service
 public class CartService {
 
-    private final CartItemRepository cartItemRepository;
+    private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
 
-    public CartService(CartItemRepository cartItemRepository) {
+    private final CartItemRepository cartItemRepository;
+    private final OrderPaymentGrpcClient orderPaymentGrpcClient;
+
+    public CartService(CartItemRepository cartItemRepository, OrderPaymentGrpcClient orderPaymentGrpcClient) {
         this.cartItemRepository = cartItemRepository;
+        this.orderPaymentGrpcClient = orderPaymentGrpcClient;
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +74,26 @@ public class CartService {
     public List<CartItemResponseDTO> clearCart(String userEmail) {
         cartItemRepository.deleteByUserEmail(userEmail);
         return List.of();
+    }
+
+    @Transactional
+    public CompleteOrderResponseDTO completeOrder(String userEmail) {
+        List<CartItem> cartItems = cartItemRepository.findByUserEmailOrderByUpdatedAtDesc(userEmail);
+        if (cartItems.isEmpty()) {
+            throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
+        }
+
+        String accountId = "";
+        for (CartItem cartItem : cartItems) {
+            OrderPaymentResponse response = orderPaymentGrpcClient.completePayment(cartItem);
+            if (!PAYMENT_STATUS_COMPLETED.equalsIgnoreCase(response.getStatus())) {
+                throw new IllegalStateException("Payment failed for stockId: " + cartItem.getStockId());
+            }
+            accountId = response.getAccountId();
+        }
+
+        cartItemRepository.deleteByUserEmail(userEmail);
+        return new CompleteOrderResponseDTO(accountId, PAYMENT_STATUS_COMPLETED);
     }
 
     private CartItemResponseDTO toResponse(CartItem cartItem) {

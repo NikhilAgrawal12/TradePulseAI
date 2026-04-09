@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AddCartItemRequest, CartItem, UpdateCartItemRequest } from "../types/cart";
+import type { AddCartItemRequest, CartItem, CompleteOrderResponse, UpdateCartItemRequest } from "../types/cart";
 import { getEmailFromToken, getStoredToken } from "./auth";
 
 function buildAuthHeaders() {
@@ -51,3 +51,9 @@ export async function clearCartItems(): Promise<CartItem[]> {
   return response.data;
 }
 
+export async function completeOrder(): Promise<CompleteOrderResponse> {
+  const response = await axios.post<CompleteOrderResponse>("/api/cart/complete-order", null, {
+    headers: buildAuthHeaders(),
+  });
+  return response.data;
+}

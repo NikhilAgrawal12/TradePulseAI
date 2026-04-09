@@ -2,6 +2,7 @@ package com.tradepulseai.orderservice.controller;
 
 import com.tradepulseai.orderservice.dto.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
+import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.dto.UpdateCartItemRequestDTO;
 import com.tradepulseai.orderservice.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -73,6 +74,12 @@ public class CartController {
         return ResponseEntity.ok(cartService.clearCart(normalizeUserEmail(userEmail)));
     }
 
+    @PostMapping("/complete-order")
+    @Operation(summary = "Complete order by processing payment for all cart items")
+    public ResponseEntity<CompleteOrderResponseDTO> completeOrder(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
+        return ResponseEntity.ok(cartService.completeOrder(normalizeUserEmail(userEmail)));
+    }
+
     private String normalizeUserEmail(String userEmail) {
         if (userEmail == null || userEmail.trim().isEmpty()) {
             throw new IllegalArgumentException("Missing required header: " + USER_EMAIL_HEADER);
@@ -81,5 +88,4 @@ public class CartController {
         return userEmail.trim().toLowerCase();
     }
 }
-
 

@@ -4,6 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useOrders } from "../../context/OrdersContext";
 import type { CartItem } from "../../types/cart";
+import { completeOrder } from "../../utils/cartApi";
 import "./PaymentPage.css";
 
 export function PaymentPage() {
@@ -17,6 +18,8 @@ export function PaymentPage() {
   const { addOrder } = useOrders();
   const [showSuccess, setShowSuccess] = useState(false);
   const [paidTotal, setPaidTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const state = location.state as {
     subtotal?: number;
@@ -35,17 +38,31 @@ export function PaymentPage() {
 
   const handlePayNow = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError(null);
+    setProcessing(true);
 
-    addOrder({
-      items,
-      subtotal,
-      tax,
-      total,
-    });
+    try {
+      const response = await completeOrder();
+      if (!response.status || response.status.toUpperCase() !== "COMPLETED") {
+        setError("Payment was not completed. Please try again.");
+        return;
+      }
 
-    setPaidTotal(total);
-    await clearCart();
-    setShowSuccess(true);
+      addOrder({
+        items,
+        subtotal,
+        tax,
+        total,
+      });
+
+      await clearCart();
+      setPaidTotal(total);
+      setShowSuccess(true);
+    } catch {
+      setError("Unable to complete payment right now. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (items.length === 0 && !showSuccess) {
@@ -89,7 +106,10 @@ export function PaymentPage() {
                   </div>
                 </div>
 
-                <button type="submit" className="payment-primary-btn">Pay ${total.toFixed(2)}</button>
+                <button type="submit" className="payment-primary-btn" disabled={processing}>
+                  {processing ? "Processing..." : `Pay $${total.toFixed(2)}`}
+                </button>
+                {error && <p style={{ color: "#b91c1c", marginTop: "0.75rem" }}>{error}</p>}
               </form>
             </section>
 
