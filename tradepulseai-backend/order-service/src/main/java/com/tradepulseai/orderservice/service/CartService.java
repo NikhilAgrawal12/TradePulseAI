@@ -5,8 +5,12 @@ import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
 import com.tradepulseai.orderservice.mapper.CartItemMapper;
+import com.tradepulseai.orderservice.mapper.OrderMapper;
+import com.tradepulseai.orderservice.mapper.PortfolioOrderMapper;
 import com.tradepulseai.orderservice.model.CartItem;
+import com.tradepulseai.orderservice.model.TradeOrder;
 import com.tradepulseai.orderservice.repository.CartItemRepository;
+import io.grpc.StatusRuntimeException;
 import order_payment.OrderPaymentResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,13 +21,23 @@ import java.util.List;
 public class CartService {
 
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
+    private static final String UNKNOWN_ACCOUNT_ID = "unknown";
 
     private final CartItemRepository cartItemRepository;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
+    private final PortfolioSyncClient portfolioSyncClient;
+    private final OrderHistoryService orderHistoryService;
 
-    public CartService(CartItemRepository cartItemRepository, OrderPaymentGrpcClient orderPaymentGrpcClient) {
+    public CartService(
+            CartItemRepository cartItemRepository,
+            OrderPaymentGrpcClient orderPaymentGrpcClient,
+            PortfolioSyncClient portfolioSyncClient,
+            OrderHistoryService orderHistoryService
+    ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
+        this.portfolioSyncClient = portfolioSyncClient;
+        this.orderHistoryService = orderHistoryService;
     }
 
     @Transactional(readOnly = true)
@@ -84,16 +98,38 @@ public class CartService {
             throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
         }
 
-        String accountId = "";
+        String accountId = UNKNOWN_ACCOUNT_ID;
         for (CartItem cartItem : cartItems) {
-            OrderPaymentResponse response = orderPaymentGrpcClient.completePayment(cartItem);
-            if (!PAYMENT_STATUS_COMPLETED.equalsIgnoreCase(response.getStatus())) {
-                throw new IllegalStateException("Payment failed for stockId: " + cartItem.getStockId());
+            OrderPaymentResponse response;
+            try {
+                response = orderPaymentGrpcClient.completePayment(cartItem);
+            } catch (StatusRuntimeException exception) {
+                throw new IllegalStateException("Payment failed for stockId: " + cartItem.getStockId(), exception);
             }
-            accountId = response.getAccountId();
+
+            validateCompletedPaymentResponse(response, cartItem.getStockId());
+            if (UNKNOWN_ACCOUNT_ID.equals(accountId) && !response.getAccountId().isBlank()) {
+                accountId = response.getAccountId();
+            }
         }
 
+        portfolioSyncClient.syncCompletedOrder(userEmail, PortfolioOrderMapper.toSyncRequest(cartItems));
+
+        TradeOrder savedOrder = orderHistoryService.saveCompletedOrder(
+                OrderMapper.toModel(userEmail, accountId, PAYMENT_STATUS_COMPLETED, cartItems)
+        );
+
         cartItemRepository.deleteByUserEmail(userEmail);
-        return new CompleteOrderResponseDTO(accountId, PAYMENT_STATUS_COMPLETED);
+        return new CompleteOrderResponseDTO(savedOrder.getId(), accountId, PAYMENT_STATUS_COMPLETED);
+    }
+
+    private void validateCompletedPaymentResponse(OrderPaymentResponse response, String stockId) {
+        if (response == null) {
+            throw new IllegalStateException("Payment failed for stockId: " + stockId);
+        }
+
+        if (!PAYMENT_STATUS_COMPLETED.equalsIgnoreCase(response.getStatus())) {
+            throw new IllegalStateException("Payment failed for stockId: " + stockId);
+        }
     }
 }

@@ -1,68 +1,62 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { CartItem } from "../types/cart";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { OrderHistoryEntry } from "../types/order";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../utils/auth";
-
-const STORAGE_KEY = "tradepulseai-orders";
-
-export type Order = {
-  id: string;
-  createdAtIso: string;
-  items: CartItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-};
+import { fetchOrderHistory } from "../utils/ordersApi";
 
 type OrdersContextType = {
-  orders: Order[];
-  addOrder: (orderInput: Omit<Order, "id" | "createdAtIso">) => Order;
+  orders: OrderHistoryEntry[];
+  loading: boolean;
+  error: string | null;
+  refreshOrders: () => Promise<void>;
 };
 
 const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
 
-function readStoredOrders(): Order[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw) as Order[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 export function OrdersProvider({ children }: { children: ReactNode }) {
-  const [orders, setOrders] = useState<Order[]>(() => readStoredOrders());
+  const [orders, setOrders] = useState<OrderHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshOrders = useCallback(async () => {
+    if (!isUserAuthenticated()) {
+      setOrders([]);
+      setError(null);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetchOrderHistory();
+      setOrders(response);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : "Failed to fetch order history.";
+      setError(message);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
+    void refreshOrders();
+
     return subscribeToAuthChanges(() => {
       if (!isUserAuthenticated()) {
-        localStorage.removeItem(STORAGE_KEY);
         setOrders([]);
+        setError(null);
+      } else {
+        void refreshOrders();
       }
     });
-  }, []);
+  }, [refreshOrders]);
 
   const value = useMemo<OrdersContextType>(() => ({
     orders,
-    addOrder: (orderInput) => {
-      const order: Order = {
-        id: `ord-${Date.now()}`,
-        createdAtIso: new Date().toISOString(),
-        ...orderInput,
-      };
-
-      setOrders((prev) => {
-        const next = [order, ...prev];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        return next;
-      });
-
-      return order;
-    },
-  }), [orders]);
+    loading,
+    error,
+    refreshOrders,
+  }), [orders, loading, error, refreshOrders]);
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;
 }
@@ -74,4 +68,3 @@ export function useOrders() {
   }
   return context;
 }
-

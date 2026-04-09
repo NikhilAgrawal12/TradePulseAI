@@ -15,7 +15,7 @@ export function PaymentPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
-  const { addOrder } = useOrders();
+  const { refreshOrders } = useOrders();
   const [showSuccess, setShowSuccess] = useState(false);
   const [paidTotal, setPaidTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +48,8 @@ export function PaymentPage() {
         return;
       }
 
-      addOrder({
-        items,
-        subtotal,
-        tax,
-        total,
-      });
-
       await clearCart();
+      await refreshOrders();
       setPaidTotal(total);
       setShowSuccess(true);
     } catch (error) {

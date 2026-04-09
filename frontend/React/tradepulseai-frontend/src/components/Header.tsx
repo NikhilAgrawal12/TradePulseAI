@@ -111,6 +111,7 @@ export function Header() {
                 </nav>
 
                 <nav className="right-section" aria-label="Secondary navigation">
+                    {isLoggedIn && <Link className="nav-link header-link" to="/portfolio" onClick={handleProtectedNavigation}>Portfolio</Link>}
                     <Link className="nav-link header-link" to="/orders" onClick={handleProtectedNavigation}>Orders</Link>
                     {!isLoggedIn && <Link className="nav-link header-link about-link" to="/about">About Us</Link>}
                     {isLoggedIn && (

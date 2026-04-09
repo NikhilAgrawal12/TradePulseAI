@@ -1,0 +1,106 @@
+.portfolio-page {
+  padding: 84px 18px 28px;
+}
+
+.portfolio-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.portfolio-shell h1 {
+  margin: 0 0 14px;
+  color: #1d2542;
+}
+
+.portfolio-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.portfolio-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.portfolio-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.portfolio-stat-card span {
+  color: #5a647c;
+  font-size: 0.85rem;
+}
+
+.portfolio-stat-card strong {
+  color: #1d2542;
+  font-size: 1.05rem;
+}
+
+.portfolio-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.portfolio-panel h2 {
+  margin: 0 0 12px;
+  color: #1d2542;
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.portfolio-table th,
+.portfolio-table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.portfolio-sell-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.portfolio-sell-action select,
+.portfolio-sell-action button {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+
+.portfolio-sell-action button {
+  background: #2e6ce8;
+  color: #ffffff;
+  border-color: #2e6ce8;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.portfolio-sell-action button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.positive {
+  color: #0f8a44;
+}
+
+.negative {
+  color: #b91c1c;
+}
+

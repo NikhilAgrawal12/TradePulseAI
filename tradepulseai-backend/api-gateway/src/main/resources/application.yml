@@ -47,7 +47,7 @@ spring:
         - id: order-service-route
           uri: http://order-service:4006
           predicates:
-            - Path=/api/cart,/api/cart/**
+            - Path=/api/cart,/api/cart/**,/api/orders,/api/orders/**
           filters:
             - StripPrefix=1
             - JwtValidation
@@ -73,11 +73,3 @@ spring:
             - Path=/api-docs/orders
           filters:
             - RewritePath=/api-docs/orders,/v3/api-docs
-
-
-
-
-
-
-
-

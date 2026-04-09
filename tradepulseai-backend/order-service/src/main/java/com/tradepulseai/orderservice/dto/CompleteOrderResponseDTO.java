@@ -1,16 +1,28 @@
 package com.tradepulseai.orderservice.dto;
 
+import java.util.UUID;
+
 public class CompleteOrderResponseDTO {
 
+    private UUID orderId;
     private String accountId;
     private String status;
 
     public CompleteOrderResponseDTO() {
     }
 
-    public CompleteOrderResponseDTO(String accountId, String status) {
+    public CompleteOrderResponseDTO(UUID orderId, String accountId, String status) {
+        this.orderId = orderId;
         this.accountId = accountId;
         this.status = status;
+    }
+
+    public UUID getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(UUID orderId) {
+        this.orderId = orderId;
     }
 
     public String getAccountId() {
@@ -29,4 +41,3 @@ public class CompleteOrderResponseDTO {
         this.status = status;
     }
 }
-
