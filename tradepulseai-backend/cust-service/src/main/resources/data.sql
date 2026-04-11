@@ -1,3 +1,15 @@
+CREATE TABLE IF NOT EXISTS watchlist_items
+(
+    user_id    BIGINT         NOT NULL,
+    stock_id   BIGINT         NOT NULL,
+    quantity   NUMERIC(18, 4) NOT NULL,
+    created_at TIMESTAMP      NOT NULL,
+    updated_at TIMESTAMP      NOT NULL,
+
+    CONSTRAINT pk_watchlist_items
+        PRIMARY KEY (user_id, stock_id)
+);
+
 CREATE TABLE IF NOT EXISTS customer
 (
     customer_id           UUID PRIMARY KEY,
