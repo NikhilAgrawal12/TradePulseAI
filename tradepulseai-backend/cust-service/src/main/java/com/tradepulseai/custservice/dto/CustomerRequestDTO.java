@@ -3,9 +3,13 @@ package com.tradepulseai.custservice.dto;
 import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public class CustomerRequestDTO {
+
+    @NotNull(groups = CreateCustomerValidationGroup.class, message = "User id is required")
+    private Long userId;
 
     @NotBlank(message = "Firstname is required")
     @Size(max = 100, message = "Firstname cannot exceed 100 characters")
@@ -51,7 +55,18 @@ public class CustomerRequestDTO {
 
 
     @NotBlank(groups = CreateCustomerValidationGroup.class, message = "Registration date is required")
+    private String registrationDate;
+
+    // Backward-compatibility alias for older clients still sending registeredDate.
     private String registeredDate;
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 
     public String getFirstName() {
         return firstName;
@@ -139,6 +154,14 @@ public class CustomerRequestDTO {
 
     public void setDateOfBirth(String dateOfBirth) {
         this.dateOfBirth = dateOfBirth;
+    }
+
+    public String getRegistrationDate() {
+        return registrationDate;
+    }
+
+    public void setRegistrationDate(String registrationDate) {
+        this.registrationDate = registrationDate;
     }
 
     public String getRegisteredDate() {

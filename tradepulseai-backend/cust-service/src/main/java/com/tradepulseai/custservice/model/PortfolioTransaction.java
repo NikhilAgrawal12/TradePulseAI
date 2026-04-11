@@ -10,39 +10,30 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 @Table(name = "portfolio_transactions")
 public class PortfolioTransaction {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "transaction_id")
+    private Long transactionId;
 
-    @Column(name = "user_email", nullable = false)
-    private String userEmail;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(name = "stock_id", nullable = false)
-    private String stockId;
+    private Long stockId;
 
-    @Column(name = "symbol", nullable = false)
-    private String symbol;
-
-    @Column(name = "transaction_type", nullable = false)
+    @Column(name = "transaction_type", nullable = false, length = 20)
     private String transactionType;
 
-    @Column(name = "price", nullable = false, precision = 19, scale = 4)
+    @Column(name = "price", nullable = false, precision = 18, scale = 4)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false)
-    private int quantity;
-
-    @Column(name = "gross_amount", nullable = false, precision = 19, scale = 4)
-    private BigDecimal grossAmount;
-
-    @Column(name = "realized_pnl", nullable = false, precision = 19, scale = 4)
-    private BigDecimal realizedPnl;
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
+    private BigDecimal quantity;
 
     @Column(name = "executed_at", nullable = false)
     private Instant executedAt;
@@ -50,41 +41,30 @@ public class PortfolioTransaction {
     @PrePersist
     public void prePersist() {
         this.executedAt = Instant.now();
-        if (this.realizedPnl == null) {
-            this.realizedPnl = BigDecimal.ZERO;
-        }
     }
 
-    public UUID getId() {
-        return id;
+    public Long getTransactionId() {
+        return transactionId;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public void setTransactionId(Long transactionId) {
+        this.transactionId = transactionId;
     }
 
-    public String getUserEmail() {
-        return userEmail;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setUserEmail(String userEmail) {
-        this.userEmail = userEmail;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
-    public String getStockId() {
+    public Long getStockId() {
         return stockId;
     }
 
-    public void setStockId(String stockId) {
+    public void setStockId(Long stockId) {
         this.stockId = stockId;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
     }
 
     public String getTransactionType() {
@@ -103,32 +83,15 @@ public class PortfolioTransaction {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
-    }
-
-    public BigDecimal getGrossAmount() {
-        return grossAmount;
-    }
-
-    public void setGrossAmount(BigDecimal grossAmount) {
-        this.grossAmount = grossAmount;
-    }
-
-    public BigDecimal getRealizedPnl() {
-        return realizedPnl;
-    }
-
-    public void setRealizedPnl(BigDecimal realizedPnl) {
-        this.realizedPnl = realizedPnl;
     }
 
     public Instant getExecutedAt() {
         return executedAt;
     }
 }
-

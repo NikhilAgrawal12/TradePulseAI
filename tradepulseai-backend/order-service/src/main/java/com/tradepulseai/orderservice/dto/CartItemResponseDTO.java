@@ -1,22 +1,21 @@
 package com.tradepulseai.orderservice.dto;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public class CartItemResponseDTO {
 
-    private UUID id;
+    private Long userId;
     private String stockId;
     private String symbol;
     private BigDecimal price;
-    private int quantity;
+    private BigDecimal quantity;
 
-    public UUID getId() {
-        return id;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getStockId() {
@@ -43,11 +42,11 @@ public class CartItemResponseDTO {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 }

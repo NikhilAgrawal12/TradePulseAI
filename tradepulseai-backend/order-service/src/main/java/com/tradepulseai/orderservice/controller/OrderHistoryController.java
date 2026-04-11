@@ -17,7 +17,7 @@ import java.util.List;
 @Tag(name = "Orders", description = "API for reading order history")
 public class OrderHistoryController {
 
-    private static final String USER_EMAIL_HEADER = "X-User-Email";
+    private static final String USER_ID_HEADER = "X-User-Id";
 
     private final OrderHistoryService orderHistoryService;
 
@@ -27,21 +27,20 @@ public class OrderHistoryController {
 
     @GetMapping
     @Operation(summary = "Get full order history for current user")
-    public ResponseEntity<List<OrderResponseDTO>> getOrders(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(orderHistoryService.getOrders(normalizeUserEmail(userEmail)));
+    public ResponseEntity<List<OrderResponseDTO>> getOrders(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(orderHistoryService.getOrders(normalizeUserId(userId)));
     }
 
-    private String normalizeUserEmail(String userEmail) {
-        if (userEmail == null || userEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException("Missing required header: " + USER_EMAIL_HEADER);
+    private Long normalizeUserId(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing required header: " + USER_ID_HEADER);
         }
 
-        String trimmedEmail = userEmail.trim().toLowerCase();
-        if (!trimmedEmail.contains("@")) {
-            throw new IllegalArgumentException("Invalid email format in header " + USER_EMAIL_HEADER + ": " + trimmedEmail);
+        try {
+            return Long.parseLong(userId.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid userId format in header " + USER_ID_HEADER + ": " + userId);
         }
-
-        return trimmedEmail;
     }
 }
 

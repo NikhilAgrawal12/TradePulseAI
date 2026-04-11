@@ -1,5 +1,6 @@
 package com.tradepulseai.custservice.service;
 
+import com.tradepulseai.custservice.client.AuthServiceClient;
 import com.tradepulseai.custservice.dto.PortfolioFillItemRequestDTO;
 import com.tradepulseai.custservice.dto.PortfolioHoldingResponseDTO;
 import com.tradepulseai.custservice.dto.PortfolioResponseDTO;
@@ -24,19 +25,23 @@ public class PortfolioService {
 
     private final PortfolioHoldingRepository portfolioHoldingRepository;
     private final PortfolioTransactionRepository portfolioTransactionRepository;
+    private final AuthServiceClient authServiceClient;
 
     public PortfolioService(
             PortfolioHoldingRepository portfolioHoldingRepository,
-            PortfolioTransactionRepository portfolioTransactionRepository
+            PortfolioTransactionRepository portfolioTransactionRepository,
+            AuthServiceClient authServiceClient
     ) {
         this.portfolioHoldingRepository = portfolioHoldingRepository;
         this.portfolioTransactionRepository = portfolioTransactionRepository;
+        this.authServiceClient = authServiceClient;
     }
 
     @Transactional(readOnly = true)
     public PortfolioResponseDTO getPortfolio(String userEmail) {
-        List<PortfolioHolding> holdings = portfolioHoldingRepository.findByUserEmailOrderByUpdatedAtDesc(userEmail);
-        List<PortfolioTransaction> transactions = portfolioTransactionRepository.findByUserEmailOrderByExecutedAtDesc(userEmail);
+        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+        List<PortfolioHolding> holdings = portfolioHoldingRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
+        List<PortfolioTransaction> transactions = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(userId);
 
         List<PortfolioHoldingResponseDTO> holdingResponses = holdings.stream()
                 .map(PortfolioMapper::toHoldingResponse)
@@ -55,16 +60,18 @@ public class PortfolioService {
 
     @Transactional
     public PortfolioResponseDTO recordCompletedOrder(String userEmail, RecordPortfolioOrderRequestDTO request) {
+        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
         for (PortfolioFillItemRequestDTO item : request.getItems()) {
-            PortfolioHolding holding = portfolioHoldingRepository.findByUserEmailAndStockId(userEmail, item.getStockId())
-                    .orElseGet(() -> PortfolioMapper.newHolding(userEmail, item));
+            Long stockId = parseStockId(item.getStockId());
+            PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, stockId)
+                    .orElseGet(() -> PortfolioMapper.newHolding(userId, item));
 
-            if (holding.getId() != null) {
+            if (holding.getId() != null && holding.getTotalQuantity() != null) {
                 mergeBuyIntoHolding(holding, item);
             }
 
             portfolioHoldingRepository.save(holding);
-            portfolioTransactionRepository.save(PortfolioMapper.toBuyTransaction(userEmail, item));
+            portfolioTransactionRepository.save(PortfolioMapper.toBuyTransaction(userId, item));
         }
 
         return getPortfolio(userEmail);
@@ -72,37 +79,31 @@ public class PortfolioService {
 
     @Transactional
     public PortfolioResponseDTO sellPosition(String userEmail, String stockId, SellPortfolioItemRequestDTO request) {
-        PortfolioHolding holding = portfolioHoldingRepository.findByUserEmailAndStockId(userEmail, stockId)
+        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+        Long parsedStockId = parseStockId(stockId);
+
+        PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
                 .orElseThrow(() -> new IllegalArgumentException("Portfolio holding not found for stockId: " + stockId));
 
-        if (request.getQuantity() > holding.getTotalQuantity()) {
+        BigDecimal requestedQty = PortfolioMapper.scaleQuantity(BigDecimal.valueOf(request.getQuantity()));
+        if (requestedQty.compareTo(holding.getTotalQuantity()) > 0) {
             throw new IllegalArgumentException("Sell quantity cannot be greater than owned quantity.");
         }
 
-        BigDecimal sellAmount = PortfolioMapper.calculateGrossAmount(request.getPrice(), request.getQuantity());
-        BigDecimal avgCost = PortfolioMapper.scaleMoney(holding.getAverageBuyPrice());
-        BigDecimal costBasis = PortfolioMapper.calculateGrossAmount(avgCost, request.getQuantity());
-        BigDecimal realizedPnl = PortfolioMapper.scaleMoney(sellAmount.subtract(costBasis));
-
         portfolioTransactionRepository.save(
                 PortfolioMapper.toSellTransaction(
-                        userEmail,
-                        holding.getStockId(),
-                        holding.getSymbol(),
+                        userId,
+                        holding.getId().getStockId(),
                         request.getQuantity(),
-                        request.getPrice(),
-                        realizedPnl
+                        request.getPrice()
                 )
         );
 
-        int remainingQuantity = holding.getTotalQuantity() - request.getQuantity();
-        if (remainingQuantity == 0) {
+        BigDecimal remainingQuantity = holding.getTotalQuantity().subtract(requestedQty);
+        if (remainingQuantity.compareTo(BigDecimal.ZERO) == 0) {
             portfolioHoldingRepository.delete(holding);
         } else {
-            holding.setTotalQuantity(remainingQuantity);
-            holding.setCurrentMarketPrice(PortfolioMapper.scaleMoney(request.getPrice()));
-            holding.setInvestedAmount(PortfolioMapper.calculateGrossAmount(avgCost, remainingQuantity));
-            holding.setRealizedPnl(PortfolioMapper.scaleMoney(holding.getRealizedPnl().add(realizedPnl)));
+            holding.setTotalQuantity(PortfolioMapper.scaleQuantity(remainingQuantity));
             portfolioHoldingRepository.save(holding);
         }
 
@@ -110,19 +111,16 @@ public class PortfolioService {
     }
 
     private void mergeBuyIntoHolding(PortfolioHolding holding, PortfolioFillItemRequestDTO item) {
-        int updatedQuantity = holding.getTotalQuantity() + item.getQuantity();
-        BigDecimal updatedInvestedAmount = PortfolioMapper.scaleMoney(
-                holding.getInvestedAmount().add(PortfolioMapper.calculateGrossAmount(item.getPrice(), item.getQuantity()))
-        );
+        BigDecimal updatedQuantity = holding.getTotalQuantity().add(BigDecimal.valueOf(item.getQuantity()));
+        holding.setTotalQuantity(PortfolioMapper.scaleQuantity(updatedQuantity));
+    }
 
-        BigDecimal updatedAverageBuyPrice = updatedInvestedAmount
-                .divide(BigDecimal.valueOf(updatedQuantity), 6, RoundingMode.HALF_UP);
-
-        holding.setSymbol(item.getSymbol());
-        holding.setTotalQuantity(updatedQuantity);
-        holding.setInvestedAmount(updatedInvestedAmount);
-        holding.setAverageBuyPrice(PortfolioMapper.scaleMoney(updatedAverageBuyPrice));
-        holding.setCurrentMarketPrice(PortfolioMapper.scaleMoney(item.getPrice()));
+    private Long parseStockId(String stockId) {
+        try {
+            return Long.parseLong(stockId);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid stockId format: " + stockId);
+        }
     }
 
     private PortfolioSummaryResponseDTO toSummary(List<PortfolioHoldingResponseDTO> holdings) {
@@ -164,4 +162,3 @@ public class PortfolioService {
         return summary;
     }
 }
-

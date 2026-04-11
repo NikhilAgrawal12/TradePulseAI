@@ -3,8 +3,10 @@ package com.tradepulseai.authservice.controller;
 import com.tradepulseai.authservice.dto.LoginRequestDTO;
 import com.tradepulseai.authservice.dto.LoginResponseDTO;
 import com.tradepulseai.authservice.dto.RegisterRequestDTO;
+import com.tradepulseai.authservice.dto.RegisterResponseDTO;
 import com.tradepulseai.authservice.model.User;
 import com.tradepulseai.authservice.service.AuthService;
+import com.tradepulseai.authservice.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +18,11 @@ import java.util.Optional;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UserService userService) {
         this.authService = authService;
+        this.userService = userService;
     }
 
     @Operation(summary="Generate token on user login")
@@ -53,11 +57,28 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody RegisterRequestDTO registerRequestDTO){
         try {
             User user = authService.register(registerRequestDTO);
-            return ResponseEntity.status(HttpStatus.CREATED).body(user);
+            RegisterResponseDTO responseDTO = new RegisterResponseDTO(user.getUserId(), user.getEmail(), user.getRole());
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(java.util.Map.of("message", e.getMessage()));
         }
+    }
+
+    @Operation(summary = "Get user by id")
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<?> getUserById(@PathVariable Long userId) {
+        return userService.findById(userId)
+                .<ResponseEntity<?>>map(user -> ResponseEntity.ok(new RegisterResponseDTO(user.getUserId(), user.getEmail(), user.getRole())))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found")));
+    }
+
+    @Operation(summary = "Get user by email")
+    @GetMapping("/users/email/{email}")
+    public ResponseEntity<?> getUserByEmail(@PathVariable String email) {
+        return userService.findByEmail(email)
+                .<ResponseEntity<?>>map(user -> ResponseEntity.ok(new RegisterResponseDTO(user.getUserId(), user.getEmail(), user.getRole())))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found")));
     }
 
 }

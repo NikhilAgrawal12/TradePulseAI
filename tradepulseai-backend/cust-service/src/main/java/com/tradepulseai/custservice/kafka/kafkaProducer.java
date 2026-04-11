@@ -17,11 +17,11 @@ public class kafkaProducer {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void sendEvent(Customer customer) {
+    public void sendEvent(Customer customer, String email) {
         CustomerEvent event = CustomerEvent.newBuilder()
                 .setCustomerId(customer.getCustomerId().toString())
                 .setFirstName(customer.getFirstName())
-                .setEmail(customer.getEmail())
+                .setEmail(email)
                 .setEventType("CUSTOMER_CREATED")
                 .build();
 

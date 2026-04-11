@@ -2,26 +2,25 @@ package com.tradepulseai.custservice.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.UUID;
 
 public class PortfolioTransactionResponseDTO {
 
-    private UUID id;
+    private Long transactionId;
     private String stockId;
     private String symbol;
     private String transactionType;
     private BigDecimal price;
-    private int quantity;
+    private BigDecimal quantity;
     private BigDecimal grossAmount;
     private BigDecimal realizedPnl;
     private Instant executedAt;
 
-    public UUID getId() {
-        return id;
+    public Long getTransactionId() {
+        return transactionId;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public void setTransactionId(Long transactionId) {
+        this.transactionId = transactionId;
     }
 
     public String getStockId() {
@@ -56,11 +55,11 @@ public class PortfolioTransactionResponseDTO {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 
@@ -88,4 +87,3 @@ public class PortfolioTransactionResponseDTO {
         this.executedAt = executedAt;
     }
 }
-

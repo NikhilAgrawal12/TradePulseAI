@@ -1,7 +1,6 @@
 package com.tradepulseai.custservice.dto;
 
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -12,15 +11,9 @@ public class AddWatchlistItemRequestDTO {
     @NotBlank
     private String stockId;
 
-    @NotBlank
-    private String symbol;
-
     @NotNull
-    @DecimalMin(value = "0.0", inclusive = false)
-    private BigDecimal refPrice;
-
-    @Min(1)
-    private int quantity;
+    @DecimalMin(value = "0.0001", inclusive = true)
+    private BigDecimal quantity;
 
     public String getStockId() {
         return stockId;
@@ -30,28 +23,11 @@ public class AddWatchlistItemRequestDTO {
         this.stockId = stockId;
     }
 
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
-    }
-
-    public BigDecimal getRefPrice() {
-        return refPrice;
-    }
-
-    public void setRefPrice(BigDecimal refPrice) {
-        this.refPrice = refPrice;
-    }
-
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 }
-

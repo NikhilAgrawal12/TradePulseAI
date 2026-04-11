@@ -45,15 +45,22 @@ export function RegistrationPage() {
 
     try {
       // Step 1: Register user in auth-service
-      await axios.post("/auth/register", {
+      const registerResponse = await axios.post<{ userId: number }>("/auth/register", {
         email,
         password,
       });
+      const userId = registerResponse.data?.userId;
+      if (!userId) {
+        setError("Registration failed: user id missing from auth-service response");
+        setLoading(false);
+        return;
+      }
 
       // Step 2: Create customer in cust-service
-      const registeredDate = new Date().toISOString().split('T')[0];
+      const registrationDate = new Date().toISOString();
 
       await axios.post("/api/customers", {
+        userId,
         firstName,
         lastName,
         email,
@@ -67,7 +74,8 @@ export function RegistrationPage() {
         state,
         postalCode,
         country,
-        registeredDate,
+        registrationDate,
+        registeredDate: registrationDate,
       });
 
       // Success - redirect to login
@@ -113,7 +121,7 @@ export function RegistrationPage() {
             <input id="email" type="email" name="email" autoComplete="email" required disabled={loading} />
 
             <label htmlFor="phone-number">Phone Number</label>
-            <input id="phone-number" type="tel" name="phoneNumber" autoComplete="tel" pattern="[0-9+\s-]{7,15}" required disabled={loading} />
+            <input id="phone-number" type="tel" name="phoneNumber" autoComplete="tel" pattern="[-0-9+ ]{7,15}" required disabled={loading} />
 
             <label htmlFor="date-of-birth">Date of Birth</label>
             <input id="date-of-birth" type="date" name="dateOfBirth" autoComplete="bday" required disabled={loading} />

@@ -1,27 +1,25 @@
 package com.tradepulseai.orderservice.dto;
 
-import java.util.UUID;
-
 public class CompleteOrderResponseDTO {
 
-    private UUID orderId;
+    private Long orderId;
     private String accountId;
     private String status;
 
     public CompleteOrderResponseDTO() {
     }
 
-    public CompleteOrderResponseDTO(UUID orderId, String accountId, String status) {
+    public CompleteOrderResponseDTO(Long orderId, String accountId, String status) {
         this.orderId = orderId;
         this.accountId = accountId;
         this.status = status;
     }
 
-    public UUID getOrderId() {
+    public Long getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(UUID orderId) {
+    public void setOrderId(Long orderId) {
         this.orderId = orderId;
     }
 

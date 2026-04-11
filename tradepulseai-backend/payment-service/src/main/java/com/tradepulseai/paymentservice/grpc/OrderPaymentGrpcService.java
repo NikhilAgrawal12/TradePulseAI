@@ -32,8 +32,6 @@ public class OrderPaymentGrpcService extends OrderPaymentServiceGrpc.OrderPaymen
             Payment savedPayment = paymentProcessingService.processPayment(
                     request.getCartItemId(),
                     request.getUserEmail(),
-                    request.getStockId(),
-                    request.getSymbol(),
                     request.getPrice(),
                     request.getQuantity()
             );

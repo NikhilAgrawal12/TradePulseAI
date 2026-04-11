@@ -31,18 +31,26 @@ public class OrderPaymentGrpcClient {
         this.blockingStub = OrderPaymentServiceGrpc.newBlockingStub(channel);
     }
 
-    public OrderPaymentResponse completePayment(CartItem cartItem) {
+    public OrderPaymentResponse completePayment(Long orderId, CartItem cartItem, String userEmail) {
         OrderPaymentRequest request = OrderPaymentRequest.newBuilder()
-                .setCartItemId(cartItem.getId().toString())
-                .setUserEmail(cartItem.getUserEmail())
-                .setStockId(cartItem.getStockId())
+                .setCartItemId(String.valueOf(orderId))
+                .setUserEmail(userEmail)
+                .setStockId(String.valueOf(cartItem.getStockId()))
                 .setSymbol(cartItem.getSymbol())
                 .setPrice(cartItem.getPrice().doubleValue())
-                .setQuantity(cartItem.getQuantity())
+                .setQuantity(toGrpcQuantity(cartItem))
                 .build();
 
         OrderPaymentResponse response = blockingStub.completePayment(request);
         log.info("OrderPayment gRPC response: {}", response);
         return response;
+    }
+
+    private int toGrpcQuantity(CartItem cartItem) {
+        try {
+            return cartItem.getQuantity().intValueExact();
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Payment supports whole-number quantity only for stockId: " + cartItem.getStockId(), exception);
+        }
     }
 }

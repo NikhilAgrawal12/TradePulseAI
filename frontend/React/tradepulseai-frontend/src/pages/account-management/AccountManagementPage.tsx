@@ -6,7 +6,7 @@ import { getEmailFromToken, getStoredToken } from "../../utils/auth";
 import "./AccountManagementPage.css";
 
 type CustomerProfile = {
-  customerId: string;
+  customerId: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -21,7 +21,7 @@ type CustomerProfile = {
 };
 
 const emptyProfile: CustomerProfile = {
-  customerId: "",
+  customerId: 0,
   firstName: "",
   lastName: "",
   email: "",

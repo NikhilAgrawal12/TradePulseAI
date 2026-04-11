@@ -5,11 +5,10 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-import java.util.UUID;
 
-public interface TradeOrderRepository extends JpaRepository<TradeOrder, UUID> {
+public interface TradeOrderRepository extends JpaRepository<TradeOrder, Long> {
 
     @EntityGraph(attributePaths = "items")
-    List<TradeOrder> findByUserEmailOrderByCreatedAtDesc(String userEmail);
+    List<TradeOrder> findByUserIdOrderByCreatedAtDesc(Long userId);
 }
 

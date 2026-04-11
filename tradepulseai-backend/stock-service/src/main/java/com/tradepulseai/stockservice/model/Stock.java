@@ -1,72 +1,65 @@
 package com.tradepulseai.stockservice.model;
 
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "stocks")
 public class Stock {
 
     @Id
-    @Column(name = "id", nullable = false)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "stock_id")
+    private Long stockId;
 
-    @Column(name = "symbol", nullable = false, unique = true)
+    @Column(name = "symbol", nullable = false, length = 50, unique = true)
     private String symbol;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, length = 255)
     private String name;
 
-    @Column(name = "sector", nullable = false)
+    @Column(name = "sector", nullable = false, length = 100)
     private String sector;
 
-    @Column(name = "exchange", nullable = false)
+    @Column(name = "exchange", nullable = false, length = 100)
     private String exchange;
 
-    @Column(name = "price", nullable = false)
-    private double price;
+    @Column(name = "price", nullable = false, precision = 18, scale = 4)
+    private BigDecimal price;
 
-    @Column(name = "change_percent", nullable = false)
-    private double changePercent;
+    @Column(name = "change_percent", nullable = false, precision = 9, scale = 4)
+    private BigDecimal changePercent;
 
-    @Column(name = "rating_score", nullable = false)
-    private double ratingScore;
+    @Column(name = "rating_score", nullable = false, precision = 9, scale = 4)
+    private BigDecimal ratingScore;
 
     @Column(name = "analyst_count", nullable = false)
     private int analystCount;
 
-    @Column(name = "market_cap_billion", nullable = false)
-    private double marketCapBillion;
+    @Column(name = "market_cap_billion", nullable = false, precision = 18, scale = 4)
+    private BigDecimal marketCapBillion;
 
     @Column(name = "volume", nullable = false)
     private long volume;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "recommendation", nullable = false)
+    @Column(name = "recommendation", nullable = false, length = 50)
     private StockRecommendation recommendation;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "stock_keywords", joinColumns = @JoinColumn(name = "stock_id"))
-    @Column(name = "keyword")
-    private List<String> keywords = new ArrayList<>();
-
-    public String getId() {
-        return id;
+    public Long getStockId() {
+        return stockId;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setStockId(Long stockId) {
+        this.stockId = stockId;
     }
 
     public String getSymbol() {
@@ -101,27 +94,27 @@ public class Stock {
         this.exchange = exchange;
     }
 
-    public double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(double price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 
-    public double getChangePercent() {
+    public BigDecimal getChangePercent() {
         return changePercent;
     }
 
-    public void setChangePercent(double changePercent) {
+    public void setChangePercent(BigDecimal changePercent) {
         this.changePercent = changePercent;
     }
 
-    public double getRatingScore() {
+    public BigDecimal getRatingScore() {
         return ratingScore;
     }
 
-    public void setRatingScore(double ratingScore) {
+    public void setRatingScore(BigDecimal ratingScore) {
         this.ratingScore = ratingScore;
     }
 
@@ -133,11 +126,11 @@ public class Stock {
         this.analystCount = analystCount;
     }
 
-    public double getMarketCapBillion() {
+    public BigDecimal getMarketCapBillion() {
         return marketCapBillion;
     }
 
-    public void setMarketCapBillion(double marketCapBillion) {
+    public void setMarketCapBillion(BigDecimal marketCapBillion) {
         this.marketCapBillion = marketCapBillion;
     }
 
@@ -156,13 +149,4 @@ public class Stock {
     public void setRecommendation(StockRecommendation recommendation) {
         this.recommendation = recommendation;
     }
-
-    public List<String> getKeywords() {
-        return keywords;
-    }
-
-    public void setKeywords(List<String> keywords) {
-        this.keywords = keywords;
-    }
 }
-

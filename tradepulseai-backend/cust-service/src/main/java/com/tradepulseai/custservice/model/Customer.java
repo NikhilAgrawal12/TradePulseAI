@@ -1,61 +1,72 @@
 package com.tradepulseai.custservice.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.util.UUID;
 
 @Entity
+@Table(name = "customer")
 public class Customer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID customerId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "customer_id")
+    private Long customerId;
 
     @NotNull
+    @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
     @NotNull
+    @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
     @NotNull
-    @Email
-    @Column(unique = true)
-    private String email;
-
-    @NotNull
+    @Column(name = "phone_number", nullable = false, length = 50)
     private String phoneNumber;
 
     @NotNull
+    @Column(name = "address_line1", nullable = false, length = 255)
     private String addressLine1;
 
+    @Column(name = "address_line2", length = 255)
     private String addressLine2;
 
     @NotNull
+    @Column(name = "city", nullable = false, length = 100)
     private String city;
 
     @NotNull
+    @Column(name = "state", nullable = false, length = 100)
     private String state;
 
     @NotNull
+    @Column(name = "postal_code", nullable = false, length = 20)
     private String postalCode;
 
     @NotNull
+    @Column(name = "country", nullable = false, length = 100)
     private String country;
 
     @NotNull
+    @Column(name = "date_of_birth", nullable = false)
     private LocalDate dateOfBirth;
 
     @NotNull
-    private LocalDate registrationDate;
+    @Column(name = "registration_date", nullable = false)
+    private Instant registrationDate;
 
-    public UUID getCustomerId() {
+    @NotNull
+    @Column(name = "user_id", nullable = false, unique = true)
+    private Long userId;
+
+    public Long getCustomerId() {
         return customerId;
     }
 
-    public void setCustomerId(UUID customerId) {
+    public void setCustomerId(Long customerId) {
         this.customerId = customerId;
     }
 
@@ -73,14 +84,6 @@ public class Customer {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     public String getPhoneNumber() {
@@ -147,11 +150,19 @@ public class Customer {
         this.dateOfBirth = dateOfBirth;
     }
 
-    public LocalDate getRegistrationDate() {
+    public Instant getRegistrationDate() {
         return registrationDate;
     }
 
-    public void setRegistrationDate(LocalDate registrationDate) {
+    public void setRegistrationDate(Instant registrationDate) {
         this.registrationDate = registrationDate;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

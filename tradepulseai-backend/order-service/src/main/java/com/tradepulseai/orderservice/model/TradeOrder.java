@@ -15,32 +15,29 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
 public class TradeOrder {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_id")
+    private Long id;
 
-    @Column(name = "user_email", nullable = false)
-    private String userEmail;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    @Column(name = "account_id", nullable = false)
-    private String accountId;
-
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "subtotal", nullable = false, precision = 19, scale = 4)
+    @Column(name = "subtotal", nullable = false, precision = 18, scale = 4)
     private BigDecimal subtotal;
 
-    @Column(name = "tax", nullable = false, precision = 19, scale = 4)
+    @Column(name = "tax", nullable = false, precision = 18, scale = 4)
     private BigDecimal tax;
 
-    @Column(name = "total", nullable = false, precision = 19, scale = 4)
+    @Column(name = "total", nullable = false, precision = 18, scale = 4)
     private BigDecimal total;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -54,28 +51,20 @@ public class TradeOrder {
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public String getUserEmail() {
-        return userEmail;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setUserEmail(String userEmail) {
-        this.userEmail = userEmail;
-    }
-
-    public String getAccountId() {
-        return accountId;
-    }
-
-    public void setAccountId(String accountId) {
-        this.accountId = accountId;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getStatus() {

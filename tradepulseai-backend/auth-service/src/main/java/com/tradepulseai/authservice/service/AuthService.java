@@ -33,7 +33,7 @@ public class AuthService {
                 .findByEmail(loginRequestDTO.getEmail())
                 .filter(u -> passwordEncoder.matches(loginRequestDTO.getPassword(),
                         u.getPassword()))
-                .map(u -> jwtUtil.generateToken(u.getEmail(),u.getRole()));
+                .map(u -> jwtUtil.generateToken(u.getEmail(), u.getRole(), u.getUserId()));
 
         return token;
     }

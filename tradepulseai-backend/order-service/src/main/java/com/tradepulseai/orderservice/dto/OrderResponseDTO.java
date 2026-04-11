@@ -3,12 +3,11 @@ package com.tradepulseai.orderservice.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 
 public class OrderResponseDTO {
 
-    private UUID id;
-    private String accountId;
+    private Long id;
+    private Long userId;
     private String status;
     private Instant createdAtIso;
     private BigDecimal subtotal;
@@ -16,20 +15,20 @@ public class OrderResponseDTO {
     private BigDecimal total;
     private List<OrderItemResponseDTO> items;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public String getAccountId() {
-        return accountId;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setAccountId(String accountId) {
-        this.accountId = accountId;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getStatus() {

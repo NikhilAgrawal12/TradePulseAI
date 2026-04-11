@@ -2,31 +2,30 @@ package com.tradepulseai.authservice.model;
 
 import jakarta.persistence.*;
 
-import java.util.UUID;
-
 @Entity
-@Table(name="users")
+@Table(name = "users")
 public class User {
 
     @Id
-    @GeneratedValue(strategy= GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
 
-    @Column(unique=true,nullable=false)
+    @Column(name = "email", length = 255, unique = true, nullable = false)
     private String email;
 
-    @Column(nullable=false)
+    @Column(name = "password", length = 255, nullable = false)
     private String password;
 
-    @Column(nullable=false)
+    @Column(name = "role", length = 50, nullable = false)
     private String role;
 
-    public UUID getId() {
-        return id;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getEmail() {

@@ -20,13 +20,13 @@ public class StockService {
     }
 
     public List<StockResponseDTO> getStocks() {
-        return stockRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+        return stockRepository.findAll(Sort.by(Sort.Direction.ASC, "stockId"))
                 .stream()
                 .map(StockMapper::toDTO)
                 .toList();
     }
 
-    public StockResponseDTO getStockById(String id) {
+    public StockResponseDTO getStockById(Long id) {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with id: " + id));
         return StockMapper.toDTO(stock);
@@ -38,5 +38,3 @@ public class StockService {
         return StockMapper.toDTO(stock);
     }
 }
-
-

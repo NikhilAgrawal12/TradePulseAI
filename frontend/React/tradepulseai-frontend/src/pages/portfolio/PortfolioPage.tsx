@@ -65,9 +65,15 @@ export function PortfolioPage() {
         [stocks],
     );
 
+    const stockSymbolMap = useMemo(
+        () => new Map(stocks.map((stock) => [stock.id, stock.symbol])),
+        [stocks],
+    );
+
     const holdingsWithLivePrice = useMemo(() => {
         return portfolio.holdings.map((holding) => {
             const livePrice = stockPriceMap.get(holding.stockId) ?? holding.currentPrice;
+            const symbol = stockSymbolMap.get(holding.stockId) ?? holding.symbol ?? holding.stockId;
             const marketValue = livePrice * holding.quantity;
             const unrealizedPnl = marketValue - holding.investedValue;
             const unrealizedPnlPercent =
@@ -75,13 +81,22 @@ export function PortfolioPage() {
 
             return {
                 ...holding,
+                symbol,
                 currentPrice: livePrice,
                 marketValue,
                 unrealizedPnl,
                 unrealizedPnlPercent,
             };
         });
-    }, [portfolio.holdings, stockPriceMap]);
+    }, [portfolio.holdings, stockPriceMap, stockSymbolMap]);
+
+    const transactionsWithSymbols = useMemo(
+        () => portfolio.transactions.map((transaction) => ({
+            ...transaction,
+            symbol: stockSymbolMap.get(transaction.stockId) ?? transaction.symbol ?? transaction.stockId,
+        })),
+        [portfolio.transactions, stockSymbolMap],
+    );
 
     const handleSell = async (holding: PortfolioHolding) => {
         const quantity = sellQuantities[holding.stockId] ?? 1;
@@ -171,7 +186,7 @@ export function PortfolioPage() {
                                         </thead>
                                         <tbody>
                                             {holdingsWithLivePrice.map((holding) => (
-                                                <tr key={holding.id}>
+                                                <tr key={holding.stockId}>
                                                     <td><strong>{holding.symbol}</strong></td>
                                                     <td>{holding.quantity}</td>
                                                     <td>{formatCurrency(holding.averageBuyPrice)}</td>
@@ -233,8 +248,8 @@ export function PortfolioPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {portfolio.transactions.map((transaction) => (
-                                                <tr key={transaction.id}>
+                                            {transactionsWithSymbols.map((transaction) => (
+                                                <tr key={transaction.transactionId}>
                                                     <td>{transaction.transactionType}</td>
                                                     <td><strong>{transaction.symbol}</strong></td>
                                                     <td>{transaction.quantity}</td>

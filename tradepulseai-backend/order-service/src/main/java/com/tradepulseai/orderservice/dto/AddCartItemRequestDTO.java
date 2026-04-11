@@ -1,7 +1,6 @@
 package com.tradepulseai.orderservice.dto;
 
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -16,11 +15,12 @@ public class AddCartItemRequestDTO {
     private String symbol;
 
     @NotNull
-    @DecimalMin(value = "0.0", inclusive = false)
+    @DecimalMin(value = "0.0001", inclusive = true)
     private BigDecimal price;
 
-    @Min(1)
-    private int quantity;
+    @NotNull
+    @DecimalMin(value = "0.0001", inclusive = true)
+    private BigDecimal quantity;
 
     public String getStockId() {
         return stockId;
@@ -46,11 +46,11 @@ public class AddCartItemRequestDTO {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 }

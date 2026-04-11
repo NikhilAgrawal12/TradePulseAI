@@ -1,10 +1,9 @@
 package com.tradepulseai.custservice.dto;
 
-import java.util.UUID;
-
 public class CustomerResponseDTO {
 
-    private UUID customerId;
+    private Long customerId;
+    private Long userId;
     private String firstName;
     private String lastName;
     private String email;
@@ -18,12 +17,20 @@ public class CustomerResponseDTO {
     private String dateOfBirth;
 
 
-    public UUID getCustomerId() {
+    public Long getCustomerId() {
         return customerId;
     }
 
-    public void setCustomerId(UUID customerId) {
+    public void setCustomerId(Long customerId) {
         this.customerId = customerId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getFirstName() {

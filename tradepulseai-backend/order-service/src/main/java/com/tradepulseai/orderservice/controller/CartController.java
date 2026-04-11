@@ -27,6 +27,7 @@ import java.util.List;
 public class CartController {
 
     private static final String USER_EMAIL_HEADER = "X-User-Email";
+    private static final String USER_ID_HEADER = "X-User-Id";
 
     private final CartService cartService;
 
@@ -36,49 +37,69 @@ public class CartController {
 
     @GetMapping
     @Operation(summary = "Get current user's cart")
-    public ResponseEntity<List<CartItemResponseDTO>> getCart(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(cartService.getCart(normalizeUserEmail(userEmail)));
+    public ResponseEntity<List<CartItemResponseDTO>> getCart(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(cartService.getCart(normalizeUserId(userId)));
     }
 
     @PostMapping("/items")
     @Operation(summary = "Add stock to cart")
     public ResponseEntity<List<CartItemResponseDTO>> addToCart(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @Valid @RequestBody AddCartItemRequestDTO request
     ) {
-        return ResponseEntity.ok(cartService.addToCart(normalizeUserEmail(userEmail), request));
+        return ResponseEntity.ok(cartService.addToCart(normalizeUserId(userId), request));
     }
 
     @PutMapping("/items/{stockId}")
     @Operation(summary = "Update cart quantity for a stock")
     public ResponseEntity<List<CartItemResponseDTO>> updateQuantity(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @PathVariable String stockId,
             @Valid @RequestBody UpdateCartItemRequestDTO request
     ) {
-        return ResponseEntity.ok(cartService.updateQuantity(normalizeUserEmail(userEmail), stockId, request.getQuantity()));
+        return ResponseEntity.ok(cartService.updateQuantity(normalizeUserId(userId), stockId, request.getQuantity()));
     }
 
     @DeleteMapping("/items/{stockId}")
     @Operation(summary = "Remove stock from cart")
     public ResponseEntity<List<CartItemResponseDTO>> removeFromCart(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @PathVariable String stockId
     ) {
-        return ResponseEntity.ok(cartService.removeFromCart(normalizeUserEmail(userEmail), stockId));
+        return ResponseEntity.ok(cartService.removeFromCart(normalizeUserId(userId), stockId));
     }
 
     @DeleteMapping
     @Operation(summary = "Clear cart")
-    public ResponseEntity<List<CartItemResponseDTO>> clearCart(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(cartService.clearCart(normalizeUserEmail(userEmail)));
+    public ResponseEntity<List<CartItemResponseDTO>> clearCart(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(cartService.clearCart(normalizeUserId(userId)));
     }
 
     @PostMapping("/complete-order")
     @Operation(summary = "Complete order by processing payment for all cart items")
-    public ResponseEntity<CompleteOrderResponseDTO> completeOrder(@RequestHeader(value = USER_EMAIL_HEADER, required = false) String userEmail) {
+    public ResponseEntity<CompleteOrderResponseDTO> completeOrder(
+            @RequestHeader(value = USER_ID_HEADER, required = false) String userId,
+            @RequestHeader(value = USER_EMAIL_HEADER, required = false) String userEmail
+    ) {
+        Long normalizedUserId = normalizeUserId(userId);
         String normalizedEmail = normalizeUserEmail(userEmail);
-        return ResponseEntity.ok(cartService.completeOrder(normalizedEmail));
+        return ResponseEntity.ok(cartService.completeOrder(normalizedUserId, normalizedEmail));
+    }
+
+    private Long normalizeUserId(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format("Missing required header: %s. Please ensure you are logged in.", USER_ID_HEADER)
+            );
+        }
+
+        try {
+            return Long.parseLong(userId.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    String.format("Invalid userId format in header %s: %s", USER_ID_HEADER, userId)
+            );
+        }
     }
 
     private String normalizeUserEmail(String userEmail) {

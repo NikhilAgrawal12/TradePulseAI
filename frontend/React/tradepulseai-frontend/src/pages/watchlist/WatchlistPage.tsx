@@ -15,7 +15,6 @@ export function WatchlistPage() {
   const [search, setSearch] = useState("");
   const [addSearch, setAddSearch] = useState("");
   const [addQty, setAddQty] = useState(1);
-  const [addRef, setAddRef] = useState("");
   const [addStock, setAddStock] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
@@ -28,11 +27,9 @@ export function WatchlistPage() {
         return [];
       }
 
-      const currentValue = stock.price * entry.quantity;
-      const refValue = entry.refPrice * entry.quantity;
-      const pnl = currentValue - refValue;
-      const pnlPct = entry.refPrice > 0 ? ((stock.price - entry.refPrice) / entry.refPrice) * 100 : 0;
-      return [{ ...entry, stock, currentValue, refValue, pnl, pnlPct }];
+      const quantity = Number(entry.quantity);
+      const currentValue = stock.price * quantity;
+      return [{ ...entry, quantity, stock, currentValue }];
     }),
   [stockMap, watchlist]);
 
@@ -52,20 +49,15 @@ export function WatchlistPage() {
       if (!q) return notIn;
       return notIn && [s.symbol, s.name, s.sector].join(" ").toLowerCase().includes(q);
     });
-  }, [addSearch, watchlist]);
+  }, [addSearch, watchlist, stocks]);
 
-  const totalRefValue = watchlistStocks.reduce((s, e) => s + e.refValue, 0);
-  const totalCurrent  = watchlistStocks.reduce((s, e) => s + e.currentValue, 0);
-  const totalPnL      = totalCurrent - totalRefValue;
-  const totalPnLPct   = totalRefValue > 0 ? (totalPnL / totalRefValue) * 100 : 0;
+  const totalCurrent = watchlistStocks.reduce((s, e) => s + e.currentValue, 0);
+  const totalQuantity = watchlistStocks.reduce((s, e) => s + e.quantity, 0);
 
   const handleAdd = () => {
     if (!addStock) return;
-    const stock = stockMap.get(addStock);
-    if (!stock) return;
-    const refPrice = parseFloat(addRef) || stock.price;
-    void addToWatchlist(addStock, stock.symbol, refPrice, addQty);
-    setAddStock(""); setAddSearch(""); setAddRef(""); setAddQty(1); setShowAdd(false);
+    void addToWatchlist(addStock, addQty);
+    setAddStock(""); setAddSearch(""); setAddQty(1); setShowAdd(false);
   };
 
   const toggleAddPanel = () => {
@@ -89,20 +81,16 @@ export function WatchlistPage() {
         {/* ── Summary stats ── */}
         <section className="wl-stats">
           <div className="wl-stat-card">
-            <span>Monitored Value</span>
-            <strong>${totalRefValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+            <span>Stocks Tracked</span>
+            <strong>{watchlistStocks.length}</strong>
+          </div>
+          <div className="wl-stat-card">
+            <span>Total Quantity</span>
+            <strong>{totalQuantity.toFixed(0)}</strong>
           </div>
           <div className="wl-stat-card">
             <span>Current Value</span>
             <strong>${totalCurrent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-          </div>
-          <div className={`wl-stat-card ${totalPnL >= 0 ? "stat-green" : "stat-red"}`}>
-            <span>Total Change ($)</span>
-            <strong>{totalPnL >= 0 ? "+" : "−"}${Math.abs(totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-          </div>
-          <div className={`wl-stat-card ${totalPnLPct >= 0 ? "stat-green" : "stat-red"}`}>
-            <span>Total Change (%)</span>
-            <strong>{totalPnLPct >= 0 ? "+" : ""}{totalPnLPct.toFixed(2)}%</strong>
           </div>
         </section>
 
@@ -159,17 +147,6 @@ export function WatchlistPage() {
 
               <div className="wl-add-fields">
                 <label>
-                  Ref. price ($)
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="e.g. 210.00"
-                    value={addRef}
-                    onChange={(e) => setAddRef(e.target.value)}
-                  />
-                </label>
-                <label>
                   Quantity
                   <input
                     type="number"
@@ -209,38 +186,24 @@ export function WatchlistPage() {
                   <th>Signal</th>
                   <th>Current price</th>
                   <th>Day change</th>
-                  <th>Ref. price</th>
                   <th>Qty</th>
-                  <th>Ref. value</th>
                   <th>Current value</th>
-                  <th>Change ($)</th>
-                  <th>Change (%)</th>
                   <th></th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(({ stock, refPrice, quantity, refValue, currentValue, pnl, pnlPct }) => (
-                  <tr key={stock.id} className={pnl >= 0 ? "row-green" : "row-red"}>
-                    <td className={pnl >= 0 ? "symbol-green" : "symbol-red"}>
-                      <strong>{stock.symbol}</strong>
-                    </td>
+                {filtered.map(({ stock, quantity, currentValue }) => (
+                  <tr key={stock.id}>
+                    <td><strong>{stock.symbol}</strong></td>
                     <td><span className="wl-name">{stock.name}</span><span className="wl-sector">{stock.sector}</span></td>
                     <td><span className={`rec-badge ${stock.recommendation.toLowerCase()}`}>{stock.recommendation}</span></td>
                     <td>${stock.price.toFixed(2)}</td>
                     <td className={stock.changePercent >= 0 ? "price-up" : "price-down"}>
                       {stock.changePercent >= 0 ? "+" : ""}{stock.changePercent.toFixed(2)}%
                     </td>
-                    <td>${refPrice.toFixed(2)}</td>
                     <td>{quantity}</td>
-                    <td>${refValue.toFixed(2)}</td>
                     <td>${currentValue.toFixed(2)}</td>
-                    <td className={pnl >= 0 ? "price-up" : "price-down"}>
-                      {pnl >= 0 ? "+" : "−"}${Math.abs(pnl).toFixed(2)}
-                    </td>
-                    <td className={pnlPct >= 0 ? "price-up" : "price-down"}>
-                      {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
-                    </td>
                     <td>
                       <button
                         type="button"

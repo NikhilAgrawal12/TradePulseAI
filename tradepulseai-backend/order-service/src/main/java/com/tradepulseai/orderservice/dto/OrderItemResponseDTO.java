@@ -5,10 +5,8 @@ import java.math.BigDecimal;
 public class OrderItemResponseDTO {
 
     private String stockId;
-    private String symbol;
     private BigDecimal price;
-    private int quantity;
-    private BigDecimal lineTotal;
+    private BigDecimal quantity;
 
     public String getStockId() {
         return stockId;
@@ -16,14 +14,6 @@ public class OrderItemResponseDTO {
 
     public void setStockId(String stockId) {
         this.stockId = stockId;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
     }
 
     public BigDecimal getPrice() {
@@ -34,20 +24,20 @@ public class OrderItemResponseDTO {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 
-    public BigDecimal getLineTotal() {
-        return lineTotal;
+    public void setQuantityValue(BigDecimal quantity) {
+        this.quantity = quantity;
     }
 
-    public void setLineTotal(BigDecimal lineTotal) {
-        this.lineTotal = lineTotal;
+    public void setQuantity(int quantity) {
+        this.quantity = BigDecimal.valueOf(quantity).setScale(4, java.math.RoundingMode.HALF_UP);
     }
 }
 

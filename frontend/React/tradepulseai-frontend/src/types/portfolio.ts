@@ -9,7 +9,6 @@ export type PortfolioSummary = {
 };
 
 export type PortfolioHolding = {
-  id: string;
   stockId: string;
   symbol: string;
   quantity: number;
@@ -23,7 +22,7 @@ export type PortfolioHolding = {
 };
 
 export type PortfolioTransaction = {
-  id: string;
+  transactionId: number;
   stockId: string;
   symbol: string;
   transactionType: "BUY" | "SELL" | string;
@@ -44,4 +43,3 @@ export type SellPortfolioItemRequest = {
   quantity: number;
   price: number;
 };
-

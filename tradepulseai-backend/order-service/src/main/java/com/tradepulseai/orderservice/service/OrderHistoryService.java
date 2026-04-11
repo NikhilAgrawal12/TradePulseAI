@@ -24,8 +24,8 @@ public class OrderHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderResponseDTO> getOrders(String userEmail) {
-        return tradeOrderRepository.findByUserEmailOrderByCreatedAtDesc(userEmail)
+    public List<OrderResponseDTO> getOrders(Long userId) {
+        return tradeOrderRepository.findByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(OrderMapper::toDTO)
                 .toList();

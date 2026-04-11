@@ -1,20 +1,20 @@
 package com.tradepulseai.orderservice.repository;
 
 import com.tradepulseai.orderservice.model.CartItem;
+import com.tradepulseai.orderservice.model.CartItemId;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface CartItemRepository extends JpaRepository<CartItem, UUID> {
+public interface CartItemRepository extends JpaRepository<CartItem, CartItemId> {
 
-    List<CartItem> findByUserEmailOrderByUpdatedAtDesc(String userEmail);
+    List<CartItem> findByIdUserIdOrderByUpdatedAtDesc(Long userId);
 
-    Optional<CartItem> findByUserEmailAndStockId(String userEmail, String stockId);
+    Optional<CartItem> findByIdUserIdAndIdStockId(Long userId, Long stockId);
 
-    void deleteByUserEmailAndStockId(String userEmail, String stockId);
+    void deleteByIdUserIdAndIdStockId(Long userId, Long stockId);
 
-    void deleteByUserEmail(String userEmail);
+    void deleteByIdUserId(Long userId);
 }
 

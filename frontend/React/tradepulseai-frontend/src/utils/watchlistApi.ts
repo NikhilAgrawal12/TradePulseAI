@@ -50,4 +50,3 @@ export async function clearWatchlistItems(): Promise<WatchlistEntry[]> {
   });
   return response.data;
 }
-

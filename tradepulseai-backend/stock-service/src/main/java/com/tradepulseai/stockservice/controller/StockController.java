@@ -31,7 +31,7 @@ public class StockController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get stock by id")
-    public ResponseEntity<StockResponseDTO> getStockById(@PathVariable String id) {
+    public ResponseEntity<StockResponseDTO> getStockById(@PathVariable Long id) {
         return ResponseEntity.ok(stockService.getStockById(id));
     }
 
@@ -41,4 +41,3 @@ public class StockController {
         return ResponseEntity.ok(stockService.getStockBySymbol(symbol));
     }
 }
-

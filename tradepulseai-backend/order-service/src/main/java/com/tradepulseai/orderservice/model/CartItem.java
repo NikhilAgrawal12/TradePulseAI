@@ -1,35 +1,21 @@
 package com.tradepulseai.orderservice.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
-@Table(
-        name = "cart_items",
-        uniqueConstraints = @UniqueConstraint(name = "uk_cart_user_stock", columnNames = {"user_email", "stock_id"})
-)
+@Table(name = "cart_items")
 public class CartItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
-
-    @Column(name = "user_email", nullable = false)
-    private String userEmail;
-
-    @Column(name = "stock_id", nullable = false)
-    private String stockId;
+    @EmbeddedId
+    private CartItemId id;
 
     @Column(name = "symbol", nullable = false)
     private String symbol;
@@ -37,8 +23,8 @@ public class CartItem {
     @Column(name = "price", nullable = false, precision = 19, scale = 4)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false)
-    private int quantity;
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
+    private BigDecimal quantity;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -51,6 +37,9 @@ public class CartItem {
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.quantity == null) {
+            this.quantity = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
@@ -58,28 +47,20 @@ public class CartItem {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() {
+    public CartItemId getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(CartItemId id) {
         this.id = id;
     }
 
-    public String getUserEmail() {
-        return userEmail;
+    public Long getUserId() {
+        return id != null ? id.getUserId() : null;
     }
 
-    public void setUserEmail(String userEmail) {
-        this.userEmail = userEmail;
-    }
-
-    public String getStockId() {
-        return stockId;
-    }
-
-    public void setStockId(String stockId) {
-        this.stockId = stockId;
+    public Long getStockId() {
+        return id != null ? id.getStockId() : null;
     }
 
     public String getSymbol() {
@@ -98,11 +79,11 @@ public class CartItem {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 

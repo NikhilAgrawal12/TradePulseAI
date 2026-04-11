@@ -22,12 +22,12 @@ public class PaymentProcessingService {
     }
 
     @Transactional
-    public Payment processPayment(String cartItemId, String userEmail, String stockId, String symbol,
-                                   double price, int quantity) {
-        log.info("Processing payment for cartItemId={}, userEmail={}, stockId={}, qty={}, price={}",
-                cartItemId, userEmail, stockId, quantity, price);
+    public Payment processPayment(String rawOrderId, String userEmail, double price, int quantity) {
+        Long orderId = parseOrderId(rawOrderId);
+        log.info("Processing payment for orderId={}, userEmail={}, qty={}, price={}",
+                orderId, userEmail, quantity, price);
 
-        Payment payment = PaymentMapper.toModel(cartItemId, userEmail, stockId, symbol, price, quantity);
+        Payment payment = PaymentMapper.toModel(orderId, price, quantity);
         Payment savedPayment = paymentRepository.save(payment);
 
         log.info("Payment saved successfully with id={}, status={}, totalAmount={}",
@@ -38,5 +38,13 @@ public class PaymentProcessingService {
 
     public String generateAccountId(String userEmail) {
         return "acct-" + userEmail + "-" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    private Long parseOrderId(String rawOrderId) {
+        try {
+            return Long.parseLong(rawOrderId);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid order id format: " + rawOrderId);
+        }
     }
 }

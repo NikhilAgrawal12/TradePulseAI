@@ -12,14 +12,13 @@ public class OrderMapper {
     private OrderMapper() {
     }
 
-    public static TradeOrder toModel(String userEmail, String accountId, String status, List<CartItem> cartItems) {
+    public static TradeOrder toModel(Long userId, String status, List<CartItem> cartItems) {
         TradeOrder order = new TradeOrder();
-        order.setUserEmail(userEmail);
-        order.setAccountId(accountId);
+        order.setUserId(userId);
         order.setStatus(status);
 
         BigDecimal subtotal = cartItems.stream()
-                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .map(item -> item.getPrice().multiply(item.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal scaledSubtotal = OrderItemMapper.scaleMoney(subtotal);
@@ -41,7 +40,7 @@ public class OrderMapper {
     public static OrderResponseDTO toDTO(TradeOrder order) {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());
-        dto.setAccountId(order.getAccountId());
+        dto.setUserId(order.getUserId());
         dto.setStatus(order.getStatus());
         dto.setCreatedAtIso(order.getCreatedAt());
         dto.setSubtotal(OrderItemMapper.scaleMoney(order.getSubtotal()));

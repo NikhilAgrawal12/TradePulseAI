@@ -24,22 +24,11 @@ public class PaymentController {
         this.paymentRepository = paymentRepository;
     }
 
-    @GetMapping("/user/{userEmail}")
-    @Operation(summary = "Get all payments for a user")
-    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByUserEmail(@PathVariable String userEmail) {
+    @GetMapping("/order/{orderId}")
+    @Operation(summary = "Get all payments for an order")
+    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByOrderId(@PathVariable Long orderId) {
         return ResponseEntity.ok(
-                paymentRepository.findByUserEmail(userEmail.toLowerCase())
-                        .stream()
-                        .map(PaymentMapperDTO::toDTO)
-                        .toList()
-        );
-    }
-
-    @GetMapping("/stock/{stockId}")
-    @Operation(summary = "Get all payments for a stock")
-    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByStockId(@PathVariable String stockId) {
-        return ResponseEntity.ok(
-                paymentRepository.findByStockId(stockId)
+                paymentRepository.findByOrderId(orderId)
                         .stream()
                         .map(PaymentMapperDTO::toDTO)
                         .toList()

@@ -1,11 +1,9 @@
 package com.tradepulseai.custservice.dto;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public class PortfolioHoldingResponseDTO {
 
-    private UUID id;
     private String stockId;
     private String symbol;
     private int quantity;
@@ -16,14 +14,6 @@ public class PortfolioHoldingResponseDTO {
     private BigDecimal unrealizedPnl;
     private BigDecimal unrealizedPnlPercent;
     private BigDecimal realizedPnl;
-
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
 
     public String getStockId() {
         return stockId;
@@ -105,4 +95,3 @@ public class PortfolioHoldingResponseDTO {
         this.realizedPnl = realizedPnl;
     }
 }
-

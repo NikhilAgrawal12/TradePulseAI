@@ -11,40 +11,34 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Entity
 @Table(name = "order_items")
 public class TradeOrderItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_item_id")
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "order_id", nullable = false)
     private TradeOrder order;
 
     @Column(name = "stock_id", nullable = false)
-    private String stockId;
+    private Long stockId;
 
-    @Column(name = "symbol", nullable = false)
-    private String symbol;
-
-    @Column(name = "price", nullable = false, precision = 19, scale = 4)
+    @Column(name = "price", nullable = false, precision = 18, scale = 4)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false)
-    private int quantity;
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
+    private BigDecimal quantity;
 
-    @Column(name = "line_total", nullable = false, precision = 19, scale = 4)
-    private BigDecimal lineTotal;
-
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -56,20 +50,12 @@ public class TradeOrderItem {
         this.order = order;
     }
 
-    public String getStockId() {
+    public Long getStockId() {
         return stockId;
     }
 
-    public void setStockId(String stockId) {
+    public void setStockId(Long stockId) {
         this.stockId = stockId;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
     }
 
     public BigDecimal getPrice() {
@@ -80,20 +66,12 @@ public class TradeOrderItem {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
-    }
-
-    public BigDecimal getLineTotal() {
-        return lineTotal;
-    }
-
-    public void setLineTotal(BigDecimal lineTotal) {
-        this.lineTotal = lineTotal;
     }
 }
 

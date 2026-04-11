@@ -6,18 +6,13 @@ import java.math.BigDecimal;
 
 public class PaymentMapper {
 
-    public static Payment toModel(String cartItemId, String userEmail, String stockId, String symbol,
-                                   double price, int quantity) {
+    public static Payment toModel(Long orderId, double price, int quantity) {
         BigDecimal priceDecimal = BigDecimal.valueOf(price);
-        BigDecimal totalAmount = priceDecimal.multiply(BigDecimal.valueOf(quantity));
+        BigDecimal totalAmount = priceDecimal.multiply(BigDecimal.valueOf(quantity))
+                .setScale(4, java.math.RoundingMode.HALF_UP);
 
         Payment payment = new Payment();
-        payment.setCartItemId(cartItemId);
-        payment.setUserEmail(userEmail);
-        payment.setStockId(stockId);
-        payment.setSymbol(symbol);
-        payment.setPrice(priceDecimal);
-        payment.setQuantity(quantity);
+        payment.setOrderId(orderId);
         payment.setTotalAmount(totalAmount);
         payment.setStatus("COMPLETED");
 

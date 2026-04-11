@@ -4,10 +4,8 @@ import com.tradepulseai.custservice.model.PortfolioTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-import java.util.UUID;
 
-public interface PortfolioTransactionRepository extends JpaRepository<PortfolioTransaction, UUID> {
+public interface PortfolioTransactionRepository extends JpaRepository<PortfolioTransaction, Long> {
 
-    List<PortfolioTransaction> findByUserEmailOrderByExecutedAtDesc(String userEmail);
+    List<PortfolioTransaction> findByUserIdOrderByExecutedAtDesc(Long userId);
 }
-

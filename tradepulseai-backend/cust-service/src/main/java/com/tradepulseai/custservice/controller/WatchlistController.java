@@ -81,4 +81,3 @@ public class WatchlistController {
         return userEmail.trim().toLowerCase();
     }
 }
-

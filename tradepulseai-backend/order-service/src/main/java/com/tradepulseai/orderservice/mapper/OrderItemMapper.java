@@ -17,25 +17,25 @@ public class OrderItemMapper {
         TradeOrderItem item = new TradeOrderItem();
         item.setOrder(order);
         item.setStockId(cartItem.getStockId());
-        item.setSymbol(cartItem.getSymbol());
         item.setPrice(scaleMoney(cartItem.getPrice()));
-        item.setQuantity(cartItem.getQuantity());
-        item.setLineTotal(scaleMoney(cartItem.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()))));
+        item.setQuantity(scaleQuantity(cartItem.getQuantity()));
         return item;
     }
 
     public static OrderItemResponseDTO toDTO(TradeOrderItem item) {
         OrderItemResponseDTO dto = new OrderItemResponseDTO();
-        dto.setStockId(item.getStockId());
-        dto.setSymbol(item.getSymbol());
+        dto.setStockId(String.valueOf(item.getStockId()));
         dto.setPrice(scaleMoney(item.getPrice()));
-        dto.setQuantity(item.getQuantity());
-        dto.setLineTotal(scaleMoney(item.getLineTotal()));
+        dto.setQuantityValue(scaleQuantity(item.getQuantity()));
         return dto;
     }
 
     public static BigDecimal scaleMoney(BigDecimal value) {
         return value.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal scaleQuantity(BigDecimal quantity) {
+        return quantity.setScale(4, RoundingMode.HALF_UP);
     }
 }
 

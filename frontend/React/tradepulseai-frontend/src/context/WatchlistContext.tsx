@@ -8,9 +8,9 @@ const WATCHLIST_ERROR_MESSAGE = "Unable to update watchlist right now. Please tr
 type WatchlistContextType = {
   watchlist: WatchlistEntry[];
   totalWatchlistItems: number;
-  addToWatchlist: (stockId: string, symbol: string, refPrice: number, quantity: number) => Promise<void>;
+  addToWatchlist: (stockId: string, quantity: number) => Promise<void>;
   removeFromWatchlist: (stockId: string) => Promise<void>;
-  updateWatchlistEntry: (stockId: string, refPrice: number, quantity: number) => Promise<void>;
+  updateWatchlistEntry: (stockId: string, quantity: number) => Promise<void>;
   clearWatchlist: () => Promise<void>;
 };
 
@@ -56,7 +56,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     };
   }, [authVersion]);
 
-  const addToWatchlist = async (stockId: string, symbol: string, refPrice: number, quantity: number) => {
+  const addToWatchlist = async (stockId: string, quantity: number) => {
     if (!isUserAuthenticated()) {
       requireSignIn();
       return;
@@ -65,8 +65,6 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     try {
       const updatedWatchlist = await addWatchlistItem({
         stockId,
-        symbol,
-        refPrice,
         quantity,
       });
       setWatchlist(updatedWatchlist);
@@ -89,7 +87,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateWatchlistEntry = async (stockId: string, refPrice: number, quantity: number) => {
+  const updateWatchlistEntry = async (stockId: string, quantity: number) => {
     if (!isUserAuthenticated()) {
       requireSignIn();
       return;
@@ -101,7 +99,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const updatedWatchlist = await updateWatchlistItem(stockId, { refPrice, quantity });
+      const updatedWatchlist = await updateWatchlistItem(stockId, { quantity });
       setWatchlist(updatedWatchlist);
     } catch {
       showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
@@ -122,7 +120,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const totalWatchlistItems = useMemo(() => watchlist.reduce((sum, item) => sum + item.quantity, 0), [watchlist]);
+  const totalWatchlistItems = useMemo(() => watchlist.reduce((sum, item) => sum + Number(item.quantity), 0), [watchlist]);
 
   return (
     <WatchlistContext.Provider
