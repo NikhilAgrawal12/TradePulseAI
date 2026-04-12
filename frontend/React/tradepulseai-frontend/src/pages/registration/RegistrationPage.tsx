@@ -121,7 +121,7 @@ export function RegistrationPage() {
             <input id="email" type="email" name="email" autoComplete="email" required disabled={loading} />
 
             <label htmlFor="phone-number">Phone Number</label>
-            <input id="phone-number" type="tel" name="phoneNumber" autoComplete="tel" pattern="[-0-9+ ]{7,15}" required disabled={loading} />
+            <input id="phone-number" type="tel" name="phoneNumber" autoComplete="tel" pattern="[+]?[0-9][0-9 \-]{6,14}" required disabled={loading} />
 
             <label htmlFor="date-of-birth">Date of Birth</label>
             <input id="date-of-birth" type="date" name="dateOfBirth" autoComplete="bday" required disabled={loading} />

@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -22,15 +23,20 @@ public class PaymentProcessingService {
     }
 
     @Transactional
-    public Payment processPayment(String rawOrderId, String userEmail, double price, int quantity) {
+    public Payment processPayment(String rawOrderId, String userEmail, double totalAmount) {
         Long orderId = parseOrderId(rawOrderId);
-        log.info("Processing payment for orderId={}, userEmail={}, qty={}, price={}",
-                orderId, userEmail, quantity, price);
+        log.info("Processing payment for orderId={}, userEmail={}, totalAmount={}",
+                orderId, userEmail, totalAmount);
 
-        Payment payment = PaymentMapper.toModel(orderId, price, quantity);
+        if (paymentRepository.existsByOrderId(orderId)) {
+            log.warn("Payment already exists for orderId={}, returning existing record", orderId);
+            return paymentRepository.findByOrderId(orderId).get(0);
+        }
+
+        Payment payment = PaymentMapper.toModel(orderId, BigDecimal.valueOf(totalAmount));
         Payment savedPayment = paymentRepository.save(payment);
 
-        log.info("Payment saved successfully with id={}, status={}, totalAmount={}",
+        log.info("Payment saved: id={}, status={}, totalAmount={}",
                 savedPayment.getId(), savedPayment.getStatus(), savedPayment.getTotalAmount());
 
         return savedPayment;
@@ -48,3 +54,5 @@ public class PaymentProcessingService {
         }
     }
 }
+
+

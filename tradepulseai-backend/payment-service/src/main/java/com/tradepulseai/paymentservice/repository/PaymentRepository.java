@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByOrderId(Long orderId);
+    boolean existsByOrderId(Long orderId);
 }
 

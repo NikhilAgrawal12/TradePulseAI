@@ -27,7 +27,6 @@ import java.util.Objects;
 public class CartService {
 
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
-    private static final String UNKNOWN_ACCOUNT_ID = "unknown";
 
     private final CartItemRepository cartItemRepository;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
@@ -110,31 +109,24 @@ public class CartService {
                 OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, cartItems, stockQuotes)
         );
 
-        String accountId = UNKNOWN_ACCOUNT_ID;
-        for (CartItem cartItem : cartItems) {
-            OrderPaymentResponse response;
-            try {
-                response = orderPaymentGrpcClient.completePayment(
-                        savedOrder.getId(),
-                        cartItem,
-                        userEmail,
-                        stockQuotes.get(cartItem.getStockId())
-                );
-            } catch (StatusRuntimeException exception) {
-                throw new IllegalStateException("Payment failed for stockId: " + cartItem.getStockId(), exception);
-            }
-
-            validateCompletedPaymentResponse(response, String.valueOf(cartItem.getStockId()));
-            if (UNKNOWN_ACCOUNT_ID.equals(accountId) && !response.getAccountId().isBlank()) {
-                accountId = response.getAccountId();
-            }
+        // Send ONE payment record for the entire order total (subtotal + tax)
+        OrderPaymentResponse response;
+        try {
+            response = orderPaymentGrpcClient.completeOrderPayment(
+                    savedOrder.getId(),
+                    savedOrder.getTotal(),
+                    userEmail
+            );
+        } catch (StatusRuntimeException exception) {
+            throw new IllegalStateException("Payment failed for orderId: " + savedOrder.getId(), exception);
         }
+
+        validateCompletedPaymentResponse(response, String.valueOf(savedOrder.getId()));
 
         portfolioSyncClient.syncCompletedOrder(userEmail, PortfolioOrderMapper.toSyncRequest(cartItems, stockQuotes));
 
-
         cartItemRepository.deleteByIdUserId(userId);
-        return new CompleteOrderResponseDTO(savedOrder.getId(), accountId, PAYMENT_STATUS_COMPLETED);
+        return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
 
     private CartItemResponseDTO toCartResponse(CartItem cartItem, StockQuote stockQuote) {

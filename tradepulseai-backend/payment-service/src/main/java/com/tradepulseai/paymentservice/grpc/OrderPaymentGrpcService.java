@@ -25,22 +25,21 @@ public class OrderPaymentGrpcService extends OrderPaymentServiceGrpc.OrderPaymen
 
     @Override
     public void completePayment(OrderPaymentRequest request, StreamObserver<OrderPaymentResponse> responseObserver) {
-        log.info("CompletePayment request received for cartItemId={}, userEmail={}, stockId={}, qty={}",
-                request.getCartItemId(), request.getUserEmail(), request.getStockId(), request.getQuantity());
+        log.info("CompletePayment request received for orderId={}, userEmail={}, totalAmount={}",
+                request.getOrderId(), request.getUserEmail(), request.getTotalAmount());
 
         try {
             Payment savedPayment = paymentProcessingService.processPayment(
-                    request.getCartItemId(),
+                    request.getOrderId(),
                     request.getUserEmail(),
-                    request.getPrice(),
-                    request.getQuantity()
+                    request.getTotalAmount()
             );
 
             String status = savedPayment.getStatus();
             if (!PAYMENT_STATUS_COMPLETED.equalsIgnoreCase(status)) {
                 responseObserver.onError(
                         Status.FAILED_PRECONDITION
-                                .withDescription("Payment status is not COMPLETED for cartItemId: " + request.getCartItemId())
+                                .withDescription("Payment status is not COMPLETED for orderId: " + request.getOrderId())
                                 .asRuntimeException()
                 );
                 return;
@@ -56,7 +55,7 @@ public class OrderPaymentGrpcService extends OrderPaymentServiceGrpc.OrderPaymen
             responseObserver.onCompleted();
             log.info("CompletePayment response sent: accountId={}, status={}", accountId, status);
         } catch (Exception e) {
-            log.error("Error processing payment for cartItemId={}: {}", request.getCartItemId(), e.getMessage(), e);
+            log.error("Error processing payment for orderId={}: {}", request.getOrderId(), e.getMessage(), e);
             responseObserver.onError(
                     Status.INTERNAL
                             .withDescription("Payment processing failed: " + e.getMessage())

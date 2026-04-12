@@ -1,7 +1,5 @@
 package com.tradepulseai.orderservice.grpc;
 
-import com.tradepulseai.orderservice.model.CartItem;
-import com.tradepulseai.orderservice.service.StockQuote;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import order_payment.OrderPaymentRequest;
@@ -11,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 
 @Service
 public class OrderPaymentGrpcClient {
@@ -32,35 +32,24 @@ public class OrderPaymentGrpcClient {
         this.blockingStub = OrderPaymentServiceGrpc.newBlockingStub(channel);
     }
 
-    public OrderPaymentResponse completePayment(Long orderId, CartItem cartItem, String userEmail, StockQuote stockQuote) {
+    /**
+     * Sends a single payment request for an entire order.
+     *
+     * @param orderId    the persisted order id
+     * @param totalAmount the complete order total (subtotal + tax)
+     * @param userEmail  the buyer's email
+     */
+    public OrderPaymentResponse completeOrderPayment(Long orderId, BigDecimal totalAmount, String userEmail) {
         OrderPaymentRequest request = OrderPaymentRequest.newBuilder()
-                .setCartItemId(String.valueOf(orderId))
+                .setOrderId(String.valueOf(orderId))
                 .setUserEmail(userEmail)
-                .setStockId(String.valueOf(cartItem.getStockId()))
-                .setSymbol(stockQuote.symbol())
-                .setPrice(stockQuote.unitPrice().doubleValue())
-                .setQuantity(toGrpcQuantity(cartItem))
+                .setTotalAmount(totalAmount.doubleValue())
                 .build();
 
+        log.info("Sending completeOrderPayment gRPC for orderId={}, totalAmount={}", orderId, totalAmount);
         OrderPaymentResponse response = blockingStub.completePayment(request);
         log.info("OrderPayment gRPC response: {}", response);
         return response;
     }
-
-    public OrderPaymentResponse completePayment(Long orderId, CartItem cartItem, String userEmail) {
-        return completePayment(
-                orderId,
-                cartItem,
-                userEmail,
-                new StockQuote(cartItem.getStockId(), String.valueOf(cartItem.getStockId()), java.math.BigDecimal.ZERO.setScale(4, java.math.RoundingMode.HALF_UP))
-        );
-    }
-
-    private int toGrpcQuantity(CartItem cartItem) {
-        try {
-            return cartItem.getQuantity().intValueExact();
-        } catch (ArithmeticException exception) {
-            throw new IllegalArgumentException("Payment supports whole-number quantity only for stockId: " + cartItem.getStockId(), exception);
-        }
-    }
 }
+

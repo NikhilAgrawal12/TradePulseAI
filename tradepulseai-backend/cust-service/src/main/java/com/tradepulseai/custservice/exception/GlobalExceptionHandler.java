@@ -2,6 +2,7 @@ package com.tradepulseai.custservice.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -49,6 +50,14 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         errors.put("message", ex.getMessage());
         return ResponseEntity.badRequest().body(errors);
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, String>> handleDataAccessException(DataAccessException ex) {
+        log.error("Database access failure", ex);
+        Map<String, String> errors = new HashMap<>();
+        errors.put("message", "Customer service database is unavailable or schema is invalid");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errors);
     }
 
 
