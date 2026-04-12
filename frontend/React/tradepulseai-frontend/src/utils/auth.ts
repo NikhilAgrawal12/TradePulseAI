@@ -114,3 +114,26 @@ export function getEmailFromToken(token: string | null): string | null {
   }
 }
 
+export function getUserIdFromToken(token: string | null): string | null {
+  if (!token) {
+    return null;
+  }
+
+  const parts = token.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { userId?: number | string };
+    if (typeof payload.userId === "number") {
+      return String(payload.userId);
+    }
+    return typeof payload.userId === "string" ? payload.userId : null;
+  } catch {
+    return null;
+  }
+}
+

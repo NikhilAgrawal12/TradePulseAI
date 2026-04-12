@@ -56,7 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, [authVersion]);
 
-  const addToCart = async (stockId: string, symbol: string, price: number, qty: number) => {
+  const addToCart = async (stockId: string, _symbol: string, _price: number, qty: number) => {
     if (!isUserAuthenticated()) {
       requireSignIn();
       return;
@@ -65,8 +65,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const updatedCart = await addCartItem({
         stockId,
-        symbol,
-        price,
         quantity: qty,
       });
 

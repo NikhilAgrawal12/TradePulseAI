@@ -1,15 +1,14 @@
 export type CartItem = {
-  id?: string;
+  userId?: number;
   stockId: string;
   symbol: string;
   price: number;
   quantity: number;
+  lineTotal?: number;
 };
 
 export type AddCartItemRequest = {
   stockId: string;
-  symbol: string;
-  price: number;
   quantity: number;
 };
 
@@ -18,7 +17,7 @@ export type UpdateCartItemRequest = {
 };
 
 export type CompleteOrderResponse = {
-  orderId?: string;
+  orderId?: number;
   accountId: string;
   status: string;
 };
