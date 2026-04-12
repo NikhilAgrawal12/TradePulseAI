@@ -4,7 +4,7 @@ import com.tradepulseai.orderservice.dto.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
-import com.tradepulseai.orderservice.mapper.CartItemMapper;
+import com.tradepulseai.orderservice.mapper.OrderItemMapper;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
 import com.tradepulseai.orderservice.mapper.PortfolioOrderMapper;
 import com.tradepulseai.orderservice.model.CartItem;
@@ -18,7 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class CartService {
@@ -30,24 +33,29 @@ public class CartService {
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
     private final PortfolioSyncClient portfolioSyncClient;
     private final OrderHistoryService orderHistoryService;
+    private final StockCatalogClient stockCatalogClient;
 
     public CartService(
             CartItemRepository cartItemRepository,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
             PortfolioSyncClient portfolioSyncClient,
-            OrderHistoryService orderHistoryService
+            OrderHistoryService orderHistoryService,
+            StockCatalogClient stockCatalogClient
     ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
         this.portfolioSyncClient = portfolioSyncClient;
         this.orderHistoryService = orderHistoryService;
+        this.stockCatalogClient = stockCatalogClient;
     }
 
     @Transactional(readOnly = true)
     public List<CartItemResponseDTO> getCart(Long userId) {
-        return cartItemRepository.findByIdUserIdOrderByUpdatedAtDesc(userId)
+        List<CartItem> cartItems = cartItemRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
+        Map<Long, StockQuote> stockQuotes = loadStockQuotes(cartItems);
+        return cartItems
                 .stream()
-                .map(CartItemMapper::toDTO)
+                .map(item -> toCartResponse(item, stockQuotes.get(item.getStockId())))
                 .toList();
     }
 
@@ -57,8 +65,6 @@ public class CartService {
 
         CartItem cartItem = cartItemRepository.findByIdUserIdAndIdStockId(userId, stockId)
                 .map(existing -> {
-                    existing.setSymbol(request.getSymbol());
-                    existing.setPrice(request.getPrice());
                     existing.setQuantity(scaleQuantity(existing.getQuantity().add(request.getQuantity())));
                     return existing;
                 })
@@ -98,15 +104,22 @@ public class CartService {
             throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
         }
 
+        Map<Long, StockQuote> stockQuotes = loadStockQuotes(cartItems);
+
         TradeOrder savedOrder = orderHistoryService.saveCompletedOrder(
-                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, cartItems)
+                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, cartItems, stockQuotes)
         );
 
         String accountId = UNKNOWN_ACCOUNT_ID;
         for (CartItem cartItem : cartItems) {
             OrderPaymentResponse response;
             try {
-                response = orderPaymentGrpcClient.completePayment(savedOrder.getId(), cartItem, userEmail);
+                response = orderPaymentGrpcClient.completePayment(
+                        savedOrder.getId(),
+                        cartItem,
+                        userEmail,
+                        stockQuotes.get(cartItem.getStockId())
+                );
             } catch (StatusRuntimeException exception) {
                 throw new IllegalStateException("Payment failed for stockId: " + cartItem.getStockId(), exception);
             }
@@ -117,11 +130,31 @@ public class CartService {
             }
         }
 
-        portfolioSyncClient.syncCompletedOrder(userEmail, PortfolioOrderMapper.toSyncRequest(cartItems));
+        portfolioSyncClient.syncCompletedOrder(userEmail, PortfolioOrderMapper.toSyncRequest(cartItems, stockQuotes));
 
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), accountId, PAYMENT_STATUS_COMPLETED);
+    }
+
+    private CartItemResponseDTO toCartResponse(CartItem cartItem, StockQuote stockQuote) {
+        CartItemResponseDTO response = new CartItemResponseDTO();
+        response.setUserId(cartItem.getUserId());
+        response.setStockId(String.valueOf(cartItem.getStockId()));
+        response.setSymbol(stockQuote.symbol());
+        response.setPrice(stockQuote.unitPrice());
+        BigDecimal quantity = scaleQuantity(cartItem.getQuantity());
+        response.setQuantity(quantity);
+        response.setLineTotal(OrderItemMapper.scaleMoney(stockQuote.unitPrice().multiply(quantity)));
+        return response;
+    }
+
+    private Map<Long, StockQuote> loadStockQuotes(List<CartItem> cartItems) {
+        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
+        for (CartItem cartItem : cartItems) {
+            quotes.computeIfAbsent(cartItem.getStockId(), stockCatalogClient::getStockQuote);
+        }
+        return quotes;
     }
 
     private CartItem newCartItem(Long userId, Long stockId, AddCartItemRequestDTO request) {
@@ -130,8 +163,6 @@ public class CartService {
         id.setUserId(userId);
         id.setStockId(stockId);
         cartItem.setId(id);
-        cartItem.setSymbol(request.getSymbol());
-        cartItem.setPrice(request.getPrice());
         cartItem.setQuantity(scaleQuantity(request.getQuantity()));
         return cartItem;
     }
@@ -145,10 +176,8 @@ public class CartService {
     }
 
     private BigDecimal scaleQuantity(BigDecimal quantity) {
-        if (quantity == null) {
-            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        }
-        return quantity.setScale(4, RoundingMode.HALF_UP);
+        return Objects.requireNonNullElse(quantity, BigDecimal.ZERO)
+                .setScale(4, RoundingMode.HALF_UP);
     }
 
     private void validateCompletedPaymentResponse(OrderPaymentResponse response, String stockId) {

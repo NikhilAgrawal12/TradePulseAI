@@ -1,5 +1,6 @@
 package com.tradepulseai.custservice.mapper;
 
+import com.tradepulseai.custservice.client.StockCatalogClient;
 import com.tradepulseai.custservice.dto.PortfolioFillItemRequestDTO;
 import com.tradepulseai.custservice.dto.PortfolioHoldingResponseDTO;
 import com.tradepulseai.custservice.dto.PortfolioTransactionResponseDTO;
@@ -9,6 +10,7 @@ import com.tradepulseai.custservice.model.PortfolioTransaction;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Objects;
 
 public class PortfolioMapper {
 
@@ -51,34 +53,66 @@ public class PortfolioMapper {
     }
 
     public static PortfolioHoldingResponseDTO toHoldingResponse(PortfolioHolding holding) {
-        BigDecimal marketValue = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        BigDecimal unrealizedPnl = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        return toHoldingResponse(
+                holding,
+                new StockCatalogClient.StockQuote(holding.getId().getStockId(), String.valueOf(holding.getId().getStockId()), BigDecimal.ZERO),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO
+        );
+    }
+
+    public static PortfolioHoldingResponseDTO toHoldingResponse(
+            PortfolioHolding holding,
+            StockCatalogClient.StockQuote quote,
+            BigDecimal averageBuyPrice,
+            BigDecimal realizedPnl
+    ) {
+        BigDecimal scaledAverageBuy = scaleMoney(averageBuyPrice);
+        BigDecimal currentPrice = scaleMoney(quote.unitPrice());
+        BigDecimal quantity = scaleQuantity(holding.getTotalQuantity());
+        BigDecimal investedValue = scaleMoney(scaledAverageBuy.multiply(quantity));
+        BigDecimal marketValue = scaleMoney(currentPrice.multiply(quantity));
+        BigDecimal unrealizedPnl = scaleMoney(marketValue.subtract(investedValue));
         BigDecimal unrealizedPnlPercent = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (investedValue.compareTo(BigDecimal.ZERO) > 0) {
+            unrealizedPnlPercent = unrealizedPnl
+                    .divide(investedValue, 6, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
 
         PortfolioHoldingResponseDTO response = new PortfolioHoldingResponseDTO();
         response.setStockId(String.valueOf(holding.getId().getStockId()));
-        response.setSymbol(String.valueOf(holding.getId().getStockId()));
+        response.setSymbol(quote.symbol());
         response.setQuantity(holding.getTotalQuantity().intValue());
-        response.setAverageBuyPrice(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
-        response.setCurrentPrice(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
-        response.setInvestedValue(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
-        response.setMarketValue(scaleMoney(marketValue));
-        response.setUnrealizedPnl(scaleMoney(unrealizedPnl));
+        response.setAverageBuyPrice(scaledAverageBuy);
+        response.setCurrentPrice(currentPrice);
+        response.setInvestedValue(investedValue);
+        response.setMarketValue(marketValue);
+        response.setUnrealizedPnl(unrealizedPnl);
         response.setUnrealizedPnlPercent(unrealizedPnlPercent);
-        response.setRealizedPnl(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
+        response.setRealizedPnl(scaleMoney(realizedPnl));
         return response;
     }
 
     public static PortfolioTransactionResponseDTO toTransactionResponse(PortfolioTransaction transaction) {
+        return toTransactionResponse(transaction, String.valueOf(transaction.getStockId()), BigDecimal.ZERO);
+    }
+
+    public static PortfolioTransactionResponseDTO toTransactionResponse(
+            PortfolioTransaction transaction,
+            String symbol,
+            BigDecimal realizedPnl
+    ) {
         PortfolioTransactionResponseDTO response = new PortfolioTransactionResponseDTO();
         response.setTransactionId(transaction.getTransactionId());
         response.setStockId(String.valueOf(transaction.getStockId()));
-        response.setSymbol(String.valueOf(transaction.getStockId()));
+        response.setSymbol(symbol);
         response.setTransactionType(transaction.getTransactionType());
         response.setPrice(scaleMoney(transaction.getPrice()));
         response.setQuantity(transaction.getQuantity());
         response.setGrossAmount(calculateGrossAmount(transaction.getPrice(), transaction.getQuantity()));
-        response.setRealizedPnl(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
+        response.setRealizedPnl(scaleMoney(realizedPnl));
         response.setExecutedAt(transaction.getExecutedAt());
         return response;
     }
@@ -92,10 +126,8 @@ public class PortfolioMapper {
     }
 
     public static BigDecimal scaleMoney(BigDecimal value) {
-        if (value == null) {
-            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        }
-        return value.setScale(4, RoundingMode.HALF_UP);
+        return Objects.requireNonNullElse(value, BigDecimal.ZERO)
+                .setScale(4, RoundingMode.HALF_UP);
     }
 
     public static BigDecimal scaleQuantity(BigDecimal value) {

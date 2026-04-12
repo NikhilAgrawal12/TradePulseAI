@@ -11,15 +11,8 @@ public class AddCartItemRequestDTO {
     @NotBlank
     private String stockId;
 
-    @NotBlank
-    private String symbol;
-
     @NotNull
-    @DecimalMin(value = "0.0001", inclusive = true)
-    private BigDecimal price;
-
-    @NotNull
-    @DecimalMin(value = "0.0001", inclusive = true)
+    @DecimalMin(value = "0.0001")
     private BigDecimal quantity;
 
     public String getStockId() {
@@ -30,21 +23,6 @@ public class AddCartItemRequestDTO {
         this.stockId = stockId;
     }
 
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
 
     public BigDecimal getQuantity() {
         return quantity;

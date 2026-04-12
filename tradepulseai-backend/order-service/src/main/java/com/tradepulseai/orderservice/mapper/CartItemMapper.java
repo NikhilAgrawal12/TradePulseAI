@@ -10,8 +10,6 @@ public class CartItemMapper {
         CartItemResponseDTO response = new CartItemResponseDTO();
         response.setUserId(cartItem.getUserId());
         response.setStockId(String.valueOf(cartItem.getStockId()));
-        response.setSymbol(cartItem.getSymbol());
-        response.setPrice(cartItem.getPrice());
         response.setQuantity(cartItem.getQuantity());
         return response;
     }
@@ -22,8 +20,6 @@ public class CartItemMapper {
         id.setUserId(dto.getUserId());
         id.setStockId(Long.parseLong(dto.getStockId()));
         cartItem.setId(id);
-        cartItem.setSymbol(dto.getSymbol());
-        cartItem.setPrice(dto.getPrice());
         cartItem.setQuantity(dto.getQuantity());
         return cartItem;
     }

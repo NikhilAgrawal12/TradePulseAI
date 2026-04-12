@@ -9,6 +9,7 @@ public class CartItemResponseDTO {
     private String symbol;
     private BigDecimal price;
     private BigDecimal quantity;
+    private BigDecimal lineTotal;
 
     public Long getUserId() {
         return userId;
@@ -42,12 +43,21 @@ public class CartItemResponseDTO {
         this.price = price;
     }
 
+
     public BigDecimal getQuantity() {
         return quantity;
     }
 
     public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
+    }
+
+    public BigDecimal getLineTotal() {
+        return lineTotal;
+    }
+
+    public void setLineTotal(BigDecimal lineTotal) {
+        this.lineTotal = lineTotal;
     }
 }
 

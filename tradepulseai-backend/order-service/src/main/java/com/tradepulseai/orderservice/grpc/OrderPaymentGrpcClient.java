@@ -1,6 +1,7 @@
 package com.tradepulseai.orderservice.grpc;
 
 import com.tradepulseai.orderservice.model.CartItem;
+import com.tradepulseai.orderservice.service.StockQuote;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import order_payment.OrderPaymentRequest;
@@ -31,19 +32,28 @@ public class OrderPaymentGrpcClient {
         this.blockingStub = OrderPaymentServiceGrpc.newBlockingStub(channel);
     }
 
-    public OrderPaymentResponse completePayment(Long orderId, CartItem cartItem, String userEmail) {
+    public OrderPaymentResponse completePayment(Long orderId, CartItem cartItem, String userEmail, StockQuote stockQuote) {
         OrderPaymentRequest request = OrderPaymentRequest.newBuilder()
                 .setCartItemId(String.valueOf(orderId))
                 .setUserEmail(userEmail)
                 .setStockId(String.valueOf(cartItem.getStockId()))
-                .setSymbol(cartItem.getSymbol())
-                .setPrice(cartItem.getPrice().doubleValue())
+                .setSymbol(stockQuote.symbol())
+                .setPrice(stockQuote.unitPrice().doubleValue())
                 .setQuantity(toGrpcQuantity(cartItem))
                 .build();
 
         OrderPaymentResponse response = blockingStub.completePayment(request);
         log.info("OrderPayment gRPC response: {}", response);
         return response;
+    }
+
+    public OrderPaymentResponse completePayment(Long orderId, CartItem cartItem, String userEmail) {
+        return completePayment(
+                orderId,
+                cartItem,
+                userEmail,
+                new StockQuote(cartItem.getStockId(), String.valueOf(cartItem.getStockId()), java.math.BigDecimal.ZERO.setScale(4, java.math.RoundingMode.HALF_UP))
+        );
     }
 
     private int toGrpcQuantity(CartItem cartItem) {

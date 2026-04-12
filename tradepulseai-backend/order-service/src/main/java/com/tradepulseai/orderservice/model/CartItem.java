@@ -17,12 +17,6 @@ public class CartItem {
     @EmbeddedId
     private CartItemId id;
 
-    @Column(name = "symbol", nullable = false)
-    private String symbol;
-
-    @Column(name = "price", nullable = false, precision = 19, scale = 4)
-    private BigDecimal price;
-
     @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
     private BigDecimal quantity;
 
@@ -63,21 +57,6 @@ public class CartItem {
         return id != null ? id.getStockId() : null;
     }
 
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
 
     public BigDecimal getQuantity() {
         return quantity;
