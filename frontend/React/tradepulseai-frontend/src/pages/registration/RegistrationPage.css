@@ -6,9 +6,9 @@
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at 12% 12%, rgba(109, 42, 163, 0.2), transparent 42%),
-    radial-gradient(circle at 88% 88%, rgba(77, 91, 215, 0.18), transparent 40%),
-    linear-gradient(135deg, #f7f8ff 0%, #ecf1ff 50%, #f8fbff 100%);
+    radial-gradient(circle at 12% 12%, rgba(34, 197, 94, 0.2), transparent 42%),
+    radial-gradient(circle at 88% 88%, rgba(34, 197, 94, 0.18), transparent 40%),
+    linear-gradient(135deg, #f7fef5 0%, #ecf5ed 50%, #f7fef5 100%);
 }
 
 .registration-card {
@@ -21,7 +21,7 @@
 }
 
 .registration-eyebrow {
-  color: #6d2aa3;
+  color: #15803d;
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -85,7 +85,7 @@
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #4d5bd7;
+  color: #22c55e;
   padding: 8px 12px;
   border-radius: 8px;
   transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -101,7 +101,7 @@
 }
 
 .password-toggle:focus-visible {
-  outline: 2px solid rgba(109, 42, 163, 0.3);
+  outline: 2px solid rgba(21, 128, 61, 0.3);
   outline-offset: 1px;
 }
 
@@ -117,8 +117,8 @@
 .registration-form input[type="date"]:focus,
 .registration-form select:focus {
   outline: none;
-  border-color: #6d2aa3;
-  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.15);
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
   background-color: #ffffff;
 }
 
@@ -148,14 +148,14 @@
   font-size: 0.95rem;
   font-weight: 700;
   color: #ffffff;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
-  box-shadow: 0 12px 24px rgba(77, 91, 215, 0.25);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.25);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .registration-submit-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 26px rgba(77, 91, 215, 0.32);
+  box-shadow: 0 14px 26px rgba(34, 197, 94, 0.32);
 }
 
 .registration-submit-btn:active {
@@ -163,7 +163,7 @@
 }
 
 .registration-submit-btn:focus-visible {
-  outline: 3px solid rgba(77, 91, 215, 0.35);
+  outline: 3px solid rgba(34, 197, 94, 0.35);
   outline-offset: 2px;
 }
 
@@ -174,7 +174,7 @@
 }
 
 .already-account-text a {
-  color: #4d5bd7;
+  color: #22c55e;
   font-weight: 700;
   text-decoration: none;
 }
@@ -209,7 +209,7 @@
 
 .registration-submit-btn:disabled:hover {
   transform: none;
-  box-shadow: 0 12px 24px rgba(77, 91, 215, 0.25);
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.25);
 }
 
 @media (max-width: 520px) {

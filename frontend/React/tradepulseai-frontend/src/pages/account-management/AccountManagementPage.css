@@ -4,9 +4,9 @@
   margin-top: 60px;
   padding: 40px 24px;
   background:
-    radial-gradient(circle at 5% 10%, rgba(109, 42, 163, 0.14), transparent 38%),
-    radial-gradient(circle at 92% 90%, rgba(77, 91, 215, 0.14), transparent 38%),
-    linear-gradient(135deg, #f4f6ff 0%, #ecf1ff 50%, #f8fbff 100%);
+    radial-gradient(circle at 5% 10%, rgba(34, 197, 94, 0.14), transparent 38%),
+    radial-gradient(circle at 92% 90%, rgba(34, 197, 94, 0.14), transparent 38%),
+    linear-gradient(135deg, #f0fdf4 0%, #ecf5ed 50%, #f7fef5 100%);
 }
 
 /* ── Two-column layout ── */
@@ -42,7 +42,7 @@
   width: 68px;
   height: 68px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6d2aa3, #4d5bd7);
+  background: linear-gradient(135deg, #15803d, #22c55e);
   color: #fff;
   font-size: 1.4rem;
   font-weight: 700;
@@ -50,7 +50,7 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto 12px;
-  box-shadow: 0 6px 18px rgba(109, 42, 163, 0.35);
+  box-shadow: 0 6px 18px rgba(34, 197, 94, 0.35);
 }
 
 .am-avatar-name {
@@ -87,13 +87,13 @@
 }
 
 .am-nav-btn:hover {
-  background: #f0edfc;
+  background: #f0fdf4;
   color: #1f2440;
 }
 
 .am-nav-btn.active {
-  background: linear-gradient(135deg, rgba(109, 42, 163, 0.12), rgba(77, 91, 215, 0.12));
-  color: #5a1a8a;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.12));
+  color: #15803d;
 }
 
 /* ─────────────── Panel ─────────────── */
@@ -169,8 +169,8 @@
 .am-group input:focus,
 .am-group select:focus {
   outline: none;
-  border-color: #6d2aa3;
-  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.15);
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
   background: #ffffff;
 }
 
@@ -188,21 +188,21 @@
   font-size: 0.93rem;
   font-weight: 700;
   color: #ffffff;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
-  box-shadow: 0 8px 20px rgba(77, 91, 215, 0.25);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.25);
   transition: transform 0.18s, box-shadow 0.18s;
   cursor: pointer;
 }
 
 .am-btn-save:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(77, 91, 215, 0.32);
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.32);
 }
 
 .am-btn-save:active { transform: translateY(0); }
 
 .am-btn-save:focus-visible {
-  outline: 3px solid rgba(77, 91, 215, 0.35);
+  outline: 3px solid rgba(34, 197, 94, 0.35);
   outline-offset: 2px;
 }
 
@@ -219,8 +219,8 @@
 }
 
 .am-btn-cancel:hover {
-  background: #f5f3ff;
-  border-color: #b8b0e8;
+  background: #f0fdf4;
+  border-color: #86efac;
 }
 
 /* ── Security section ── */
@@ -277,8 +277,8 @@
   border-radius: 10px;
   font-size: 0.88rem;
   font-weight: 600;
-  background: #f1f4ff;
-  color: #35407a;
+  background: #ecf5ed;
+  color: #157746;
 }
 
 .am-message.am-error {
@@ -288,9 +288,9 @@
 }
 
 .am-message.am-success {
-  background: #ecfff5;
+  background: #ecf5ed;
   color: #157746;
-  border: 1px solid rgba(25, 140, 83, 0.25);
+  border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
 /* ── Responsive ── */

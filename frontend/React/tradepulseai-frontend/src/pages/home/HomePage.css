@@ -2,9 +2,9 @@
   margin-top: 60px;
   padding: 34px 20px 56px;
   background:
-    radial-gradient(circle at 4% 8%, rgba(173, 110, 255, 0.14), transparent 32%),
-    radial-gradient(circle at 96% 92%, rgba(74, 184, 255, 0.1), transparent 36%),
-    linear-gradient(180deg, #f2f5ff 0%, #f9fbff 100%);
+    radial-gradient(circle at 4% 8%, rgba(34, 197, 94, 0.14), transparent 32%),
+    radial-gradient(circle at 96% 92%, rgba(34, 197, 94, 0.1), transparent 36%),
+    linear-gradient(180deg, #f0fdf4 0%, #f7fef5 100%);
   min-height: calc(100vh - 60px);
 }
 
@@ -29,7 +29,7 @@
   width: 210px;
   height: 210px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(113, 70, 231, 0.18) 0%, rgba(113, 70, 231, 0) 70%);
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.18) 0%, rgba(34, 197, 94, 0) 70%);
 }
 
 .home-hero h1 {
@@ -63,14 +63,14 @@
 
 .home-btn-primary {
   color: #ffffff;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
-  box-shadow: 0 10px 22px rgba(77, 91, 215, 0.28);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  box-shadow: 0 10px 22px rgba(34, 197, 94, 0.28);
 }
 
 .home-btn-secondary {
-  color: #4d5bd7;
-  background: #eef1ff;
-  border: 1px solid #ced6ff;
+  color: #22c55e;
+  background: #ecf5ed;
+  border: 1px solid #b8e6c8;
 }
 
 .home-btn-primary:hover,
@@ -117,8 +117,8 @@
 
 .stock-search-input:focus {
   outline: none;
-  border-color: #6d2aa3;
-  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.15);
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
 }
 
 .stocks-grid {
@@ -287,14 +287,14 @@
 }
 
 .stock-add-to-cart-btn {
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(77, 91, 215, 0.2);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
 }
 
 .stock-add-to-cart-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(77, 91, 215, 0.28);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.28);
 }
 
 .stock-add-to-watchlist-btn {

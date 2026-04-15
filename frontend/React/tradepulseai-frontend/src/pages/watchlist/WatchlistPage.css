@@ -3,7 +3,7 @@
   margin-top: 60px;
   min-height: calc(100vh - 60px);
   padding: 32px 24px 60px;
-  background: linear-gradient(180deg, #f4f6ff 0%, #f9fbff 100%);
+  background: linear-gradient(180deg, #f0fdf4 0%, #f7fef5 100%);
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
@@ -70,8 +70,8 @@
 
 .wl-search:focus {
   outline: none;
-  border-color: #6d2aa3;
-  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.15);
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
 }
 
 .wl-add-btn {
@@ -81,16 +81,16 @@
   font-size: 0.92rem;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
   cursor: pointer;
   white-space: nowrap;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 6px 16px rgba(77, 91, 215, 0.25);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.25);
 }
 
 .wl-add-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(77, 91, 215, 0.32);
+  box-shadow: 0 10px 22px rgba(34, 197, 94, 0.32);
 }
 
 /* ── Add panel ── */
@@ -132,8 +132,8 @@
 
 .wl-add-search input:focus {
   outline: none;
-  border-color: #6d2aa3;
-  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.12);
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
 }
 
 .wl-add-dropdown {
@@ -166,8 +166,8 @@
 }
 
 .wl-add-option:last-child { border-bottom: none; }
-.wl-add-option:hover      { background: #f4f6ff; }
-.wl-add-option.selected   { background: #ede9ff; }
+.wl-add-option:hover      { background: #f0fdf4; }
+.wl-add-option.selected   { background: #ecf5ed; }
 
 .wl-add-fields {
   display: flex;
@@ -202,7 +202,7 @@
   font-size: 0.9rem;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
   cursor: pointer;
 }
 
@@ -228,7 +228,7 @@
 }
 
 .wl-table thead tr {
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
   color: #fff;
 }
 
@@ -250,7 +250,7 @@
 
 .wl-table tbody tr:last-child td { border-bottom: none; }
 
-.wl-table tbody tr:hover { background: #f7f8ff; }
+.wl-table tbody tr:hover { background: #f0fdf4; }
 
 /* ── Row tints ── */
 .row-green {

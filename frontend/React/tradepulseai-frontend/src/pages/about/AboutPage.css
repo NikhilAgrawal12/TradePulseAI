@@ -7,7 +7,7 @@
 
 .about-eyebrow {
   display: inline-block;
-  color: #6d2aa3;
+  color: #15803d;
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -24,9 +24,9 @@
   justify-content: space-between;
   gap: 48px;
   background:
-    radial-gradient(circle at 0% 50%, rgba(109, 42, 163, 0.18), transparent 50%),
-    radial-gradient(circle at 100% 20%, rgba(77, 91, 215, 0.16), transparent 50%),
-    linear-gradient(135deg, #0d0d1a 0%, #1a1040 60%, #0f1535 100%);
+    radial-gradient(circle at 0% 50%, rgba(34, 197, 94, 0.18), transparent 50%),
+    radial-gradient(circle at 100% 20%, rgba(34, 197, 94, 0.16), transparent 50%),
+    linear-gradient(135deg, #0d1b0a 0%, #1a2e17 60%, #0f1f0d 100%);
   color: #fff;
   overflow: hidden;
   position: relative;
@@ -38,7 +38,7 @@
 }
 
 .about-hero-inner .about-eyebrow {
-  color: #b48cff;
+  color: #86efac;
 }
 
 .about-hero h1 {
@@ -72,14 +72,14 @@
   font-size: 0.95rem;
   text-decoration: none;
   color: #fff;
-  background: linear-gradient(135deg, #6d2aa3, #4d5bd7);
-  box-shadow: 0 10px 24px rgba(77, 91, 215, 0.35);
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.35);
   transition: transform 0.18s, box-shadow 0.18s;
 }
 
 .about-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(77, 91, 215, 0.45);
+  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.45);
 }
 
 .about-btn-secondary {
@@ -89,8 +89,8 @@
   font-weight: 700;
   font-size: 0.95rem;
   text-decoration: none;
-  color: #d0c8ff;
-  border: 1.5px solid rgba(200, 190, 255, 0.4);
+  color: #86efac;
+  border: 1.5px solid rgba(132, 204, 22, 0.4);
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(4px);
   transition: background 0.18s, border-color 0.18s;
@@ -98,7 +98,7 @@
 
 .about-btn-secondary:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(200, 190, 255, 0.7);
+  border-color: rgba(132, 204, 22, 0.7);
 }
 
 /* Decorative rings */
@@ -115,12 +115,12 @@
 .hero-ring {
   position: absolute;
   border-radius: 50%;
-  border: 1.5px solid rgba(180, 140, 255, 0.25);
+  border: 1.5px solid rgba(132, 204, 22, 0.25);
 }
 
 .hero-ring-1 { width: 320px; height: 320px; }
-.hero-ring-2 { width: 220px; height: 220px; border-color: rgba(180, 140, 255, 0.4); }
-.hero-ring-3 { width: 120px; height: 120px; border-color: rgba(180, 140, 255, 0.55); }
+.hero-ring-2 { width: 220px; height: 220px; border-color: rgba(132, 204, 22, 0.4); }
+.hero-ring-3 { width: 120px; height: 120px; border-color: rgba(132, 204, 22, 0.55); }
 
 .hero-centre-icon {
   font-size: 3.2rem;
@@ -158,7 +158,7 @@
   display: block;
   font-size: 2rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #6d2aa3, #4d5bd7);
+  background: linear-gradient(135deg, #15803d, #22c55e);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -178,7 +178,7 @@
   align-items: center;
   gap: 60px;
   padding: 80px 60px;
-  background: #f7f8ff;
+  background: #f0fdf4;
   flex-wrap: wrap;
 }
 
@@ -267,8 +267,8 @@
 }
 
 .about-feature-card {
-  background: #f7f8ff;
-  border: 1px solid rgba(84, 63, 160, 0.1);
+  background: #f0fdf4;
+  border: 1px solid rgba(34, 197, 94, 0.1);
   border-radius: 16px;
   padding: 28px 24px;
   transition: transform 0.2s, box-shadow 0.2s;
@@ -301,7 +301,7 @@
 /* ── Roadmap ── */
 .about-roadmap {
   padding: 80px 60px;
-  background: #f7f8ff;
+  background: #f0fdf4;
 }
 
 .about-roadmap-list {
@@ -349,7 +349,7 @@
 .about-cta {
   text-align: center;
   padding: 80px 24px;
-  background: linear-gradient(135deg, #0d0d1a 0%, #1a1040 60%, #0f1535 100%);
+  background: linear-gradient(135deg, #0d1b0a 0%, #1a2e17 60%, #0f1f0d 100%);
   color: #fff;
 }
 

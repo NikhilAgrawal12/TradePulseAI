@@ -2,7 +2,7 @@
   margin-top: 60px;
   min-height: calc(100vh - 60px);
   padding: 40px 24px 60px;
-  background: linear-gradient(180deg, #f4f6ff 0%, #f9fbff 100%);
+  background: linear-gradient(180deg, #f0fdf4 0%, #f7fef5 100%);
 }
 
 .checkout-container {
@@ -19,7 +19,7 @@
 /* ── Empty state ── */
 .checkout-empty {
   background: #fff;
-  border: 1px dashed #ced6ff;
+  border: 1px dashed #b8e6c8;
   border-radius: 16px;
   padding: 48px 20px;
   text-align: center;
@@ -33,18 +33,18 @@
 
 .continue-shopping-btn {
   display: inline-block;
-  color: #4d5bd7;
+  color: #22c55e;
   font-weight: 700;
   text-decoration: none;
   padding: 10px 14px;
-  border: 1px solid #ced6ff;
+  border: 1px solid #b8e6c8;
   border-radius: 8px;
-  background: #eef1ff;
+  background: #ecf5ed;
   transition: background 0.15s;
 }
 
 .continue-shopping-btn:hover {
-  background: #dce1ff;
+  background: #d4f0e1;
 }
 
 /* ── Table ── */
@@ -64,7 +64,7 @@
 }
 
 .checkout-table thead {
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
   color: #fff;
 }
 
@@ -88,7 +88,7 @@
 }
 
 .checkout-table tbody tr:hover {
-  background: #f7f8ff;
+  background: #f0fdf4;
 }
 
 .cart-symbol {
@@ -113,8 +113,8 @@
 
 .quantity-input:focus {
   outline: none;
-  border-color: #6d2aa3;
-  box-shadow: 0 0 0 3px rgba(109, 42, 163, 0.12);
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
 }
 
 /* ── Remove button ── */
@@ -171,7 +171,7 @@
 }
 
 .total-row strong {
-  color: #6d2aa3;
+  color: #15803d;
   font-size: 1.35rem;
 }
 
@@ -190,21 +190,21 @@
   font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(77, 91, 215, 0.25);
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.25);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .checkout-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(77, 91, 215, 0.32);
+  box-shadow: 0 12px 26px rgba(34, 197, 94, 0.32);
 }
 
 .continue-shopping {
   display: block;
   text-align: center;
-  color: #4d5bd7;
+  color: #22c55e;
   text-decoration: none;
   font-weight: 600;
   padding: 10px 0;
@@ -215,7 +215,7 @@
 }
 
 .continue-shopping:hover {
-  color: #6d2aa3;
+  color: #15803d;
 }
 
 /* ── Responsive ── */

@@ -2,7 +2,7 @@
   margin-top: 60px;
   min-height: calc(100vh - 60px);
   padding: 34px 20px 60px;
-  background: linear-gradient(180deg, #f4f6ff 0%, #f9fbff 100%);
+  background: linear-gradient(180deg, #f0fdf4 0%, #f7fef5 100%);
 }
 
 .orders-container {
@@ -36,7 +36,7 @@
   text-decoration: none;
   color: #fff;
   font-weight: 700;
-  background: linear-gradient(135deg, #6d2aa3 0%, #4d5bd7 100%);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
 }
 
 .orders-list {
@@ -69,7 +69,7 @@
 
 .order-total {
   font-weight: 800;
-  color: #6d2aa3;
+  color: #15803d;
 }
 
 .order-items {
