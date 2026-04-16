@@ -100,12 +100,18 @@
 }
 
 .header .logo-link {
+  height: 100%;
   padding: 4px 8px;
+  border-radius: 12px;
 }
 
 .header .logo {
-  height: 42px;
-  width: 88px;
+  display: block;
+  height: 100%;
+  width: auto;
+  max-height: 52px;
+  max-width: 168px;
+  object-fit: contain;
   filter: drop-shadow(0 3px 8px rgba(7, 50, 31, 0.38));
 }
 
@@ -306,8 +312,8 @@
   }
 
   .header .logo {
-    height: 34px;
-    width: 72px;
+    max-height: 44px;
+    max-width: 140px;
   }
 
   .header .center-section,

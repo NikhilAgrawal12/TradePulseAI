@@ -94,7 +94,7 @@ export function Header() {
             <div className="header-inner">
                 <div className="left-section">
                     <Link to="/" className="header-link logo-link" aria-label="TradePulseAI home">
-                        <img className="logo" src="images/logo.png" alt="TradePulseAI" />
+                        <img className="logo" src="/images/logo.png" alt="TradePulseAI" />
                     </Link>
                 </div>
 
