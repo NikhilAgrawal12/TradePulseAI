@@ -12,15 +12,15 @@
 
 .orders-container h1 {
   margin: 0 0 18px;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .orders-empty,
 .order-card {
   background: #fff;
-  border: 1px solid rgba(84, 63, 160, 0.12);
+  border: 1px solid rgba(21, 128, 61, 0.12);
   border-radius: 16px;
-  box-shadow: 0 10px 32px rgba(36, 16, 77, 0.08);
+  box-shadow: 0 10px 32px rgba(21, 128, 61, 0.1);
 }
 
 .orders-empty {
@@ -58,12 +58,12 @@
 .order-card-header h2 {
   margin: 0;
   font-size: 1rem;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .order-card-header p {
   margin: 4px 0 0;
-  color: #6b7394;
+  color: #4d735f;
   font-size: 0.86rem;
 }
 
@@ -74,8 +74,8 @@
 
 .order-items {
   margin-top: 12px;
-  border-top: 1px solid #ebeffa;
-  border-bottom: 1px solid #ebeffa;
+  border-top: 1px solid #e6f4ec;
+  border-bottom: 1px solid #e6f4ec;
   padding: 10px 0;
 }
 
@@ -85,7 +85,7 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  color: #4f5677;
+  color: #3c6a54;
 }
 
 .order-summary {
@@ -95,8 +95,7 @@
 .order-summary .grand-total {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid #ebeffa;
+  border-top: 1px solid #e6f4ec;
   font-weight: 700;
-  color: #1f2440;
+  color: #14532d;
 }
-

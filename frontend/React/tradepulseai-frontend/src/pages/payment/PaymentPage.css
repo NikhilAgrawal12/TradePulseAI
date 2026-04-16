@@ -18,9 +18,9 @@
 .payment-success,
 .payment-empty {
   background: #fff;
-  border: 1px solid rgba(84, 63, 160, 0.12);
+  border: 1px solid rgba(21, 128, 61, 0.12);
   border-radius: 16px;
-  box-shadow: 0 10px 32px rgba(36, 16, 77, 0.08);
+  box-shadow: 0 10px 32px rgba(21, 128, 61, 0.1);
   padding: 22px;
 }
 
@@ -28,7 +28,7 @@
 .payment-success h1,
 .payment-empty h1 {
   margin: 0 0 16px;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .payment-form {
@@ -39,11 +39,11 @@
 .payment-form label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #2a3358;
+  color: #25553f;
 }
 
 .payment-form input {
-  border: 1px solid #d4dbf2;
+  border: 1px solid #bbe5ca;
   border-radius: 10px;
   padding: 11px 12px;
   font-size: 0.95rem;
@@ -77,11 +77,11 @@
 
 .payment-summary-card h2 {
   margin: 0 0 12px;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .payment-items {
-  border-bottom: 1px solid #ebeffa;
+  border-bottom: 1px solid #e6f4ec;
   margin-bottom: 10px;
   padding-bottom: 10px;
 }
@@ -92,16 +92,16 @@
   justify-content: space-between;
   gap: 8px;
   margin: 8px 0;
-  color: #4f5677;
+  color: #3c6a54;
 }
 
 .payment-summary-row.total {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #ebeffa;
+  border-top: 1px solid #e6f4ec;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .payment-success,
@@ -124,21 +124,21 @@
 .payment-success-card {
   width: min(420px, 92vw);
   background: #fff;
-  border: 1px solid rgba(84, 63, 160, 0.18);
+  border: 1px solid rgba(21, 128, 61, 0.18);
   border-radius: 14px;
-  box-shadow: 0 18px 48px rgba(36, 16, 77, 0.24);
+  box-shadow: 0 18px 48px rgba(21, 128, 61, 0.24);
   padding: 22px;
   text-align: center;
 }
 
 .payment-success-card h2 {
   margin: 0 0 10px;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .payment-success-card p {
   margin: 0;
-  color: #4f5677;
+  color: #3c6a54;
 }
 
 .payment-success-card .payment-primary-btn {
@@ -151,4 +151,3 @@
     grid-template-columns: 1fr;
   }
 }
-

@@ -14,9 +14,9 @@
 .login-card {
   width: min(440px, 92vw);
   background-color: #ffffff;
-  border: 1px solid rgba(84, 63, 160, 0.12);
+  border: 1px solid rgba(21, 128, 61, 0.14);
   border-radius: 18px;
-  box-shadow: 0 25px 70px rgba(36, 16, 77, 0.12);
+  box-shadow: 0 25px 70px rgba(21, 128, 61, 0.14);
   padding: 34px 30px 28px;
 }
 
@@ -32,12 +32,12 @@
 .login-card h1 {
   margin: 0;
   font-size: clamp(1.6rem, 3vw, 1.95rem);
-  color: #1f2440;
+  color: #14532d;
 }
 
 .login-subtitle {
   margin-top: 12px;
-  color: #4f5677;
+  color: #3c6a54;
   line-height: 1.5;
 }
 
@@ -50,15 +50,15 @@
 .login-form label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #262f52;
+  color: #25553f;
 }
 
 .login-form input[type="email"],
 .login-form input[type="password"] {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #d2d8f2;
-  background-color: #fbfcff;
+  border: 1px solid #bbe5ca;
+  background-color: #f8fff9;
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 0.95rem;
@@ -86,7 +86,7 @@
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: #4f5677;
+  color: #3c6a54;
   cursor: pointer;
 }
 
@@ -136,11 +136,11 @@
 .create-account-text {
   margin-top: 24px;
   text-align: center;
-  color: #4f5677;
+  color: #3c6a54;
 }
 
 .create-account-text a {
-  color: #22c55e;
+  color: #15803d;
   font-weight: 700;
   text-decoration: none;
 }

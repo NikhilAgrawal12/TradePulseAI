@@ -23,9 +23,9 @@
   width: 230px;
   flex-shrink: 0;
   background: #ffffff;
-  border: 1px solid rgba(84, 63, 160, 0.12);
+  border: 1px solid rgba(21, 128, 61, 0.12);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(36, 16, 77, 0.09);
+  box-shadow: 0 10px 40px rgba(21, 128, 61, 0.1);
   padding: 24px 16px;
   position: sticky;
   top: 80px;
@@ -34,7 +34,7 @@
 .am-avatar {
   text-align: center;
   padding-bottom: 20px;
-  border-bottom: 1px solid #edeaf8;
+  border-bottom: 1px solid #e8f7ee;
   margin-bottom: 16px;
 }
 
@@ -55,12 +55,12 @@
 
 .am-avatar-name {
   font-weight: 700;
-  color: #1f2440;
+  color: #14532d;
   font-size: 0.95rem;
 }
 
 .am-avatar-email {
-  color: #6b7394;
+  color: #4d735f;
   font-size: 0.82rem;
   margin-top: 4px;
 }
@@ -81,14 +81,14 @@
   padding: 11px 14px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #4f5677;
+  color: #3c6a54;
   cursor: pointer;
   transition: background 0.18s, color 0.18s;
 }
 
 .am-nav-btn:hover {
   background: #f0fdf4;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .am-nav-btn.active {
@@ -104,27 +104,27 @@
 
 .am-form {
   background: #ffffff;
-  border: 1px solid rgba(84, 63, 160, 0.12);
+  border: 1px solid rgba(21, 128, 61, 0.12);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(36, 16, 77, 0.09);
+  box-shadow: 0 10px 40px rgba(21, 128, 61, 0.1);
   padding: 30px 28px;
 }
 
 .am-form-header {
   margin-bottom: 24px;
   padding-bottom: 18px;
-  border-bottom: 1px solid #edeaf8;
+  border-bottom: 1px solid #e8f7ee;
 }
 
 .am-form-header h2 {
   margin: 0;
   font-size: 1.35rem;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .am-form-header p {
   margin-top: 6px;
-  color: #6b7394;
+  color: #4d735f;
   font-size: 0.9rem;
 }
 
@@ -149,18 +149,18 @@
 .am-group label {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #262f52;
+  color: #25553f;
 }
 
 .am-group input,
 .am-group select {
-  border: 1px solid #d2d8f2;
-  background: #fbfcff;
+  border: 1px solid #bbe5ca;
+  background: #f8fff9;
   border-radius: 10px;
   padding: 11px 13px;
   font-size: 0.93rem;
   font-family: inherit;
-  color: #1f2440;
+  color: #14532d;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   width: 100%;
   box-sizing: border-box;
@@ -207,13 +207,13 @@
 }
 
 .am-btn-cancel {
-  border: 1px solid #d2d8f2;
+  border: 1px solid #bbe5ca;
   background: #ffffff;
   border-radius: 10px;
   padding: 11px 22px;
   font-size: 0.93rem;
   font-weight: 600;
-  color: #4f5677;
+  color: #3c6a54;
   cursor: pointer;
   transition: background 0.18s, border-color 0.18s;
 }
@@ -232,7 +232,7 @@
 .am-danger-zone h3 {
   margin: 0 0 16px;
   font-size: 1rem;
-  color: #1f2440;
+  color: #14532d;
 }
 
 /* Danger zone */

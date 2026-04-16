@@ -12,10 +12,10 @@
   max-width: 1100px;
   margin: 0 auto 28px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 249, 255, 0.94) 100%);
-  border: 1px solid rgba(101, 85, 190, 0.18);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 253, 244, 0.94) 100%);
+  border: 1px solid rgba(21, 128, 61, 0.18);
   border-radius: 20px;
-  box-shadow: 0 18px 42px rgba(35, 16, 77, 0.1);
+  box-shadow: 0 18px 42px rgba(21, 128, 61, 0.12);
   padding: 32px 26px;
   position: relative;
   overflow: hidden;
@@ -35,11 +35,11 @@
 .home-hero h1 {
   margin: 8px 0 10px;
   font-size: clamp(1.45rem, 2.8vw, 2.28rem);
-  color: #1d2548;
+  color: #14532d;
 }
 
 .home-subtitle {
-  color: #4b547b;
+  color: #2f5f4b;
   line-height: 1.65;
   max-width: 760px;
 }
@@ -68,9 +68,9 @@
 }
 
 .home-btn-secondary {
-  color: #22c55e;
-  background: #ecf5ed;
-  border: 1px solid #b8e6c8;
+  color: #15803d;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
 }
 
 .home-btn-primary:hover,
@@ -87,9 +87,9 @@
 
 .home-stocks-section {
   background: #ffffff;
-  border: 1px solid rgba(84, 63, 160, 0.14);
+  border: 1px solid rgba(21, 128, 61, 0.14);
   border-radius: 20px;
-  box-shadow: 0 16px 36px rgba(36, 16, 77, 0.08);
+  box-shadow: 0 16px 36px rgba(21, 128, 61, 0.09);
   padding: 24px;
 }
 
@@ -102,15 +102,15 @@
   margin-bottom: 8px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #262f52;
+  color: #1f5139;
 }
 
 .stock-search-input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #d2d8f2;
+  border: 1px solid #bbe5ca;
   border-radius: 10px;
-  background: #fbfcff;
+  background: #f8fff9;
   padding: 12px 14px;
   font-size: 0.95rem;
 }
@@ -129,9 +129,9 @@
 }
 
 .stock-card {
-  border: 1px solid #e2e7fb;
+  border: 1px solid #d2f0dd;
   border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fff9 100%);
   padding: 13px;
   display: flex;
   flex-direction: column;
@@ -141,8 +141,8 @@
 
 .stock-card:hover {
   transform: translateY(-2px);
-  border-color: #ccd7ff;
-  box-shadow: 0 12px 24px rgba(43, 27, 106, 0.12);
+  border-color: #a9e4bf;
+  box-shadow: 0 12px 24px rgba(21, 128, 61, 0.14);
 }
 
 .stock-card-header {
@@ -157,12 +157,12 @@
 
 .stock-card-header h3 {
   margin: 0;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .stock-card-header p {
   margin: 4px 0 0;
-  color: #61688b;
+  color: #4a6b5b;
   font-size: 0.88rem;
   overflow-wrap: anywhere;
 }
@@ -199,7 +199,7 @@
 
 .stock-price-row strong {
   font-size: 1.15rem;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .price-up {
@@ -222,7 +222,7 @@
 .stock-meta-grid p {
   margin: 0;
   font-size: 0.82rem;
-  color: #4f5677;
+  color: #315b49;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -237,13 +237,13 @@
 
 .stock-meta-grid span {
   font-size: 0.72rem;
-  color: #7a83a8;
+  color: #5a8772;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .metric-value {
-  color: #2d3560;
+  color: #1f5139;
   font-size: 0.8rem;
   font-weight: 700;
   text-align: right;
@@ -255,7 +255,7 @@
 
 .stock-rating {
   margin-top: 3px;
-  color: #5d6691;
+  color: #4d735f;
   font-size: 0.82rem;
 }
 
@@ -310,36 +310,36 @@
 
 .empty-search-state {
   margin-top: 16px;
-  border: 1px dashed #ced6ff;
+  border: 1px dashed #9fd9b5;
   border-radius: 12px;
-  background: #f7f9ff;
+  background: #f3fff6;
   padding: 18px;
   text-align: center;
 }
 
 .clear-search-btn {
   margin-top: 8px;
-  border: 1px solid #cdd3f1;
+  border: 1px solid #b9e4c9;
   background: #fff;
   border-radius: 8px;
   padding: 8px 12px;
   font-weight: 600;
-  color: #444d77;
+  color: #295944;
 }
 
 .market-news-ticker {
-  border: 1px solid rgba(84, 63, 160, 0.18);
+  border: 1px solid rgba(21, 128, 61, 0.18);
   border-radius: 14px;
   background: #ffffff;
   overflow: hidden;
-  box-shadow: 0 8px 20px rgba(36, 16, 77, 0.06);
+  box-shadow: 0 8px 20px rgba(21, 128, 61, 0.08);
 }
 
 .ticker-track {
   white-space: nowrap;
   display: inline-block;
   padding: 10px 0;
-  color: #3f4871;
+  color: #25553f;
   font-weight: 600;
   animation: ticker-slide 35s linear infinite;
 }
@@ -365,9 +365,9 @@
 .daily-summary-card,
 .indices-section {
   background: #ffffff;
-  border: 1px solid rgba(84, 63, 160, 0.14);
+  border: 1px solid rgba(21, 128, 61, 0.14);
   border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(36, 16, 77, 0.08);
+  box-shadow: 0 12px 30px rgba(21, 128, 61, 0.09);
   padding: 20px;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
@@ -377,32 +377,32 @@
 .daily-summary-card:hover,
 .indices-section:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 34px rgba(36, 16, 77, 0.12);
+  box-shadow: 0 16px 34px rgba(21, 128, 61, 0.14);
 }
 
 .index-card {
-  border: 1px solid #e4e8fa;
+  border: 1px solid #d7f1e1;
   border-radius: 13px;
   padding: 12px;
-  background: #fbfcff;
+  background: #f8fff9;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .index-card:hover {
-  border-color: #ced7ff;
-  box-shadow: 0 8px 18px rgba(41, 24, 102, 0.1);
+  border-color: #a9e4bf;
+  box-shadow: 0 8px 18px rgba(21, 128, 61, 0.12);
 }
 
 .index-card p {
   margin: 0;
-  color: #5f678a;
+  color: #4d735f;
   font-size: 0.84rem;
 }
 
 .index-card strong {
   display: block;
   margin-top: 6px;
-  color: #1f2440;
+  color: #14532d;
 }
 
 .index-card span {
@@ -416,7 +416,7 @@
 
 .daily-summary-card p {
   margin: 10px 0 0;
-  color: #4f5677;
+  color: #315b49;
   line-height: 1.6;
 }
 

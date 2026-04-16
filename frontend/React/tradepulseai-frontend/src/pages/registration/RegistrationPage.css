@@ -14,9 +14,9 @@
 .registration-card {
   width: min(500px, 94vw);
   background-color: #ffffff;
-  border: 1px solid rgba(84, 63, 160, 0.12);
+  border: 1px solid rgba(21, 128, 61, 0.14);
   border-radius: 18px;
-  box-shadow: 0 25px 70px rgba(36, 16, 77, 0.12);
+  box-shadow: 0 25px 70px rgba(21, 128, 61, 0.14);
   padding: 34px 30px 28px;
 }
 
@@ -32,12 +32,12 @@
 .registration-card h1 {
   margin: 0;
   font-size: clamp(1.6rem, 3vw, 2rem);
-  color: #1f2440;
+  color: #14532d;
 }
 
 .registration-subtitle {
   margin-top: 12px;
-  color: #4f5677;
+  color: #3c6a54;
   line-height: 1.5;
 }
 
@@ -50,7 +50,7 @@
 .registration-form label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #262f52;
+  color: #25553f;
 }
 
 .registration-form input[type="text"],
@@ -61,8 +61,8 @@
 .registration-form select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #d2d8f2;
-  background-color: #fbfcff;
+  border: 1px solid #bbe5ca;
+  background-color: #f8fff9;
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 0.95rem;
@@ -80,12 +80,12 @@
 }
 
 .password-toggle {
-  border: 1px solid #d2d8f2;
+  border: 1px solid #bbe5ca;
   background: #ffffff;
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #22c55e;
+  color: #15803d;
   padding: 8px 12px;
   border-radius: 8px;
   transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -96,8 +96,8 @@
 }
 
 .password-toggle:hover:not(:disabled) {
-  background-color: #f3f5ff;
-  border-color: #bcc6f5;
+  background-color: #f0fdf4;
+  border-color: #86efac;
 }
 
 .password-toggle:focus-visible {
@@ -128,7 +128,7 @@
   align-items: flex-start;
   gap: 8px;
   font-weight: 500;
-  color: #4f5677;
+  color: #3c6a54;
   line-height: 1.4;
   cursor: pointer;
 }
@@ -170,11 +170,11 @@
 .already-account-text {
   margin-top: 24px;
   text-align: center;
-  color: #4f5677;
+  color: #3c6a54;
 }
 
 .already-account-text a {
-  color: #22c55e;
+  color: #15803d;
   font-weight: 700;
   text-decoration: none;
 }

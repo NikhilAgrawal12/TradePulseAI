@@ -1,5 +1,7 @@
 .portfolio-page {
   padding: 84px 18px 28px;
+  background: linear-gradient(180deg, #f0fdf4 0%, #f7fef5 100%);
+  min-height: calc(100vh - 60px);
 }
 
 .portfolio-shell {
@@ -9,7 +11,7 @@
 
 .portfolio-shell h1 {
   margin: 0 0 14px;
-  color: #1d2542;
+  color: #14532d;
 }
 
 .portfolio-error {
@@ -26,7 +28,7 @@
 
 .portfolio-stat-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d7f1e1;
   border-radius: 12px;
   padding: 12px;
   display: flex;
@@ -35,18 +37,18 @@
 }
 
 .portfolio-stat-card span {
-  color: #5a647c;
+  color: #4d735f;
   font-size: 0.85rem;
 }
 
 .portfolio-stat-card strong {
-  color: #1d2542;
+  color: #14532d;
   font-size: 1.05rem;
 }
 
 .portfolio-panel {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d7f1e1;
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 16px;
@@ -54,7 +56,7 @@
 
 .portfolio-panel h2 {
   margin: 0 0 12px;
-  color: #1d2542;
+  color: #14532d;
 }
 
 .portfolio-table {
@@ -67,7 +69,7 @@
 .portfolio-table td {
   text-align: left;
   padding: 10px;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid #e8f7ee;
 }
 
 .portfolio-sell-action {
@@ -80,7 +82,7 @@
 .portfolio-sell-action button {
   height: 32px;
   border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #bbe5ca;
 }
 
 .portfolio-sell-action button {
@@ -103,4 +105,3 @@
 .negative {
   color: #b91c1c;
 }
-

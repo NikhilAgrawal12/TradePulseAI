@@ -1,8 +1,21 @@
+:root {
+    --green-100: #dcfce7;
+    --green-200: #bbf7d0;
+    --green-300: #86efac;
+    --green-500: #22c55e; /* medium green */
+    --green-600: #16a34a;
+    --green-700: #15803d; /* dark green */
+    --green-800: #166534;
+    --green-surface: #f0fdf4;
+    --green-surface-soft: #f7fef5;
+    --text-primary: #153a2a;
+    --text-muted: #35604d;
+    --border-soft: #b7e4c7;
+}
+
 body {
     font-family: Roboto, Arial;
-    color: rgb(33, 33, 33);
-    /* The <body> element has a default margin of 8px
-       on all sides. This removes the default margins. */
+    color: var(--text-primary);
     margin: 0;
 }
 
@@ -26,20 +39,20 @@ input, select, button {
 
 .button-primary {
     color: rgb(255, 255, 255);
-    background-color: rgb(34, 197, 94);
+    background: linear-gradient(135deg, var(--green-700) 0%, var(--green-500) 100%);
     border: 1px solid transparent;
     border-radius: 5px;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(220, 220, 220, 0.5);
+    box-shadow: 0 2px 8px rgba(21, 128, 61, 0.22);
 }
 
 .button-primary:hover {
-    background-color: rgba(34, 197, 94, 0.75);
+    background: linear-gradient(135deg, var(--green-800) 0%, var(--green-600) 100%);
     border: 1px solid transparent;
 }
 
 .button-primary:active {
-    background: rgba(34, 197, 94, 0.5);
+    background: var(--green-700);
     border-color: transparent;
     box-shadow: none;
 }
@@ -75,7 +88,7 @@ input, select, button {
 }
 
 .link-primary {
-    color: rgb(34, 197, 94);
+    color: var(--green-700);
     cursor: pointer;
 }
 
@@ -89,17 +102,17 @@ input, select, button {
 
 /* Styles for dropdown selectors. */
 select {
-    color: rgb(33, 33, 33);
+    color: var(--text-primary);
     background-color: rgb(255, 255, 255);
-    border: 1px solid rgb(200, 200, 200);
+    border: 1px solid var(--border-soft);
     border-radius: 5px;
     padding: 3px 5px;
     font-size: 15px;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(200, 200, 200, 0.2);
+    box-shadow: 0 1px 3px rgba(21, 128, 61, 0.12);
 }
 
 select:focus,
 input:focus {
-    outline: 2px solid rgb(34, 197, 94);
+    outline: 2px solid var(--green-600);
 }
