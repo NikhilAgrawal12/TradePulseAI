@@ -86,9 +86,11 @@ public class PortfolioService {
         for (PortfolioFillItemRequestDTO item : request.getItems()) {
             Long stockId = parseStockId(item.getStockId());
             PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, stockId)
-                    .orElseGet(() -> PortfolioMapper.newHolding(userId, item));
+                    .orElse(null);
 
-            if (holding.getId() != null && holding.getTotalQuantity() != null) {
+            if (holding == null) {
+                holding = PortfolioMapper.newHolding(userId, item);
+            } else {
                 mergeBuyIntoHolding(holding, item);
             }
 
