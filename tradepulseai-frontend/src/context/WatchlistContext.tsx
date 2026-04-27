@@ -1,0 +1,140 @@
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { WatchlistEntry } from "../types/watchlist";
+import { isUserAuthenticated, requireSignIn, showSignInRequiredMessage, subscribeToAuthChanges } from "../utils/auth";
+import { addWatchlistItem, clearWatchlistItems, fetchWatchlistItems, removeWatchlistItem, updateWatchlistItem } from "../utils/watchlistApi";
+
+const WATCHLIST_ERROR_MESSAGE = "Unable to update watchlist right now. Please try again.";
+
+type WatchlistContextType = {
+  watchlist: WatchlistEntry[];
+  totalWatchlistItems: number;
+  addToWatchlist: (stockId: string, quantity: number) => Promise<void>;
+  removeFromWatchlist: (stockId: string) => Promise<void>;
+  updateWatchlistEntry: (stockId: string, quantity: number) => Promise<void>;
+  clearWatchlist: () => Promise<void>;
+};
+
+const WatchlistContext = createContext<WatchlistContextType | undefined>(undefined);
+
+export function WatchlistProvider({ children }: { children: ReactNode }) {
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
+  const [authVersion, setAuthVersion] = useState(0);
+
+  useEffect(() => {
+    return subscribeToAuthChanges(() => {
+      setAuthVersion((current) => current + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWatchlist = async () => {
+      if (!isUserAuthenticated()) {
+        if (!cancelled) {
+          setWatchlist([]);
+        }
+        return;
+      }
+
+      try {
+        const items = await fetchWatchlistItems();
+        if (!cancelled) {
+          setWatchlist(items);
+        }
+      } catch {
+        if (!cancelled) {
+          setWatchlist([]);
+        }
+      }
+    };
+
+    void loadWatchlist();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authVersion]);
+
+  const addToWatchlist = async (stockId: string, quantity: number) => {
+    if (!isUserAuthenticated()) {
+      requireSignIn();
+      return;
+    }
+
+    try {
+      const updatedWatchlist = await addWatchlistItem({
+        stockId,
+        quantity,
+      });
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
+  };
+
+  const removeFromWatchlist = async (stockId: string) => {
+    if (!isUserAuthenticated()) {
+      requireSignIn();
+      return;
+    }
+
+    try {
+      const updatedWatchlist = await removeWatchlistItem(stockId);
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
+  };
+
+  const updateWatchlistEntry = async (stockId: string, quantity: number) => {
+    if (!isUserAuthenticated()) {
+      requireSignIn();
+      return;
+    }
+
+    if (quantity <= 0) {
+      await removeFromWatchlist(stockId);
+      return;
+    }
+
+    try {
+      const updatedWatchlist = await updateWatchlistItem(stockId, { quantity });
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
+  };
+
+  const clearWatchlist = async () => {
+    if (!isUserAuthenticated()) {
+      requireSignIn();
+      return;
+    }
+
+    try {
+      const updatedWatchlist = await clearWatchlistItems();
+      setWatchlist(updatedWatchlist);
+    } catch {
+      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
+    }
+  };
+
+  const totalWatchlistItems = useMemo(() => watchlist.reduce((sum, item) => sum + Number(item.quantity), 0), [watchlist]);
+
+  return (
+    <WatchlistContext.Provider
+      value={{ watchlist, totalWatchlistItems, addToWatchlist, removeFromWatchlist, updateWatchlistEntry, clearWatchlist }}
+    >
+      {children}
+    </WatchlistContext.Provider>
+  );
+}
+
+export function useWatchlist() {
+  const context = useContext(WatchlistContext);
+  if (!context) {
+    throw new Error("useWatchlist must be used within WatchlistProvider");
+  }
+  return context;
+}

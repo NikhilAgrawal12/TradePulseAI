@@ -1,0 +1,117 @@
+.portfolio-page {
+  padding: 84px 18px 28px;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(34, 197, 94, 0.18), transparent 34%),
+    radial-gradient(circle at 92% 88%, rgba(21, 128, 61, 0.14), transparent 38%),
+    linear-gradient(180deg, #ecfdf3 0%, #f7fef5 100%);
+  min-height: calc(100vh - 60px);
+}
+
+.portfolio-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.portfolio-shell h1 {
+  margin: 0 0 14px;
+  color: #14532d;
+}
+
+.portfolio-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.portfolio-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.portfolio-stat-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f3fff6 100%);
+  border: 1px solid #9ed8b5;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 8px 20px rgba(21, 128, 61, 0.08);
+}
+
+.portfolio-stat-card span {
+  color: #4d735f;
+  font-size: 0.85rem;
+}
+
+.portfolio-stat-card strong {
+  color: #14532d;
+  font-size: 1.05rem;
+}
+
+.portfolio-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f5fff8 100%);
+  border: 1px solid #9ed8b5;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 24px rgba(21, 128, 61, 0.1);
+}
+
+.portfolio-panel h2 {
+  margin: 0 0 12px;
+  color: #14532d;
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.portfolio-table th,
+.portfolio-table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #d9f1e4;
+}
+
+.portfolio-table th {
+  background: #15803d;
+  color: #ffffff;
+}
+
+.portfolio-sell-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.portfolio-sell-action select,
+.portfolio-sell-action button {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #bbe5ca;
+}
+
+.portfolio-sell-action button {
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  color: #ffffff;
+  border-color: #15803d;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.portfolio-sell-action button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.positive {
+  color: #0f8a44;
+}
+
+.negative {
+  color: #b91c1c;
+}

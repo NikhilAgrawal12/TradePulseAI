@@ -1,0 +1,401 @@
+/* ── Base ── */
+.about-page {
+  margin-top: 60px;
+  font-family: Roboto, Arial, sans-serif;
+  color: #14532d;
+}
+
+.about-eyebrow {
+  display: inline-block;
+  color: #15803d;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Hero ── */
+.about-hero {
+  min-height: 520px;
+  padding: 80px 60px 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  background:
+    radial-gradient(circle at 0% 50%, rgba(34, 197, 94, 0.18), transparent 50%),
+    radial-gradient(circle at 100% 20%, rgba(34, 197, 94, 0.16), transparent 50%),
+    linear-gradient(135deg, #0d1b0a 0%, #1a2e17 60%, #0f1f0d 100%);
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+.about-hero-inner {
+  max-width: 580px;
+  z-index: 1;
+}
+
+.about-hero-inner .about-eyebrow {
+  color: #86efac;
+}
+
+.about-hero h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  line-height: 1.15;
+  color: #fff;
+}
+
+.about-hero-sub {
+  margin-top: 20px;
+  color: #c5f4d4;
+  line-height: 1.7;
+  font-size: 1.05rem;
+  max-width: 500px;
+}
+
+.about-hero-ctas {
+  display: flex;
+  gap: 14px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+/* CTA buttons */
+.about-btn-primary {
+  display: inline-block;
+  padding: 13px 28px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.35);
+  transition: transform 0.18s, box-shadow 0.18s;
+}
+
+.about-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(34, 197, 94, 0.45);
+}
+
+.about-btn-secondary {
+  display: inline-block;
+  padding: 12px 26px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  color: #86efac;
+  border: 1.5px solid rgba(132, 204, 22, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(4px);
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.about-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(132, 204, 22, 0.7);
+}
+
+/* Decorative rings */
+.about-hero-graphic {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(132, 204, 22, 0.25);
+}
+
+.hero-ring-1 { width: 320px; height: 320px; }
+.hero-ring-2 { width: 220px; height: 220px; border-color: rgba(132, 204, 22, 0.4); }
+.hero-ring-3 { width: 120px; height: 120px; border-color: rgba(132, 204, 22, 0.55); }
+
+.hero-centre-icon {
+  font-size: 3.2rem;
+  z-index: 1;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* ── Stats strip ── */
+.about-stats {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #dff3e7;
+  box-shadow: 0 4px 20px rgba(21, 128, 61, 0.08);
+}
+
+.about-stat {
+  flex: 1;
+  min-width: 160px;
+  padding: 32px 24px;
+  text-align: center;
+  border-right: 1px solid #dff3e7;
+}
+
+.about-stat:last-child { border-right: none; }
+
+.about-stat strong {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.about-stat span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.88rem;
+  color: #4d735f;
+  font-weight: 500;
+}
+
+/* ── Mission ── */
+.about-mission {
+  display: flex;
+  align-items: center;
+  gap: 60px;
+  padding: 80px 60px;
+  background: #f0fdf4;
+  flex-wrap: wrap;
+}
+
+.about-mission-text {
+  flex: 1;
+  min-width: 280px;
+}
+
+.about-mission-text h2 {
+  margin: 0 0 20px;
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  line-height: 1.25;
+}
+
+.about-mission-text p {
+  color: #3c6a54;
+  line-height: 1.75;
+  margin-bottom: 14px;
+}
+
+/* Mission AI signal card */
+.about-mission-card {
+  flex-shrink: 0;
+  width: 270px;
+  background: #fff;
+  border: 1px solid rgba(21, 128, 61, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(21, 128, 61, 0.14);
+  padding: 26px 22px 18px;
+}
+
+.mission-pill {
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: 0.03em;
+}
+
+.mission-pill.green  { background: #eafaf2; color: #1a7a4a; }
+.mission-pill.red    { background: #fff0f0; color: #c0392b; }
+.mission-pill.yellow { background: #fffbea; color: #9a6c00; }
+
+.mission-card-label {
+  margin-top: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5a8772;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* ── Features ── */
+.about-features {
+  padding: 80px 60px;
+  background: #fff;
+}
+
+.about-section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.about-section-header h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+}
+
+.about-section-sub {
+  margin-top: 12px;
+  color: #4d735f;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.about-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 22px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.about-feature-card {
+  background: #f0fdf4;
+  border: 1px solid rgba(34, 197, 94, 0.1);
+  border-radius: 16px;
+  padding: 28px 24px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.about-feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(21, 128, 61, 0.12);
+}
+
+.feature-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 14px;
+}
+
+.about-feature-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  color: #14532d;
+}
+
+.about-feature-card p {
+  color: #4d735f;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── Roadmap ── */
+.about-roadmap {
+  padding: 80px 60px;
+  background: #f0fdf4;
+}
+
+.about-roadmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.about-roadmap-item {
+  background: #fff;
+  border: 1px solid rgba(21, 128, 61, 0.12);
+  border-radius: 14px;
+  padding: 26px 26px;
+}
+
+.roadmap-tag {
+  display: inline-block;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+
+.tag-soon    { background: #dcfce7; color: #166534; }
+.tag-planned { background: #bbf7d0; color: #14532d; }
+
+.about-roadmap-item h3 {
+  margin: 0 0 8px;
+  font-size: 1.08rem;
+  color: #14532d;
+}
+
+.about-roadmap-item p {
+  color: #4d735f;
+  font-size: 0.91rem;
+  line-height: 1.68;
+  margin: 0;
+}
+
+/* ── CTA banner ── */
+.about-cta {
+  text-align: center;
+  padding: 80px 24px;
+  background: linear-gradient(135deg, #0d1b0a 0%, #1a2e17 60%, #0f1f0d 100%);
+  color: #fff;
+}
+
+.about-cta h2 {
+  margin: 0 0 14px;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  color: #fff;
+}
+
+.about-cta p {
+  color: #c5f4d4;
+  margin-bottom: 32px;
+  font-size: 1.05rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .about-hero {
+    flex-direction: column;
+    padding: 60px 28px;
+    text-align: center;
+  }
+
+  .about-hero-ctas { justify-content: center; }
+  .about-hero-graphic { width: 220px; height: 220px; }
+  .hero-ring-1 { width: 220px; height: 220px; }
+  .hero-ring-2 { width: 150px; height: 150px; }
+  .hero-ring-3 { width: 80px; height: 80px; }
+
+  .about-mission {
+    flex-direction: column;
+    padding: 60px 28px;
+    align-items: flex-start;
+  }
+
+  .about-mission-card { width: 100%; }
+  .about-features { padding: 60px 28px; }
+  .about-roadmap   { padding: 60px 28px; }
+}
+
+@media (max-width: 560px) {
+  .about-stats { flex-direction: column; }
+  .about-stat  { border-right: none; border-bottom: 1px solid #dff3e7; }
+  .about-stat:last-child { border-bottom: none; }
+}
