@@ -11,9 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
-
 @RestController
 @RequestMapping("/customers")
 @Tag(name = "Customers", description = "API for managing customers")
@@ -24,12 +21,6 @@ public class CustomerController {
         this.customerService = customerService;
     }
 
-    @GetMapping
-    @Operation(summary = "Get customers")
-    public ResponseEntity<List<CustomerResponseDTO>> getCustomers() {
-        List<CustomerResponseDTO> users = customerService.getCustomers();
-        return ResponseEntity.ok().body(users);
-    }
 
     @GetMapping("/email/{email}")
     @Operation(summary = "Get customer by email")

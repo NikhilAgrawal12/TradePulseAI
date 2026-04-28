@@ -2,6 +2,7 @@ package com.tradepulseai.authservice.util;
 
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,14 +38,34 @@ public class JwtUtil {
 
     public void validateToken(String token){
         try{
-            Jwts.parser().verifyWith((SecretKey) secretKey)
-                    .build()
-                    .parseSignedClaims(token);
+            parseClaims(token);
 
         } catch (SignatureException e) {
             throw new JwtException("Invalid JWT signature");
         } catch(JwtException e){
             throw new JwtException("Invalid JWT");
         }
+    }
+
+    public Claims parseClaims(String token) {
+        return Jwts.parser()
+                .verifyWith((SecretKey) secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    public Long extractUserId(String token) {
+        Object raw = parseClaims(token).get("userId");
+        if (raw instanceof Integer value) {
+            return value.longValue();
+        }
+        if (raw instanceof Long value) {
+            return value;
+        }
+        if (raw instanceof String value) {
+            return Long.parseLong(value);
+        }
+        throw new JwtException("Invalid JWT userId claim");
     }
 }

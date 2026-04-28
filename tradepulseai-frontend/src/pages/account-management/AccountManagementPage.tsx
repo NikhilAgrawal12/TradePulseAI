@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { useNavigate } from "react-router";
 import axios from "axios";
 import { Header } from "../../components/Header.tsx";
-import { getEmailFromToken, getStoredToken } from "../../utils/auth";
+import { getEmailFromToken, getStoredToken, getUserIdFromToken, setStoredToken } from "../../utils/auth";
 import "./AccountManagementPage.css";
 
 type CustomerProfile = {
@@ -18,6 +18,21 @@ type CustomerProfile = {
   postalCode: string;
   country: string;
   dateOfBirth: string;
+};
+
+type CredentialsResponse = {
+  userId: number;
+  email: string;
+};
+
+type UpdateCredentialsResponse = {
+  userId: number;
+  email: string;
+  token: string;
+};
+
+type CredentialsForm = {
+  email: string;
 };
 
 const emptyProfile: CustomerProfile = {
@@ -42,9 +57,16 @@ export function AccountManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [credentials, setCredentials] = useState<CredentialsForm>({ email: "" });
+  const [initialCredentialEmail, setInitialCredentialEmail] = useState("");
+  const [credentialsLoading, setCredentialsLoading] = useState(true);
+  const [credentialsSaving, setCredentialsSaving] = useState(false);
+  const [credentialsError, setCredentialsError] = useState("");
+  const [credentialsSuccess, setCredentialsSuccess] = useState("");
 
   const token = getStoredToken();
   const emailFromToken = getEmailFromToken(token);
+  const userIdFromToken = getUserIdFromToken(token);
 
   const avatarLabel = useMemo(() => {
     const fullName = `${profile.firstName} ${profile.lastName}`.trim();
@@ -55,8 +77,8 @@ export function AccountManagementPage() {
         .map((part) => part[0]?.toUpperCase() ?? "")
         .join("");
     }
-    return (emailFromToken?.[0] ?? "U").toUpperCase();
-  }, [profile.firstName, profile.lastName, emailFromToken]);
+    return (credentials.email?.[0] ?? emailFromToken?.[0] ?? "U").toUpperCase();
+  }, [profile.firstName, profile.lastName, credentials.email, emailFromToken]);
 
   useEffect(() => {
     document.title = "Account Management | TradePulseAI";
@@ -97,9 +119,44 @@ export function AccountManagementPage() {
     loadProfile();
   }, [emailFromToken, navigate, token]);
 
+  useEffect(() => {
+    if (!token || !userIdFromToken) {
+      navigate("/login");
+      return;
+    }
+
+    const loadCredentials = async () => {
+      setCredentialsLoading(true);
+      setCredentialsError("");
+
+      try {
+        const response = await axios.get<CredentialsResponse>(`/auth/users/${userIdFromToken}/credentials`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCredentials({ email: response.data.email });
+        setInitialCredentialEmail(response.data.email);
+      } catch (err) {
+        if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+          setCredentialsError(err.response.data.message);
+        } else {
+          setCredentialsError("Unable to load account credentials.");
+        }
+      } finally {
+        setCredentialsLoading(false);
+      }
+    };
+
+    loadCredentials();
+  }, [navigate, token, userIdFromToken]);
+
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCredentialsChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setCredentials((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -116,16 +173,47 @@ export function AccountManagementPage() {
     }
 
     setSaving(true);
+    setCredentialsSaving(true);
     setError("");
     setSuccess("");
+    setCredentialsError("");
+    setCredentialsSuccess("");
 
     try {
+      const trimmedEmail = credentials.email.trim().toLowerCase();
+      const hasEmailChange = trimmedEmail !== initialCredentialEmail;
+
+      if (hasEmailChange) {
+        if (!userIdFromToken) {
+          navigate("/login");
+          return;
+        }
+
+        const credentialsResponse = await axios.put<UpdateCredentialsResponse>(
+          `/auth/users/${userIdFromToken}/credentials`,
+          {
+            email: trimmedEmail,
+          },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        // Keep the session type (remember me vs session-only) when replacing JWT.
+        const rememberMe = localStorage.getItem("authToken") !== null;
+        setStoredToken(credentialsResponse.data.token, rememberMe);
+
+        setCredentials({
+          email: credentialsResponse.data.email,
+        });
+        setInitialCredentialEmail(credentialsResponse.data.email);
+        setProfile((prev) => ({ ...prev, email: credentialsResponse.data.email }));
+      }
+
       await axios.put(
         `/api/customers/${profile.customerId}`,
         {
           firstName: profile.firstName,
           lastName: profile.lastName,
-          email: profile.email,
+          email: (credentials.email || profile.email).trim().toLowerCase(),
           phoneNumber: profile.phoneNumber,
           addressLine1: profile.addressLine1,
           addressLine2: profile.addressLine2,
@@ -137,11 +225,21 @@ export function AccountManagementPage() {
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
+
       setSuccess("Profile updated successfully.");
-    } catch {
+      if (hasEmailChange) {
+        setCredentialsSuccess("Credentials updated successfully.");
+      }
+    } catch (err) {
       setError("Unable to save profile details.");
+      if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+        setCredentialsError(err.response.data.message);
+      } else {
+        setCredentialsError("Unable to save account credentials.");
+      }
     } finally {
       setSaving(false);
+      setCredentialsSaving(false);
     }
   };
 
@@ -162,7 +260,32 @@ export function AccountManagementPage() {
             <form className="am-form" onSubmit={handleSubmit}>
               <div className="am-form-header">
                 <h2>Profile</h2>
-                <p>Update your account details and address information.</p>
+                <p>Update your account credentials and personal details.</p>
+              </div>
+
+              <div className="am-security-block">
+                <h3>Account Credentials</h3>
+                <div className="am-security-form">
+                  {credentialsLoading && <p className="am-message">Loading credentials...</p>}
+                  {credentialsError && <p className="am-message am-error">{credentialsError}</p>}
+                  {credentialsSuccess && <p className="am-message am-success">{credentialsSuccess}</p>}
+
+                  <div className="am-row">
+                    <div className="am-group am-full">
+                      <label htmlFor="account-email">Account Email</label>
+                      <input
+                        id="account-email"
+                        name="email"
+                        type="email"
+                        value={credentials.email}
+                        onChange={handleCredentialsChange}
+                        required
+                        disabled={credentialsLoading || credentialsSaving}
+                      />
+                    </div>
+                  </div>
+
+                </div>
               </div>
 
               {loading && <p className="am-message">Loading profile...</p>}
@@ -182,12 +305,12 @@ export function AccountManagementPage() {
 
               <div className="am-row">
                 <div className="am-group">
-                  <label htmlFor="email">Email</label>
-                  <input id="email" name="email" type="email" value={profile.email} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-                <div className="am-group">
                   <label htmlFor="phone-number">Phone Number</label>
                   <input id="phone-number" name="phoneNumber" type="tel" value={profile.phoneNumber} onChange={handleChange} required disabled={loading || saving} />
+                </div>
+                <div className="am-group">
+                  <label htmlFor="country">Country</label>
+                  <input id="country" name="country" type="text" value={profile.country} onChange={handleChange} required disabled={loading || saving} />
                 </div>
               </div>
 
@@ -195,10 +318,6 @@ export function AccountManagementPage() {
                 <div className="am-group">
                   <label htmlFor="date-of-birth">Date Of Birth</label>
                   <input id="date-of-birth" name="dateOfBirth" type="date" value={profile.dateOfBirth} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-                <div className="am-group">
-                  <label htmlFor="country">Country</label>
-                  <input id="country" name="country" type="text" value={profile.country} onChange={handleChange} required disabled={loading || saving} />
                 </div>
               </div>
 

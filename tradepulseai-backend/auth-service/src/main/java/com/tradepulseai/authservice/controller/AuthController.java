@@ -4,9 +4,13 @@ import com.tradepulseai.authservice.dto.LoginRequestDTO;
 import com.tradepulseai.authservice.dto.LoginResponseDTO;
 import com.tradepulseai.authservice.dto.RegisterRequestDTO;
 import com.tradepulseai.authservice.dto.RegisterResponseDTO;
+import com.tradepulseai.authservice.dto.CredentialsResponseDTO;
+import com.tradepulseai.authservice.dto.UpdateCredentialsRequestDTO;
+import com.tradepulseai.authservice.dto.UpdateCredentialsResponseDTO;
 import com.tradepulseai.authservice.model.User;
 import com.tradepulseai.authservice.service.AuthService;
 import com.tradepulseai.authservice.service.UserService;
+import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -98,6 +102,53 @@ public class AuthController {
         return userService.findByEmail(email)
                 .<ResponseEntity<?>>map(user -> ResponseEntity.ok(new RegisterResponseDTO(user.getUserId(), user.getEmail(), user.getRole())))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found")));
+    }
+
+    @Operation(summary = "Get account credentials by user id")
+    @GetMapping("/users/{userId}/credentials")
+    public ResponseEntity<?> getCredentials(@PathVariable Long userId, @RequestHeader("Authorization") String authHeader) {
+        try {
+            authorizeUserId(authHeader, userId);
+            CredentialsResponseDTO response = authService.getCredentials(userId);
+            return ResponseEntity.ok(response);
+        } catch (JwtException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", ex.getMessage()));
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = "User not found".equals(ex.getMessage()) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(java.util.Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @Operation(summary = "Update account email")
+    @PutMapping("/users/{userId}/credentials")
+    public ResponseEntity<?> updateCredentials(
+            @PathVariable Long userId,
+            @RequestHeader("Authorization") String authHeader,
+            @Valid @RequestBody UpdateCredentialsRequestDTO request
+    ) {
+        try {
+            authorizeUserId(authHeader, userId);
+            UpdateCredentialsResponseDTO response = authService.updateCredentials(userId, request);
+            return ResponseEntity.ok(response);
+        } catch (JwtException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", ex.getMessage()));
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = "An account with this email already exists".equals(ex.getMessage())
+                    ? HttpStatus.CONFLICT
+                    : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(java.util.Map.of("message", ex.getMessage()));
+        }
+    }
+
+    private void authorizeUserId(String authHeader, Long pathUserId) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new JwtException("Missing or invalid Authorization header");
+        }
+
+        Long tokenUserId = authService.extractUserId(authHeader.substring(7));
+        if (!pathUserId.equals(tokenUserId)) {
+            throw new JwtException("You are not allowed to access this account");
+        }
     }
 
 }

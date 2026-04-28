@@ -17,16 +17,22 @@ public class UserService {
 
 
     public Optional<User> findByEmail(String email){
-        return userRepository.findByEmail(email);
+        if (email == null) {
+            return Optional.empty();
+        }
+        return userRepository.findByEmail(email.trim().toLowerCase());
     }
 
     public boolean existsByEmail(String email) {
-        return userRepository.existsByEmail(email);
+        if (email == null) {
+            return false;
+        }
+        return userRepository.existsByEmail(email.trim().toLowerCase());
     }
 
     public User createUser(String email, String encodedPassword, String role) {
         User user = new User();
-        user.setEmail(email);
+        user.setEmail(email.trim().toLowerCase());
         user.setPassword(encodedPassword);
         user.setRole(role);
         return userRepository.save(user);
@@ -34,6 +40,10 @@ public class UserService {
 
     public Optional<User> findById(Long userId) {
         return userRepository.findById(userId);
+    }
+
+    public User save(User user) {
+        return userRepository.save(user);
     }
 }
 

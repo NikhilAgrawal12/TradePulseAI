@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -32,17 +31,6 @@ public class CustomerService {
         this.authServiceClient = authServiceClient;
         this.paymentServiceGrpcClient = paymentServiceGrpcClient;
         this.kafkaProducer = kafkaProducer;
-    }
-
-    public List<CustomerResponseDTO> getCustomers() {
-        List<Customer> customers = customerRepository.findAll();
-
-        return customers.stream()
-                .map(customer -> {
-                    AuthServiceClient.AuthUser authUser = authServiceClient.getUserById(customer.getUserId());
-                    return CustomerMapper.toDTO(customer, authUser.email());
-                })
-                .toList();
     }
 
     public CustomerResponseDTO getCustomerByEmail(String email) {
