@@ -1,7 +1,7 @@
 package com.tradepulseai.custservice.mapper;
 
-import com.tradepulseai.custservice.dto.CustomerRequestDTO;
-import com.tradepulseai.custservice.dto.CustomerResponseDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerRequestDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerResponseDTO;
 import com.tradepulseai.custservice.model.Customer;
 
 import java.time.Instant;

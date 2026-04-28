@@ -1,8 +1,8 @@
 package com.tradepulseai.custservice.service;
 
 import com.tradepulseai.custservice.client.AuthServiceClient;
-import com.tradepulseai.custservice.dto.CustomerRequestDTO;
-import com.tradepulseai.custservice.dto.CustomerResponseDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerRequestDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerResponseDTO;
 import com.tradepulseai.custservice.exception.CustomerNotFoundException;
 import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
 import com.tradepulseai.custservice.grpc.PaymentServiceGrpcClient;

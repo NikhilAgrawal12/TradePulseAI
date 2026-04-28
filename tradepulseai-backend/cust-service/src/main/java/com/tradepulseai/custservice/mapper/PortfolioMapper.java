@@ -1,9 +1,9 @@
 package com.tradepulseai.custservice.mapper;
 
 import com.tradepulseai.custservice.client.StockCatalogClient;
-import com.tradepulseai.custservice.dto.PortfolioFillItemRequestDTO;
-import com.tradepulseai.custservice.dto.PortfolioHoldingResponseDTO;
-import com.tradepulseai.custservice.dto.PortfolioTransactionResponseDTO;
+import com.tradepulseai.custservice.dto.portfolio.PortfolioFillItemRequestDTO;
+import com.tradepulseai.custservice.dto.portfolio.PortfolioHoldingResponseDTO;
+import com.tradepulseai.custservice.dto.portfolio.PortfolioTransactionResponseDTO;
 import com.tradepulseai.custservice.model.PortfolioHolding;
 import com.tradepulseai.custservice.model.PortfolioHoldingId;
 import com.tradepulseai.custservice.model.PortfolioTransaction;

@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.portfolio;
 
 import java.math.BigDecimal;
 
@@ -95,3 +95,4 @@ public class PortfolioHoldingResponseDTO {
         this.realizedPnl = realizedPnl;
     }
 }
+

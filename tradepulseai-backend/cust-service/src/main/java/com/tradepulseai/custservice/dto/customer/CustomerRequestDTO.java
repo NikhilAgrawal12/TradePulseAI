@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.customer;
 
 import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
 import jakarta.validation.constraints.Email;
@@ -172,3 +172,4 @@ public class CustomerRequestDTO {
         this.registeredDate = registeredDate;
     }
 }
+

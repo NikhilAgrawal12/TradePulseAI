@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.watchlist;
 
 import java.math.BigDecimal;
 
@@ -23,3 +23,4 @@ public class WatchlistItemResponseDTO {
         this.quantity = quantity;
     }
 }
+

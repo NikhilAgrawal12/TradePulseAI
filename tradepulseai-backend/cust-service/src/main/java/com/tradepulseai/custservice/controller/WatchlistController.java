@@ -1,8 +1,8 @@
 package com.tradepulseai.custservice.controller;
 
-import com.tradepulseai.custservice.dto.AddWatchlistItemRequestDTO;
-import com.tradepulseai.custservice.dto.UpdateWatchlistItemRequestDTO;
-import com.tradepulseai.custservice.dto.WatchlistItemResponseDTO;
+import com.tradepulseai.custservice.dto.watchlist.AddWatchlistItemRequestDTO;
+import com.tradepulseai.custservice.dto.watchlist.UpdateWatchlistItemRequestDTO;
+import com.tradepulseai.custservice.dto.watchlist.WatchlistItemResponseDTO;
 import com.tradepulseai.custservice.service.WatchlistService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

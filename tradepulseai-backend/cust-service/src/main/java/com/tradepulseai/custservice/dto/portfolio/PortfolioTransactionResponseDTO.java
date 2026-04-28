@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.portfolio;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -87,3 +87,4 @@ public class PortfolioTransactionResponseDTO {
         this.executedAt = executedAt;
     }
 }
+

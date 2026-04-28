@@ -1,8 +1,8 @@
 package com.tradepulseai.custservice.controller;
 
-import com.tradepulseai.custservice.dto.PortfolioResponseDTO;
-import com.tradepulseai.custservice.dto.RecordPortfolioOrderRequestDTO;
-import com.tradepulseai.custservice.dto.SellPortfolioItemRequestDTO;
+import com.tradepulseai.custservice.dto.portfolio.PortfolioResponseDTO;
+import com.tradepulseai.custservice.dto.portfolio.RecordPortfolioOrderRequestDTO;
+import com.tradepulseai.custservice.dto.portfolio.SellPortfolioItemRequestDTO;
 import com.tradepulseai.custservice.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

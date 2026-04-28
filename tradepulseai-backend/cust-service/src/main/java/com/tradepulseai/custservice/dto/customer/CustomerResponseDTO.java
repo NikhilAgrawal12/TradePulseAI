@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.customer;
 
 public class CustomerResponseDTO {
 
@@ -121,3 +121,4 @@ public class CustomerResponseDTO {
         this.dateOfBirth = dateOfBirth;
     }
 }
+

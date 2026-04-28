@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.portfolio;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -19,4 +19,5 @@ public class RecordPortfolioOrderRequestDTO {
         this.items = items;
     }
 }
+
 

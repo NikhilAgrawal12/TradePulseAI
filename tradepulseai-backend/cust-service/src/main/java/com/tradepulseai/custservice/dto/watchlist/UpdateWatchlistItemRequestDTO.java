@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.watchlist;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -19,3 +19,4 @@ public class UpdateWatchlistItemRequestDTO {
         this.quantity = quantity;
     }
 }
+

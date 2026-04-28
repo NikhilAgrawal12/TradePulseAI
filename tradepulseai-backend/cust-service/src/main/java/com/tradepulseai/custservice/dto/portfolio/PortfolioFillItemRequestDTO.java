@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.portfolio;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -54,4 +54,5 @@ public class PortfolioFillItemRequestDTO {
         this.quantity = quantity;
     }
 }
+
 

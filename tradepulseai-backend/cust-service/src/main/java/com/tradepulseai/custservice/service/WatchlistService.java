@@ -1,9 +1,9 @@
 package com.tradepulseai.custservice.service;
 
 import com.tradepulseai.custservice.client.AuthServiceClient;
-import com.tradepulseai.custservice.dto.AddWatchlistItemRequestDTO;
-import com.tradepulseai.custservice.dto.UpdateWatchlistItemRequestDTO;
-import com.tradepulseai.custservice.dto.WatchlistItemResponseDTO;
+import com.tradepulseai.custservice.dto.watchlist.AddWatchlistItemRequestDTO;
+import com.tradepulseai.custservice.dto.watchlist.UpdateWatchlistItemRequestDTO;
+import com.tradepulseai.custservice.dto.watchlist.WatchlistItemResponseDTO;
 import com.tradepulseai.custservice.model.WatchlistItem;
 import com.tradepulseai.custservice.model.WatchlistItemId;
 import com.tradepulseai.custservice.repository.WatchlistItemRepository;

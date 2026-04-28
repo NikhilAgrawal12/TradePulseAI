@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto;
+package com.tradepulseai.custservice.dto.portfolio;
 
 import java.util.List;
 
@@ -32,4 +32,5 @@ public class PortfolioResponseDTO {
         this.transactions = transactions;
     }
 }
+
 

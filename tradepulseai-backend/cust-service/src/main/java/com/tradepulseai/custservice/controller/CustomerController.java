@@ -1,7 +1,7 @@
 package com.tradepulseai.custservice.controller;
 
-import com.tradepulseai.custservice.dto.CustomerRequestDTO;
-import com.tradepulseai.custservice.dto.CustomerResponseDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerRequestDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerResponseDTO;
 import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
 import com.tradepulseai.custservice.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
