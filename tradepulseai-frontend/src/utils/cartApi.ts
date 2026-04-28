@@ -1,19 +1,17 @@
 import axios from "axios";
 import type { AddCartItemRequest, CartItem, CompleteOrderResponse, UpdateCartItemRequest } from "../types/cart";
-import { getEmailFromToken, getStoredToken, getUserIdFromToken } from "./auth";
+import { getStoredToken, getUserIdFromToken } from "./auth";
 
 function buildAuthHeaders() {
   const token = getStoredToken();
-  const email = getEmailFromToken(token);
   const userId = getUserIdFromToken(token);
 
-  if (!token || !email || !userId) {
+  if (!token || !userId) {
     throw new Error("Missing valid authentication token.");
   }
 
   return {
     Authorization: `Bearer ${token}`,
-    "X-User-Email": email,
     "X-User-Id": userId,
   };
 }
@@ -55,10 +53,9 @@ export async function clearCartItems(): Promise<CartItem[]> {
 
 export async function completeOrder(): Promise<CompleteOrderResponse> {
   const token = getStoredToken();
-  const email = getEmailFromToken(token);
   const userId = getUserIdFromToken(token);
 
-  if (!token || !email || !userId) {
+  if (!token || !userId) {
     throw new Error("Missing valid authentication token. Please log in again.");
   }
 
@@ -69,7 +66,6 @@ export async function completeOrder(): Promise<CompleteOrderResponse> {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          "X-User-Email": email,
           "X-User-Id": userId,
         },
       }

@@ -1,4 +1,4 @@
-package com.tradepulseai.stockservice.dto;
+package com.tradepulseai.stockservice.dto.stock;
 
 import com.tradepulseai.stockservice.model.StockRecommendation;
 

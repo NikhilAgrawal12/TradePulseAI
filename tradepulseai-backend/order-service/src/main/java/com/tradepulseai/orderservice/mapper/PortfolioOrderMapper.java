@@ -1,7 +1,7 @@
 package com.tradepulseai.orderservice.mapper;
 
-import com.tradepulseai.orderservice.dto.PortfolioOrderItemDTO;
-import com.tradepulseai.orderservice.dto.PortfolioOrderSyncRequestDTO;
+import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderItemDTO;
+import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderSyncRequestDTO;
 import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.service.StockQuote;
 

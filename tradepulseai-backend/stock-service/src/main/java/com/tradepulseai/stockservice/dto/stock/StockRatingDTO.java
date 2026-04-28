@@ -1,4 +1,4 @@
-package com.tradepulseai.stockservice.dto;
+package com.tradepulseai.stockservice.dto.stock;
 
 public class StockRatingDTO {
 

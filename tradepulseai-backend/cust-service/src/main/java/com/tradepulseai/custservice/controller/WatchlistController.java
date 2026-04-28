@@ -25,7 +25,7 @@ import java.util.List;
 @Tag(name = "Watchlist", description = "API for managing user watchlist")
 public class WatchlistController {
 
-    private static final String USER_EMAIL_HEADER = "X-User-Email";
+    private static final String USER_ID_HEADER = "X-User-Id";
 
     private final WatchlistService watchlistService;
 
@@ -35,49 +35,52 @@ public class WatchlistController {
 
     @GetMapping
     @Operation(summary = "Get current user's watchlist")
-    public ResponseEntity<List<WatchlistItemResponseDTO>> getWatchlist(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(watchlistService.getWatchlist(normalizeUserEmail(userEmail)));
+    public ResponseEntity<List<WatchlistItemResponseDTO>> getWatchlist(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(watchlistService.getWatchlist(normalizeUserId(userId)));
     }
 
     @PostMapping("/items")
     @Operation(summary = "Add stock to watchlist")
     public ResponseEntity<List<WatchlistItemResponseDTO>> addToWatchlist(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @Valid @RequestBody AddWatchlistItemRequestDTO request
     ) {
-        return ResponseEntity.ok(watchlistService.addToWatchlist(normalizeUserEmail(userEmail), request));
+        return ResponseEntity.ok(watchlistService.addToWatchlist(normalizeUserId(userId), request));
     }
 
     @PutMapping("/items/{stockId}")
     @Operation(summary = "Update watchlist entry")
     public ResponseEntity<List<WatchlistItemResponseDTO>> updateWatchlistItem(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @PathVariable String stockId,
             @Valid @RequestBody UpdateWatchlistItemRequestDTO request
     ) {
-        return ResponseEntity.ok(watchlistService.updateWatchlistItem(normalizeUserEmail(userEmail), stockId, request));
+        return ResponseEntity.ok(watchlistService.updateWatchlistItem(normalizeUserId(userId), stockId, request));
     }
 
     @DeleteMapping("/items/{stockId}")
     @Operation(summary = "Remove stock from watchlist")
     public ResponseEntity<List<WatchlistItemResponseDTO>> removeFromWatchlist(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @PathVariable String stockId
     ) {
-        return ResponseEntity.ok(watchlistService.removeFromWatchlist(normalizeUserEmail(userEmail), stockId));
+        return ResponseEntity.ok(watchlistService.removeFromWatchlist(normalizeUserId(userId), stockId));
     }
 
     @DeleteMapping
     @Operation(summary = "Clear watchlist")
-    public ResponseEntity<List<WatchlistItemResponseDTO>> clearWatchlist(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(watchlistService.clearWatchlist(normalizeUserEmail(userEmail)));
+    public ResponseEntity<List<WatchlistItemResponseDTO>> clearWatchlist(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(watchlistService.clearWatchlist(normalizeUserId(userId)));
     }
 
-    private String normalizeUserEmail(String userEmail) {
-        if (userEmail == null || userEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException("Missing required header: " + USER_EMAIL_HEADER);
+    private Long normalizeUserId(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing required header: " + USER_ID_HEADER);
         }
-
-        return userEmail.trim().toLowerCase();
+        try {
+            return Long.parseLong(userId.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid userId format: " + userId);
+        }
     }
 }

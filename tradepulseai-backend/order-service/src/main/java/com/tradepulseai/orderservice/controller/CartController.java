@@ -1,9 +1,9 @@
 package com.tradepulseai.orderservice.controller;
 
-import com.tradepulseai.orderservice.dto.AddCartItemRequestDTO;
-import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
-import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
-import com.tradepulseai.orderservice.dto.UpdateCartItemRequestDTO;
+import com.tradepulseai.orderservice.dto.cart.AddCartItemRequestDTO;
+import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
+import com.tradepulseai.orderservice.dto.cart.UpdateCartItemRequestDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,7 +26,6 @@ import java.util.List;
 @Tag(name = "Cart", description = "API for managing user cart")
 public class CartController {
 
-    private static final String USER_EMAIL_HEADER = "X-User-Email";
     private static final String USER_ID_HEADER = "X-User-Id";
 
     private final CartService cartService;
@@ -78,12 +77,10 @@ public class CartController {
     @PostMapping("/complete-order")
     @Operation(summary = "Complete order by processing payment for all cart items")
     public ResponseEntity<CompleteOrderResponseDTO> completeOrder(
-            @RequestHeader(value = USER_ID_HEADER, required = false) String userId,
-            @RequestHeader(value = USER_EMAIL_HEADER, required = false) String userEmail
+            @RequestHeader(USER_ID_HEADER) String userId
     ) {
         Long normalizedUserId = normalizeUserId(userId);
-        String normalizedEmail = normalizeUserEmail(userEmail);
-        return ResponseEntity.ok(cartService.completeOrder(normalizedUserId, normalizedEmail));
+        return ResponseEntity.ok(cartService.completeOrder(normalizedUserId));
     }
 
     private Long normalizeUserId(String userId) {
@@ -102,21 +99,5 @@ public class CartController {
         }
     }
 
-    private String normalizeUserEmail(String userEmail) {
-        if (userEmail == null || userEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException(
-                    String.format("Missing required header: %s. Please ensure you are logged in.", USER_EMAIL_HEADER)
-            );
-        }
-
-        String trimmedEmail = userEmail.trim().toLowerCase();
-        if (!trimmedEmail.contains("@")) {
-            throw new IllegalArgumentException(
-                    String.format("Invalid email format in header %s: %s", USER_EMAIL_HEADER, trimmedEmail)
-            );
-        }
-
-        return trimmedEmail;
-    }
 }
 

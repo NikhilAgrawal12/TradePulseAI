@@ -1,4 +1,4 @@
-package com.tradepulseai.orderservice.dto;
+package com.tradepulseai.orderservice.dto.order;
 
 import java.math.BigDecimal;
 

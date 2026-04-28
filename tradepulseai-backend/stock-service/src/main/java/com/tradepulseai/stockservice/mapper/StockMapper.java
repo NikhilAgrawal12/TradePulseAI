@@ -1,7 +1,7 @@
 package com.tradepulseai.stockservice.mapper;
 
-import com.tradepulseai.stockservice.dto.StockRatingDTO;
-import com.tradepulseai.stockservice.dto.StockResponseDTO;
+import com.tradepulseai.stockservice.dto.stock.StockRatingDTO;
+import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.model.Stock;
 
 import java.util.ArrayList;

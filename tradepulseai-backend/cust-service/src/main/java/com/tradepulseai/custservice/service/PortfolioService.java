@@ -1,6 +1,5 @@
 package com.tradepulseai.custservice.service;
 
-import com.tradepulseai.custservice.client.AuthServiceClient;
 import com.tradepulseai.custservice.client.StockCatalogClient;
 import com.tradepulseai.custservice.dto.portfolio.PortfolioFillItemRequestDTO;
 import com.tradepulseai.custservice.dto.portfolio.PortfolioHoldingResponseDTO;
@@ -29,24 +28,20 @@ public class PortfolioService {
 
     private final PortfolioHoldingRepository portfolioHoldingRepository;
     private final PortfolioTransactionRepository portfolioTransactionRepository;
-    private final AuthServiceClient authServiceClient;
     private final StockCatalogClient stockCatalogClient;
 
     public PortfolioService(
             PortfolioHoldingRepository portfolioHoldingRepository,
             PortfolioTransactionRepository portfolioTransactionRepository,
-            AuthServiceClient authServiceClient,
             StockCatalogClient stockCatalogClient
     ) {
         this.portfolioHoldingRepository = portfolioHoldingRepository;
         this.portfolioTransactionRepository = portfolioTransactionRepository;
-        this.authServiceClient = authServiceClient;
         this.stockCatalogClient = stockCatalogClient;
     }
 
     @Transactional(readOnly = true)
-    public PortfolioResponseDTO getPortfolio(String userEmail) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public PortfolioResponseDTO getPortfolio(Long userId) {
         List<PortfolioHolding> holdings = portfolioHoldingRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
         List<PortfolioTransaction> transactions = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(userId);
 
@@ -81,8 +76,7 @@ public class PortfolioService {
     }
 
     @Transactional
-    public PortfolioResponseDTO recordCompletedOrder(String userEmail, RecordPortfolioOrderRequestDTO request) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public PortfolioResponseDTO recordCompletedOrder(Long userId, RecordPortfolioOrderRequestDTO request) {
         for (PortfolioFillItemRequestDTO item : request.getItems()) {
             Long stockId = parseStockId(item.getStockId());
             PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, stockId)
@@ -98,12 +92,11 @@ public class PortfolioService {
             portfolioTransactionRepository.save(PortfolioMapper.toBuyTransaction(userId, item));
         }
 
-        return getPortfolio(userEmail);
+        return getPortfolio(userId);
     }
 
     @Transactional
-    public PortfolioResponseDTO sellPosition(String userEmail, String stockId, SellPortfolioItemRequestDTO request) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public PortfolioResponseDTO sellPosition(Long userId, String stockId, SellPortfolioItemRequestDTO request) {
         Long parsedStockId = parseStockId(stockId);
 
         PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
@@ -131,7 +124,7 @@ public class PortfolioService {
             portfolioHoldingRepository.save(holding);
         }
 
-        return getPortfolio(userEmail);
+        return getPortfolio(userId);
     }
 
     private void mergeBuyIntoHolding(PortfolioHolding holding, PortfolioFillItemRequestDTO item) {

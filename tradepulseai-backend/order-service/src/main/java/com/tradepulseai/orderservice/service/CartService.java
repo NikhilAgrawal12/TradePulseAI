@@ -1,8 +1,9 @@
 package com.tradepulseai.orderservice.service;
 
-import com.tradepulseai.orderservice.dto.AddCartItemRequestDTO;
-import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
-import com.tradepulseai.orderservice.dto.CompleteOrderResponseDTO;
+import com.tradepulseai.orderservice.client.AuthServiceClient;
+import com.tradepulseai.orderservice.dto.cart.AddCartItemRequestDTO;
+import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
 import com.tradepulseai.orderservice.mapper.OrderItemMapper;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
@@ -33,19 +34,22 @@ public class CartService {
     private final PortfolioSyncClient portfolioSyncClient;
     private final OrderHistoryService orderHistoryService;
     private final StockCatalogClient stockCatalogClient;
+    private final AuthServiceClient authServiceClient;
 
     public CartService(
             CartItemRepository cartItemRepository,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
             PortfolioSyncClient portfolioSyncClient,
             OrderHistoryService orderHistoryService,
-            StockCatalogClient stockCatalogClient
+            StockCatalogClient stockCatalogClient,
+            AuthServiceClient authServiceClient
     ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
         this.portfolioSyncClient = portfolioSyncClient;
         this.orderHistoryService = orderHistoryService;
         this.stockCatalogClient = stockCatalogClient;
+        this.authServiceClient = authServiceClient;
     }
 
     @Transactional(readOnly = true)
@@ -97,7 +101,7 @@ public class CartService {
     }
 
     @Transactional
-    public CompleteOrderResponseDTO completeOrder(Long userId, String userEmail) {
+    public CompleteOrderResponseDTO completeOrder(Long userId) {
         List<CartItem> cartItems = cartItemRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
         if (cartItems.isEmpty()) {
             throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
@@ -110,12 +114,13 @@ public class CartService {
         );
 
         // Send ONE payment record for the entire order total (subtotal + tax)
+        String userEmail = authServiceClient.getUserById(userId).email();
         OrderPaymentResponse response;
         try {
             response = orderPaymentGrpcClient.completeOrderPayment(
                     savedOrder.getId(),
                     savedOrder.getTotal(),
-                    userEmail
+                    userId
             );
         } catch (StatusRuntimeException exception) {
             throw new IllegalStateException("Payment failed for orderId: " + savedOrder.getId(), exception);
@@ -123,7 +128,7 @@ public class CartService {
 
         validateCompletedPaymentResponse(response, String.valueOf(savedOrder.getId()));
 
-        portfolioSyncClient.syncCompletedOrder(userEmail, PortfolioOrderMapper.toSyncRequest(cartItems, stockQuotes));
+        portfolioSyncClient.syncCompletedOrder(userId, PortfolioOrderMapper.toSyncRequest(cartItems, stockQuotes));
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);

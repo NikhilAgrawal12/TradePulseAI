@@ -1,4 +1,4 @@
-package com.tradepulseai.authservice.dto;
+package com.tradepulseai.authservice.dto.credentials;
 
 public class CredentialsResponseDTO {
     private Long userId;

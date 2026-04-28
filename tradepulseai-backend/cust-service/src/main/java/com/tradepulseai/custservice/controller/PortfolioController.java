@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Portfolio", description = "API for managing portfolio holdings and sell operations")
 public class PortfolioController {
 
-    private static final String USER_EMAIL_HEADER = "X-User-Email";
+    private static final String USER_ID_HEADER = "X-User-Id";
 
     private final PortfolioService portfolioService;
 
@@ -31,35 +31,38 @@ public class PortfolioController {
 
     @GetMapping
     @Operation(summary = "Get portfolio summary, holdings and transaction history")
-    public ResponseEntity<PortfolioResponseDTO> getPortfolio(@RequestHeader(USER_EMAIL_HEADER) String userEmail) {
-        return ResponseEntity.ok(portfolioService.getPortfolio(normalizeUserEmail(userEmail)));
+    public ResponseEntity<PortfolioResponseDTO> getPortfolio(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(portfolioService.getPortfolio(normalizeUserId(userId)));
     }
 
     @PostMapping("/orders/complete")
     @Operation(summary = "Record completed buy order into portfolio")
     public ResponseEntity<PortfolioResponseDTO> recordCompletedOrder(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @Valid @RequestBody RecordPortfolioOrderRequestDTO request
     ) {
-        return ResponseEntity.ok(portfolioService.recordCompletedOrder(normalizeUserEmail(userEmail), request));
+        return ResponseEntity.ok(portfolioService.recordCompletedOrder(normalizeUserId(userId), request));
     }
 
     @PostMapping("/sell/{stockId}")
     @Operation(summary = "Sell a stock from portfolio")
     public ResponseEntity<PortfolioResponseDTO> sellPosition(
-            @RequestHeader(USER_EMAIL_HEADER) String userEmail,
+            @RequestHeader(USER_ID_HEADER) String userId,
             @PathVariable String stockId,
             @Valid @RequestBody SellPortfolioItemRequestDTO request
     ) {
-        return ResponseEntity.ok(portfolioService.sellPosition(normalizeUserEmail(userEmail), stockId, request));
+        return ResponseEntity.ok(portfolioService.sellPosition(normalizeUserId(userId), stockId, request));
     }
 
-    private String normalizeUserEmail(String userEmail) {
-        if (userEmail == null || userEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException("Missing required header: " + USER_EMAIL_HEADER);
+    private Long normalizeUserId(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing required header: " + USER_ID_HEADER);
         }
-
-        return userEmail.trim().toLowerCase();
+        try {
+            return Long.parseLong(userId.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid userId format: " + userId);
+        }
     }
 }
 

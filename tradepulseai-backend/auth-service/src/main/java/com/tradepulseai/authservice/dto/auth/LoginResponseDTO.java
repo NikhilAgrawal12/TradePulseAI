@@ -1,4 +1,4 @@
-package com.tradepulseai.authservice.dto;
+package com.tradepulseai.authservice.dto.auth;
 
 public class LoginResponseDTO {
     private final String token;
@@ -11,3 +11,4 @@ public class LoginResponseDTO {
         return token;
     }
 }
+

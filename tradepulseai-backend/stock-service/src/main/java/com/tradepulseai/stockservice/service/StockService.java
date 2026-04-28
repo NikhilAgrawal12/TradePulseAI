@@ -1,6 +1,6 @@
 package com.tradepulseai.stockservice.service;
 
-import com.tradepulseai.stockservice.dto.StockResponseDTO;
+import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.exception.StockNotFoundException;
 import com.tradepulseai.stockservice.mapper.StockMapper;
 import com.tradepulseai.stockservice.model.Stock;

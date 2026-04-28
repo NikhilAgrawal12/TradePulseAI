@@ -1,6 +1,5 @@
 package com.tradepulseai.custservice.service;
 
-import com.tradepulseai.custservice.client.AuthServiceClient;
 import com.tradepulseai.custservice.dto.watchlist.AddWatchlistItemRequestDTO;
 import com.tradepulseai.custservice.dto.watchlist.UpdateWatchlistItemRequestDTO;
 import com.tradepulseai.custservice.dto.watchlist.WatchlistItemResponseDTO;
@@ -18,16 +17,13 @@ import java.util.Objects;
 public class WatchlistService {
 
     private final WatchlistItemRepository watchlistItemRepository;
-    private final AuthServiceClient authServiceClient;
 
-    public WatchlistService(WatchlistItemRepository watchlistItemRepository, AuthServiceClient authServiceClient) {
+    public WatchlistService(WatchlistItemRepository watchlistItemRepository) {
         this.watchlistItemRepository = watchlistItemRepository;
-        this.authServiceClient = authServiceClient;
     }
 
     @Transactional(readOnly = true)
-    public List<WatchlistItemResponseDTO> getWatchlist(String userEmail) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public List<WatchlistItemResponseDTO> getWatchlist(Long userId) {
         return watchlistItemRepository.findByIdUserIdOrderByUpdatedAtDesc(userId)
                 .stream()
                 .map(this::toResponse)
@@ -35,8 +31,7 @@ public class WatchlistService {
     }
 
     @Transactional
-    public List<WatchlistItemResponseDTO> addToWatchlist(String userEmail, AddWatchlistItemRequestDTO request) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public List<WatchlistItemResponseDTO> addToWatchlist(Long userId, AddWatchlistItemRequestDTO request) {
         Long stockId = parseStockId(request.getStockId());
 
         WatchlistItem watchlistItem = watchlistItemRepository.findByIdUserIdAndIdStockId(userId, stockId)
@@ -48,12 +43,11 @@ public class WatchlistService {
 
 
         watchlistItemRepository.save(watchlistItem);
-        return getWatchlist(userEmail);
+        return getWatchlist(userId);
     }
 
     @Transactional
-    public List<WatchlistItemResponseDTO> updateWatchlistItem(String userEmail, String stockId, UpdateWatchlistItemRequestDTO request) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public List<WatchlistItemResponseDTO> updateWatchlistItem(Long userId, String stockId, UpdateWatchlistItemRequestDTO request) {
         Long parsedStockId = parseStockId(stockId);
 
         WatchlistItem watchlistItem = watchlistItemRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
@@ -61,19 +55,17 @@ public class WatchlistService {
 
         watchlistItem.setQuantity(scaleQuantity(request.getQuantity()));
         watchlistItemRepository.save(watchlistItem);
-        return getWatchlist(userEmail);
+        return getWatchlist(userId);
     }
 
     @Transactional
-    public List<WatchlistItemResponseDTO> removeFromWatchlist(String userEmail, String stockId) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public List<WatchlistItemResponseDTO> removeFromWatchlist(Long userId, String stockId) {
         watchlistItemRepository.deleteByIdUserIdAndIdStockId(userId, parseStockId(stockId));
-        return getWatchlist(userEmail);
+        return getWatchlist(userId);
     }
 
     @Transactional
-    public List<WatchlistItemResponseDTO> clearWatchlist(String userEmail) {
-        Long userId = authServiceClient.getUserByEmail(userEmail).userId();
+    public List<WatchlistItemResponseDTO> clearWatchlist(Long userId) {
         watchlistItemRepository.deleteByIdUserId(userId);
         return List.of();
     }

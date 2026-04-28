@@ -1,4 +1,4 @@
-package com.tradepulseai.paymentservice.dto;
+package com.tradepulseai.paymentservice.dto.payment;
 
 import java.math.BigDecimal;
 import java.time.Instant;

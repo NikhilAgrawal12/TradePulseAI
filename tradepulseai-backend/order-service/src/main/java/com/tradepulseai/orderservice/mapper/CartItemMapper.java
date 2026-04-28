@@ -1,6 +1,6 @@
 package com.tradepulseai.orderservice.mapper;
 
-import com.tradepulseai.orderservice.dto.CartItemResponseDTO;
+import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
 import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.model.CartItemId;
 

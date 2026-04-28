@@ -1,6 +1,6 @@
 package com.tradepulseai.orderservice.service;
 
-import com.tradepulseai.orderservice.dto.OrderResponseDTO;
+import com.tradepulseai.orderservice.dto.order.OrderResponseDTO;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
 import com.tradepulseai.orderservice.model.TradeOrder;
 import com.tradepulseai.orderservice.repository.TradeOrderRepository;

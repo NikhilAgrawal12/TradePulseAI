@@ -1,23 +1,13 @@
-package com.tradepulseai.orderservice.dto;
+package com.tradepulseai.orderservice.dto.portfolio;
 
 import java.math.BigDecimal;
 
-public class CartItemResponseDTO {
+public class PortfolioOrderItemDTO {
 
-    private Long userId;
     private String stockId;
     private String symbol;
     private BigDecimal price;
-    private BigDecimal quantity;
-    private BigDecimal lineTotal;
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
+    private int quantity;
 
     public String getStockId() {
         return stockId;
@@ -43,21 +33,12 @@ public class CartItemResponseDTO {
         this.price = price;
     }
 
-
-    public BigDecimal getQuantity() {
+    public int getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(BigDecimal quantity) {
+    public void setQuantity(int quantity) {
         this.quantity = quantity;
-    }
-
-    public BigDecimal getLineTotal() {
-        return lineTotal;
-    }
-
-    public void setLineTotal(BigDecimal lineTotal) {
-        this.lineTotal = lineTotal;
     }
 }
 

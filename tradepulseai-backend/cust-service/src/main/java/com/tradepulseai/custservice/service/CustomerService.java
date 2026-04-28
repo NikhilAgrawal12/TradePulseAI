@@ -33,12 +33,12 @@ public class CustomerService {
         this.kafkaProducer = kafkaProducer;
     }
 
-    public CustomerResponseDTO getCustomerByEmail(String email) {
-        String normalizedEmail = normalizeEmail(email);
-        AuthServiceClient.AuthUser authUser = authServiceClient.getUserByEmail(normalizedEmail);
-        Customer customer = customerRepository.findByUserId(authUser.userId())
-                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with email: " + normalizedEmail));
-        return CustomerMapper.toDTO(customer, authUser.email());
+    public CustomerResponseDTO getCustomerByUserId(Long userId) {
+        Customer customer = customerRepository.findByUserId(userId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with userId: " + userId));
+
+        String resolvedEmail = normalizeEmail(authServiceClient.getUserById(userId).email());
+        return CustomerMapper.toDTO(customer, resolvedEmail);
     }
 
     public CustomerResponseDTO createCustomer(CustomerRequestDTO customerRequestDTO) {

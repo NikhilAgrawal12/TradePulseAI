@@ -1,6 +1,6 @@
 package com.tradepulseai.orderservice.controller;
 
-import com.tradepulseai.orderservice.dto.OrderResponseDTO;
+import com.tradepulseai.orderservice.dto.order.OrderResponseDTO;
 import com.tradepulseai.orderservice.service.OrderHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

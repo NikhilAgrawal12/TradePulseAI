@@ -1,4 +1,4 @@
-package com.tradepulseai.orderservice.dto;
+package com.tradepulseai.orderservice.dto.portfolio;
 
 import java.util.List;
 

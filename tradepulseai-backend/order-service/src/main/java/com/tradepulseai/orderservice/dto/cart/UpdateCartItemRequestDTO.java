@@ -1,4 +1,4 @@
-package com.tradepulseai.orderservice.dto;
+package com.tradepulseai.orderservice.dto.cart;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;

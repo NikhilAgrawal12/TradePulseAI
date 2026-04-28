@@ -1,4 +1,4 @@
-package com.tradepulseai.authservice.dto;
+package com.tradepulseai.authservice.dto.credentials;
 
 import jakarta.validation.constraints.Email;
 

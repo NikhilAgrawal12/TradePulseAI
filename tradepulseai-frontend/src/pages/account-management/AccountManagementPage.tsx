@@ -85,7 +85,7 @@ export function AccountManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (!token || !emailFromToken) {
+    if (!token || !userIdFromToken) {
       navigate("/login");
       return;
     }
@@ -95,7 +95,7 @@ export function AccountManagementPage() {
       setError("");
 
       try {
-        const response = await axios.get<CustomerProfile>(`/api/customers/email/${encodeURIComponent(emailFromToken)}`, {
+        const response = await axios.get<CustomerProfile>(`/api/customers/user/${encodeURIComponent(userIdFromToken)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfile(response.data);
@@ -117,7 +117,7 @@ export function AccountManagementPage() {
     };
 
     loadProfile();
-  }, [emailFromToken, navigate, token]);
+  }, [navigate, token, userIdFromToken]);
 
   useEffect(() => {
     if (!token || !userIdFromToken) {

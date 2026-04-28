@@ -1,6 +1,6 @@
 package com.tradepulseai.paymentservice.controller;
 
-import com.tradepulseai.paymentservice.dto.PaymentResponseDTO;
+import com.tradepulseai.paymentservice.dto.payment.PaymentResponseDTO;
 import com.tradepulseai.paymentservice.mapper.PaymentMapperDTO;
 import com.tradepulseai.paymentservice.repository.PaymentRepository;
 import io.swagger.v3.oas.annotations.Operation;

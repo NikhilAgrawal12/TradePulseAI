@@ -1,6 +1,6 @@
 package com.tradepulseai.orderservice.service;
 
-import com.tradepulseai.orderservice.dto.PortfolioOrderSyncRequestDTO;
+import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderSyncRequestDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,17 +23,17 @@ public class PortfolioSyncClient {
                 .build();
     }
 
-    public void syncCompletedOrder(String userEmail, PortfolioOrderSyncRequestDTO request) {
+    public void syncCompletedOrder(Long userId, PortfolioOrderSyncRequestDTO request) {
         try {
             restClient.post()
                     .uri("/customers/portfolio/orders/complete")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("X-User-Email", userEmail)
+                    .header("X-User-Id", String.valueOf(userId))
                     .body(request)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception exception) {
-            log.error("Failed to sync completed order to portfolio for {}", userEmail, exception);
+            log.error("Failed to sync completed order to portfolio for userId {}", userId, exception);
             throw new IllegalStateException("Payment completed, but portfolio update failed. Please retry.");
         }
     }

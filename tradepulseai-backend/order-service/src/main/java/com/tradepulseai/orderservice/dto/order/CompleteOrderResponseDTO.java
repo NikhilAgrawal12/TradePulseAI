@@ -1,4 +1,4 @@
-package com.tradepulseai.orderservice.dto;
+package com.tradepulseai.orderservice.dto.order;
 
 public class CompleteOrderResponseDTO {
 
@@ -39,3 +39,4 @@ public class CompleteOrderResponseDTO {
         this.status = status;
     }
 }
+

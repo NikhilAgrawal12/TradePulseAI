@@ -1,6 +1,6 @@
 package com.tradepulseai.paymentservice.mapper;
 
-import com.tradepulseai.paymentservice.dto.PaymentResponseDTO;
+import com.tradepulseai.paymentservice.dto.payment.PaymentResponseDTO;
 import com.tradepulseai.paymentservice.model.Payment;
 
 public class PaymentMapperDTO {

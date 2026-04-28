@@ -1,12 +1,12 @@
 package com.tradepulseai.authservice.controller;
 
-import com.tradepulseai.authservice.dto.LoginRequestDTO;
-import com.tradepulseai.authservice.dto.LoginResponseDTO;
-import com.tradepulseai.authservice.dto.RegisterRequestDTO;
-import com.tradepulseai.authservice.dto.RegisterResponseDTO;
-import com.tradepulseai.authservice.dto.CredentialsResponseDTO;
-import com.tradepulseai.authservice.dto.UpdateCredentialsRequestDTO;
-import com.tradepulseai.authservice.dto.UpdateCredentialsResponseDTO;
+import com.tradepulseai.authservice.dto.auth.LoginRequestDTO;
+import com.tradepulseai.authservice.dto.auth.LoginResponseDTO;
+import com.tradepulseai.authservice.dto.auth.RegisterRequestDTO;
+import com.tradepulseai.authservice.dto.auth.RegisterResponseDTO;
+import com.tradepulseai.authservice.dto.credentials.CredentialsResponseDTO;
+import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsRequestDTO;
+import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsResponseDTO;
 import com.tradepulseai.authservice.model.User;
 import com.tradepulseai.authservice.service.AuthService;
 import com.tradepulseai.authservice.service.UserService;

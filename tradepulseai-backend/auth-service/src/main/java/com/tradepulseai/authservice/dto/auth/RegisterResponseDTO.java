@@ -1,4 +1,4 @@
-package com.tradepulseai.authservice.dto;
+package com.tradepulseai.authservice.dto.auth;
 
 public class RegisterResponseDTO {
     private Long userId;

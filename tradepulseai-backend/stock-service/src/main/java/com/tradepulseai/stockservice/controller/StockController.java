@@ -1,6 +1,6 @@
 package com.tradepulseai.stockservice.controller;
 
-import com.tradepulseai.stockservice.dto.StockResponseDTO;
+import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

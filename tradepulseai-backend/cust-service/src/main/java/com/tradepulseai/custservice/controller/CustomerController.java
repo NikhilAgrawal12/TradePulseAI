@@ -22,10 +22,10 @@ public class CustomerController {
     }
 
 
-    @GetMapping("/email/{email}")
-    @Operation(summary = "Get customer by email")
-    public ResponseEntity<CustomerResponseDTO> getCustomerByEmail(@PathVariable String email) {
-        CustomerResponseDTO customer = customerService.getCustomerByEmail(email);
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get customer by user id")
+    public ResponseEntity<CustomerResponseDTO> getCustomerByUserId(@PathVariable Long userId) {
+        CustomerResponseDTO customer = customerService.getCustomerByUserId(userId);
         return ResponseEntity.ok().body(customer);
     }
 

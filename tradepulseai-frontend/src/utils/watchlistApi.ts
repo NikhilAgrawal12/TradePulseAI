@@ -1,18 +1,18 @@
 import axios from "axios";
 import type { AddWatchlistItemRequest, UpdateWatchlistItemRequest, WatchlistEntry } from "../types/watchlist";
-import { getEmailFromToken, getStoredToken } from "./auth";
+import { getStoredToken, getUserIdFromToken } from "./auth";
 
 function buildAuthHeaders() {
   const token = getStoredToken();
-  const email = getEmailFromToken(token);
+  const userId = getUserIdFromToken(token);
 
-  if (!token || !email) {
+  if (!token || !userId) {
     throw new Error("Missing valid authentication token.");
   }
 
   return {
     Authorization: `Bearer ${token}`,
-    "X-User-Email": email,
+    "X-User-Id": userId,
   };
 }
 
