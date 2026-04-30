@@ -120,7 +120,7 @@ public class CartService {
             response = orderPaymentGrpcClient.completeOrderPayment(
                     savedOrder.getId(),
                     savedOrder.getTotal(),
-                    userId
+                    userEmail
             );
         } catch (StatusRuntimeException exception) {
             throw new IllegalStateException("Payment failed for orderId: " + savedOrder.getId(), exception);
