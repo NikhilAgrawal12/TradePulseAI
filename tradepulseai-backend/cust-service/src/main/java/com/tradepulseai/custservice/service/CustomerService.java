@@ -5,13 +5,10 @@ import com.tradepulseai.custservice.dto.customer.CustomerRequestDTO;
 import com.tradepulseai.custservice.dto.customer.CustomerResponseDTO;
 import com.tradepulseai.custservice.exception.CustomerNotFoundException;
 import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
-import com.tradepulseai.custservice.grpc.PaymentServiceGrpcClient;
 import com.tradepulseai.custservice.kafka.kafkaProducer;
 import com.tradepulseai.custservice.mapper.CustomerMapper;
 import com.tradepulseai.custservice.model.Customer;
 import com.tradepulseai.custservice.repository.CustomerRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -19,17 +16,14 @@ import java.util.Objects;
 
 @Service
 public class CustomerService {
-    private static final Logger log = LoggerFactory.getLogger(CustomerService.class);
     private final CustomerRepository customerRepository;
     private final AuthServiceClient authServiceClient;
-    private final PaymentServiceGrpcClient paymentServiceGrpcClient;
     private final kafkaProducer kafkaProducer;
 
-    public CustomerService(CustomerRepository customerRepository, AuthServiceClient authServiceClient, PaymentServiceGrpcClient paymentServiceGrpcClient, kafkaProducer kafkaProducer) {
+    public CustomerService(CustomerRepository customerRepository, AuthServiceClient authServiceClient, kafkaProducer kafkaProducer) {
 
         this.customerRepository = customerRepository;
         this.authServiceClient = authServiceClient;
-        this.paymentServiceGrpcClient = paymentServiceGrpcClient;
         this.kafkaProducer = kafkaProducer;
     }
 
@@ -56,12 +50,6 @@ public class CustomerService {
 
         Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
 
-        try {
-            paymentServiceGrpcClient.createPaymentAccount(customer.getCustomerId().toString(), customer.getFirstName(), normalizedEmail);
-        } catch (Exception ex) {
-            // Keep signup flow available even if payment-service gRPC is temporarily down.
-            log.warn("Payment account creation skipped for customer {}: {}", customer.getCustomerId(), ex.getMessage());
-        }
 
         kafkaProducer.sendEvent(customer, normalizedEmail);
         return CustomerMapper.toDTO(customer, normalizedEmail);

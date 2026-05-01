@@ -1,7 +1,6 @@
 package com.tradepulseai.custservice.controller;
 
 import com.tradepulseai.custservice.dto.portfolio.PortfolioResponseDTO;
-import com.tradepulseai.custservice.dto.portfolio.RecordPortfolioOrderRequestDTO;
 import com.tradepulseai.custservice.dto.portfolio.SellPortfolioItemRequestDTO;
 import com.tradepulseai.custservice.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,14 +34,6 @@ public class PortfolioController {
         return ResponseEntity.ok(portfolioService.getPortfolio(normalizeUserId(userId)));
     }
 
-    @PostMapping("/orders/complete")
-    @Operation(summary = "Record completed buy order into portfolio")
-    public ResponseEntity<PortfolioResponseDTO> recordCompletedOrder(
-            @RequestHeader(USER_ID_HEADER) String userId,
-            @Valid @RequestBody RecordPortfolioOrderRequestDTO request
-    ) {
-        return ResponseEntity.ok(portfolioService.recordCompletedOrder(normalizeUserId(userId), request));
-    }
 
     @PostMapping("/sell/{stockId}")
     @Operation(summary = "Sell a stock from portfolio")

@@ -25,13 +25,13 @@ public class OrderPaymentGrpcService extends OrderPaymentServiceGrpc.OrderPaymen
 
     @Override
     public void completePayment(OrderPaymentRequest request, StreamObserver<OrderPaymentResponse> responseObserver) {
-        log.info("CompletePayment request received for orderId={}, userEmail={}, totalAmount={}",
-                request.getOrderId(), request.getUserEmail(), request.getTotalAmount());
+        log.info("CompletePayment request received for orderId={}, userId={}, totalAmount={}",
+                request.getOrderId(), request.getUserId(), request.getTotalAmount());
 
         try {
             Payment savedPayment = paymentProcessingService.processPayment(
                     request.getOrderId(),
-                    request.getUserEmail(),
+                    request.getUserId(),
                     request.getTotalAmount()
             );
 
@@ -45,7 +45,7 @@ public class OrderPaymentGrpcService extends OrderPaymentServiceGrpc.OrderPaymen
                 return;
             }
 
-            String accountId = paymentProcessingService.generateAccountId(request.getUserEmail());
+            String accountId = paymentProcessingService.generateAccountId(request.getUserId());
             OrderPaymentResponse response = OrderPaymentResponse.newBuilder()
                     .setAccountId(accountId)
                     .setStatus(status)

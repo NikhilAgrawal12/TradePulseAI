@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "portfolio_sync";
+
+service PortfolioSyncService {
+  rpc RecordCompletedOrder (RecordCompletedOrderRequest) returns (RecordCompletedOrderResponse);
+}
+
+message RecordCompletedOrderRequest {
+  string user_id = 1;
+  repeated PortfolioOrderItem items = 2;
+}
+
+message PortfolioOrderItem {
+  string stock_id = 1;
+  string symbol = 2;
+  double price = 3;
+  int32 quantity = 4;
+}
+
+message RecordCompletedOrderResponse {
+  bool success = 1;
+  string message = 2;
+}
+

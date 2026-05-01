@@ -23,10 +23,10 @@ public class PaymentProcessingService {
     }
 
     @Transactional
-    public Payment processPayment(String rawOrderId, String userEmail, double totalAmount) {
+    public Payment processPayment(String rawOrderId, String userId, double totalAmount) {
         Long orderId = parseOrderId(rawOrderId);
-        log.info("Processing payment for orderId={}, userEmail={}, totalAmount={}",
-                orderId, userEmail, totalAmount);
+        log.info("Processing payment for orderId={}, userId={}, totalAmount={}",
+                orderId, userId, totalAmount);
 
         if (paymentRepository.existsByOrderId(orderId)) {
             log.warn("Payment already exists for orderId={}, returning existing record", orderId);
@@ -42,8 +42,8 @@ public class PaymentProcessingService {
         return savedPayment;
     }
 
-    public String generateAccountId(String userEmail) {
-        return "acct-" + userEmail + "-" + UUID.randomUUID().toString().substring(0, 8);
+    public String generateAccountId(String userId) {
+        return "acct-" + userId + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     private Long parseOrderId(String rawOrderId) {

@@ -37,12 +37,12 @@ public class OrderPaymentGrpcClient {
      *
      * @param orderId    the persisted order id
      * @param totalAmount the complete order total (subtotal + tax)
-     * @param userEmail  the buyer's email
+     * @param userId  the buyer's user id
      */
-    public OrderPaymentResponse completeOrderPayment(Long orderId, BigDecimal totalAmount, String userEmail) {
+    public OrderPaymentResponse completeOrderPayment(Long orderId, BigDecimal totalAmount, Long userId) {
         OrderPaymentRequest request = OrderPaymentRequest.newBuilder()
                 .setOrderId(String.valueOf(orderId))
-                .setUserEmail(userEmail)
+                .setUserId(String.valueOf(userId))
                 .setTotalAmount(totalAmount.doubleValue())
                 .build();
 
