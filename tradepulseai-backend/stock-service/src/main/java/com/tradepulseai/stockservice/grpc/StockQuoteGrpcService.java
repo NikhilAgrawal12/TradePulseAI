@@ -28,6 +28,9 @@ public class StockQuoteGrpcService extends StockQuoteServiceGrpc.StockQuoteServi
         try {
             Long stockId = Long.parseLong(request.getStockId());
             StockResponseDTO stock = stockService.getStockById(stockId);
+            if (stock.getPrice() == null) {
+                throw new StockNotFoundException("Stock quote not available yet for stockId=" + request.getStockId());
+            }
 
             StockQuoteResponse response = StockQuoteResponse.newBuilder()
                     .setStockId(stock.getId())

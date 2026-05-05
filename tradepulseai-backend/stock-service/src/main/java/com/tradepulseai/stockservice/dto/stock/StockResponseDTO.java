@@ -1,23 +1,19 @@
 package com.tradepulseai.stockservice.dto.stock;
 
-import com.tradepulseai.stockservice.model.StockRecommendation;
-
-import java.util.List;
-
 public class StockResponseDTO {
 
     private String id;
     private String symbol;
     private String name;
-    private String sector;
     private String exchange;
-    private double price;
-    private double changePercent;
-    private StockRatingDTO rating;
-    private double marketCapBillion;
-    private long volume;
-    private StockRecommendation recommendation;
-    private List<String> keywords;
+    private String market;
+    private String locale;
+    private Boolean active;
+    private Double price;
+    private Double changePercent;
+    private Long volume;
+    private String lastUpdated;
+    private String source;
 
     public String getId() {
         return id;
@@ -43,14 +39,6 @@ public class StockResponseDTO {
         this.name = name;
     }
 
-    public String getSector() {
-        return sector;
-    }
-
-    public void setSector(String sector) {
-        this.sector = sector;
-    }
-
     public String getExchange() {
         return exchange;
     }
@@ -59,60 +47,67 @@ public class StockResponseDTO {
         this.exchange = exchange;
     }
 
-    public double getPrice() {
+    public String getMarket() {
+        return market;
+    }
+
+    public void setMarket(String market) {
+        this.market = market;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public void setLocale(String locale) {
+        this.locale = locale;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    public Double getPrice() {
         return price;
     }
 
-    public void setPrice(double price) {
+    public void setPrice(Double price) {
         this.price = price;
     }
 
-    public double getChangePercent() {
+    public Double getChangePercent() {
         return changePercent;
     }
 
-    public void setChangePercent(double changePercent) {
+    public void setChangePercent(Double changePercent) {
         this.changePercent = changePercent;
     }
 
-    public StockRatingDTO getRating() {
-        return rating;
-    }
-
-    public void setRating(StockRatingDTO rating) {
-        this.rating = rating;
-    }
-
-    public double getMarketCapBillion() {
-        return marketCapBillion;
-    }
-
-    public void setMarketCapBillion(double marketCapBillion) {
-        this.marketCapBillion = marketCapBillion;
-    }
-
-    public long getVolume() {
+    public Long getVolume() {
         return volume;
     }
 
-    public void setVolume(long volume) {
+    public void setVolume(Long volume) {
         this.volume = volume;
     }
 
-    public StockRecommendation getRecommendation() {
-        return recommendation;
+    public String getLastUpdated() {
+        return lastUpdated;
     }
 
-    public void setRecommendation(StockRecommendation recommendation) {
-        this.recommendation = recommendation;
+    public void setLastUpdated(String lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
 
-    public List<String> getKeywords() {
-        return keywords;
+    public String getSource() {
+        return source;
     }
 
-    public void setKeywords(List<String> keywords) {
-        this.keywords = keywords;
+    public void setSource(String source) {
+        this.source = source;
     }
 }
-

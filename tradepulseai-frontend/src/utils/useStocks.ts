@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import type { Stock } from "../types/stock";
+import type { StockLiveEvent } from "../types/stockLive";
 import { fetchStocks } from "./stocksApi";
+import { connectStockLiveFeed } from "./stockLiveSocket";
 
 const STOCKS_CACHE_KEY = "tradepulseai:stocks-cache";
 const STOCKS_CACHE_TTL_MS = 60_000;
@@ -87,6 +89,27 @@ async function fetchAndCacheStocks() {
   return inFlightRequest;
 }
 
+function mergeLiveEvent(stocks: Stock[], event: StockLiveEvent) {
+  let touched = false;
+  const merged = stocks.map((stock) => {
+    if (stock.symbol !== event.symbol) {
+      return stock;
+    }
+
+    touched = true;
+    return {
+      ...stock,
+      price: event.price,
+      changePercent: event.changePercent,
+      volume: event.volume,
+      lastUpdated: event.marketTimestamp,
+      source: event.source,
+    };
+  });
+
+  return { merged, touched };
+}
+
 export function useStocks() {
   const [stocks, setStocks] = useState<Stock[]>(() => getCachedStocks()?.data ?? []);
   const [loading, setLoading] = useState(() => getCachedStocks() == null);
@@ -142,6 +165,27 @@ export function useStocks() {
     };
   }, []);
 
+  useEffect(() => {
+    const disconnect = connectStockLiveFeed((event) => {
+      setStocks((previous) => {
+        if (previous.length === 0) {
+          return previous;
+        }
+
+        const { merged, touched } = mergeLiveEvent(previous, event);
+        if (!touched) {
+          return previous;
+        }
+
+        persistCache({ data: merged, cachedAt: Date.now() });
+        return merged;
+      });
+    });
+
+    return () => {
+      disconnect();
+    };
+  }, []);
+
   return { stocks, loading, error };
 }
-

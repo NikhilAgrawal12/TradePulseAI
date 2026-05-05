@@ -2,14 +2,13 @@ package com.tradepulseai.stockservice.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "stocks")
@@ -23,36 +22,35 @@ public class Stock {
     @Column(name = "symbol", nullable = false, length = 50, unique = true)
     private String symbol;
 
-    @Column(name = "name", nullable = false, length = 255)
+    @Column(name = "name", length = 255)
     private String name;
 
-    @Column(name = "sector", nullable = false, length = 100)
-    private String sector;
-
-    @Column(name = "exchange", nullable = false, length = 100)
+    @Column(name = "exchange", length = 100)
     private String exchange;
 
-    @Column(name = "price", nullable = false, precision = 18, scale = 4)
+    @Column(name = "market", length = 50)
+    private String market;
+
+    @Column(name = "locale", length = 20)
+    private String locale;
+
+    @Column(name = "active")
+    private Boolean active;
+
+    @Column(name = "price", precision = 18, scale = 4)
     private BigDecimal price;
 
-    @Column(name = "change_percent", nullable = false, precision = 9, scale = 4)
+    @Column(name = "change_percent", precision = 9, scale = 4)
     private BigDecimal changePercent;
 
-    @Column(name = "rating_score", nullable = false, precision = 9, scale = 4)
-    private BigDecimal ratingScore;
+    @Column(name = "volume")
+    private Long volume;
 
-    @Column(name = "analyst_count", nullable = false)
-    private int analystCount;
+    @Column(name = "last_updated")
+    private Instant lastUpdated;
 
-    @Column(name = "market_cap_billion", nullable = false, precision = 18, scale = 4)
-    private BigDecimal marketCapBillion;
-
-    @Column(name = "volume", nullable = false)
-    private long volume;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "recommendation", nullable = false, length = 50)
-    private StockRecommendation recommendation;
+    @Column(name = "source", length = 50)
+    private String source;
 
     public Long getStockId() {
         return stockId;
@@ -78,20 +76,36 @@ public class Stock {
         this.name = name;
     }
 
-    public String getSector() {
-        return sector;
-    }
-
-    public void setSector(String sector) {
-        this.sector = sector;
-    }
-
     public String getExchange() {
         return exchange;
     }
 
     public void setExchange(String exchange) {
         this.exchange = exchange;
+    }
+
+    public String getMarket() {
+        return market;
+    }
+
+    public void setMarket(String market) {
+        this.market = market;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public void setLocale(String locale) {
+        this.locale = locale;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
     }
 
     public BigDecimal getPrice() {
@@ -110,43 +124,27 @@ public class Stock {
         this.changePercent = changePercent;
     }
 
-    public BigDecimal getRatingScore() {
-        return ratingScore;
-    }
-
-    public void setRatingScore(BigDecimal ratingScore) {
-        this.ratingScore = ratingScore;
-    }
-
-    public int getAnalystCount() {
-        return analystCount;
-    }
-
-    public void setAnalystCount(int analystCount) {
-        this.analystCount = analystCount;
-    }
-
-    public BigDecimal getMarketCapBillion() {
-        return marketCapBillion;
-    }
-
-    public void setMarketCapBillion(BigDecimal marketCapBillion) {
-        this.marketCapBillion = marketCapBillion;
-    }
-
-    public long getVolume() {
+    public Long getVolume() {
         return volume;
     }
 
-    public void setVolume(long volume) {
+    public void setVolume(Long volume) {
         this.volume = volume;
     }
 
-    public StockRecommendation getRecommendation() {
-        return recommendation;
+    public Instant getLastUpdated() {
+        return lastUpdated;
     }
 
-    public void setRecommendation(StockRecommendation recommendation) {
-        this.recommendation = recommendation;
+    public void setLastUpdated(Instant lastUpdated) {
+        this.lastUpdated = lastUpdated;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
     }
 }

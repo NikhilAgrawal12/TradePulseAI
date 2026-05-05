@@ -16,6 +16,10 @@ export default defineConfig({
       },
       '/auth': {
         target: 'http://localhost:4004'
+      },
+      '/ws': {
+        target: 'ws://localhost:4004',
+        ws: true
       }
     }
   }

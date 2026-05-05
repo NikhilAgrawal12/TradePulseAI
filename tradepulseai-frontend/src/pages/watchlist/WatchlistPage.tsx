@@ -20,24 +20,26 @@ export function WatchlistPage() {
 
   const stockMap = useMemo(() => new Map(stocks.map((stock) => [stock.id, stock])), [stocks]);
 
-  const watchlistStocks = useMemo(() =>
-    watchlist.flatMap((entry) => {
-      const stock = stockMap.get(entry.stockId);
-      if (!stock) {
-        return [];
-      }
+  const watchlistStocks = useMemo(
+    () =>
+      watchlist.flatMap((entry) => {
+        const stock = stockMap.get(entry.stockId);
+        if (!stock || typeof stock.price !== "number") {
+          return [];
+        }
 
-      const quantity = Number(entry.quantity);
-      const currentValue = stock.price * quantity;
-      return [{ ...entry, quantity, stock, currentValue }];
-    }),
-  [stockMap, watchlist]);
+        const quantity = Number(entry.quantity);
+        const currentValue = stock.price * quantity;
+        return [{ ...entry, quantity, stock, currentValue }];
+      }),
+    [stockMap, watchlist],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return watchlistStocks;
     return watchlistStocks.filter(({ stock }) =>
-      [stock.symbol, stock.name, stock.sector].join(" ").toLowerCase().includes(q)
+      [stock.symbol, stock.name, stock.exchange, stock.market].join(" ").toLowerCase().includes(q),
     );
   }, [search, watchlistStocks]);
 
@@ -47,7 +49,7 @@ export function WatchlistPage() {
     return stocks.filter((s) => {
       const notIn = !inList.has(s.id);
       if (!q) return notIn;
-      return notIn && [s.symbol, s.name, s.sector].join(" ").toLowerCase().includes(q);
+      return notIn && [s.symbol, s.name, s.exchange, s.market].join(" ").toLowerCase().includes(q);
     });
   }, [addSearch, watchlist, stocks]);
 
@@ -57,7 +59,10 @@ export function WatchlistPage() {
   const handleAdd = () => {
     if (!addStock) return;
     void addToWatchlist(addStock, addQty);
-    setAddStock(""); setAddSearch(""); setAddQty(1); setShowAdd(false);
+    setAddStock("");
+    setAddSearch("");
+    setAddQty(1);
+    setShowAdd(false);
   };
 
   const toggleAddPanel = () => {
@@ -69,8 +74,7 @@ export function WatchlistPage() {
     setShowAdd((v) => !v);
   };
 
-  const handleRemove = (stockId: string) =>
-    void removeFromWatchlist(stockId);
+  const handleRemove = (stockId: string) => void removeFromWatchlist(stockId);
 
   return (
     <>
@@ -135,9 +139,9 @@ export function WatchlistPage() {
                         className={`wl-add-option ${addStock === s.id ? "selected" : ""}`}
                         onClick={() => { setAddStock(s.id); setAddSearch(s.symbol); }}
                       >
-                        <strong>{s.symbol}</strong> — {s.name}
-                        <span className={s.changePercent >= 0 ? "price-up" : "price-down"}>
-                          ${s.price.toFixed(2)} ({s.changePercent >= 0 ? "+" : ""}{s.changePercent.toFixed(2)}%)
+                        <strong>{s.symbol}</strong> - {s.name ?? "N/A"}
+                        <span className={(s.changePercent ?? 0) >= 0 ? "price-up" : "price-down"}>
+                          ${(s.price ?? 0).toFixed(2)} ({(s.changePercent ?? 0) >= 0 ? "+" : ""}{(s.changePercent ?? 0).toFixed(2)}%)
                         </span>
                       </button>
                     ))
@@ -153,7 +157,7 @@ export function WatchlistPage() {
                     min="1"
                     step="1"
                     value={addQty}
-                    onChange={(e) => setAddQty(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setAddQty(parseInt(e.target.value, 10) || 1)}
                   />
                 </label>
                 <button
@@ -183,7 +187,7 @@ export function WatchlistPage() {
                 <tr>
                   <th>Symbol</th>
                   <th>Company</th>
-                  <th>Signal</th>
+                  <th>Source</th>
                   <th>Current price</th>
                   <th>Day change</th>
                   <th>Qty</th>
@@ -196,11 +200,11 @@ export function WatchlistPage() {
                 {filtered.map(({ stock, quantity, currentValue }) => (
                   <tr key={stock.id}>
                     <td><strong>{stock.symbol}</strong></td>
-                    <td><span className="wl-name">{stock.name}</span><span className="wl-sector">{stock.sector}</span></td>
-                    <td><span className={`rec-badge ${stock.recommendation.toLowerCase()}`}>{stock.recommendation}</span></td>
-                    <td>${stock.price.toFixed(2)}</td>
-                    <td className={stock.changePercent >= 0 ? "price-up" : "price-down"}>
-                      {stock.changePercent >= 0 ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                    <td><span className="wl-name">{stock.name ?? "N/A"}</span><span className="wl-sector">{stock.exchange ?? "N/A"}</span></td>
+                    <td><span className="rec-badge hold">{stock.source ?? "live"}</span></td>
+                    <td>${(stock.price ?? 0).toFixed(2)}</td>
+                    <td className={(stock.changePercent ?? 0) >= 0 ? "price-up" : "price-down"}>
+                      {(stock.changePercent ?? 0) >= 0 ? "+" : ""}{(stock.changePercent ?? 0).toFixed(2)}%
                     </td>
                     <td>{quantity}</td>
                     <td>${currentValue.toFixed(2)}</td>
@@ -208,7 +212,7 @@ export function WatchlistPage() {
                       <button
                         type="button"
                         className="wl-add-to-cart-btn"
-                        onClick={() => void addToCart(stock.id, stock.symbol, stock.price, quantity)}
+                        onClick={() => void addToCart(stock.id, stock.symbol, stock.price ?? 0, quantity)}
                         title="Add to cart"
                       >🛒</button>
                     </td>

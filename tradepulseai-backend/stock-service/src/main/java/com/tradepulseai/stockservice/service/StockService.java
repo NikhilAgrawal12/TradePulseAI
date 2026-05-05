@@ -5,7 +5,6 @@ import com.tradepulseai.stockservice.exception.StockNotFoundException;
 import com.tradepulseai.stockservice.mapper.StockMapper;
 import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.repository.StockRepository;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,7 +19,7 @@ public class StockService {
     }
 
     public List<StockResponseDTO> getStocks() {
-        return stockRepository.findAll(Sort.by(Sort.Direction.ASC, "stockId"))
+        return stockRepository.findByPriceIsNotNullOrderByStockIdAsc()
                 .stream()
                 .map(StockMapper::toDTO)
                 .toList();
@@ -29,12 +28,18 @@ public class StockService {
     public StockResponseDTO getStockById(Long id) {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with id: " + id));
+        if (stock.getPrice() == null) {
+            throw new StockNotFoundException("Stock quote not available yet for id: " + id);
+        }
         return StockMapper.toDTO(stock);
     }
 
     public StockResponseDTO getStockBySymbol(String symbol) {
         Stock stock = stockRepository.findBySymbol(symbol)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with symbol: " + symbol));
+        if (stock.getPrice() == null) {
+            throw new StockNotFoundException("Stock quote not available yet for symbol: " + symbol);
+        }
         return StockMapper.toDTO(stock);
     }
 }

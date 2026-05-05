@@ -45,7 +45,7 @@ public class PolygonStockIngestionScheduler {
     }
 
     @Transactional
-    @Scheduled(fixedDelayString = "${polygon.fetch.fixed-delay-ms:12000}", initialDelay = 10000)
+    @Scheduled(fixedDelayString = "#{T(java.lang.Math).max(${polygon.fetch.fixed-delay-ms:12000}, 12000)}", initialDelay = 10000)
     public void fetchAndPublish() {
         if (!fetchEnabled) {
             return;
@@ -82,12 +82,8 @@ public class PolygonStockIngestionScheduler {
                     .setScale(4, RoundingMode.HALF_UP);
         }
 
-        stock.setPrice(newPrice);
-        stock.setChangePercent(changePercent);
-        stock.setVolume(aggregate.v());
-        stockRepository.save(stock);
-
         Instant marketTs = aggregate.t() > 0 ? Instant.ofEpochMilli(aggregate.t()) : Instant.now();
+
         StockMarketEvent event = new StockMarketEvent(
                 stock.getSymbol(),
                 newPrice,
