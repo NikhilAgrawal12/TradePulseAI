@@ -18,14 +18,14 @@ public record PolygonGroupedDailyMarketSummaryResponse(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record PolygonGroupedDailyAggregate(
             @JsonProperty("T") String ticker,
-            double o,
-            double h,
-            double l,
-            double c,
-            long t,
-            long n,
-            double v,
-            double vw
+            Double o,
+            Double h,
+            Double l,
+            Double c,
+            Long t,
+            Long n,
+            Double v,
+            Double vw
     ) {
     }
 }
