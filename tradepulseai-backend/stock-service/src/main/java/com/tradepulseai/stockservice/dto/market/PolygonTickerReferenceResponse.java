@@ -18,7 +18,12 @@ public record PolygonTickerReferenceResponse(
             @JsonProperty("primary_exchange") String primaryExchange,
             String locale,
             String market,
-            @JsonProperty("active") boolean active
+            @JsonProperty("active") boolean active,
+            String type,
+            @JsonProperty("currency_name") String currencyName,
+            String cik,
+            @JsonProperty("composite_figi") String compositeFigi,
+            @JsonProperty("share_class_figi") String shareClassFigi
     ) {
     }
 }

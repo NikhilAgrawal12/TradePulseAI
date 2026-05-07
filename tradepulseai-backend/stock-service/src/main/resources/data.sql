@@ -1,3 +1,2 @@
--- Intentionally left blank.
--- Stock rows are populated dynamically from Polygon universe bootstrap and live updates.
+-- Keep this script non-empty because spring.sql.init.mode=always runs it at startup.
 SELECT 1;

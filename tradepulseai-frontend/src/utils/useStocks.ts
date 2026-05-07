@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import type { Stock } from "../types/stock";
-import type { StockLiveEvent } from "../types/stockLive";
 import { fetchStocks } from "./stocksApi";
-import { connectStockLiveFeed } from "./stockLiveSocket";
 
 const STOCKS_CACHE_KEY = "tradepulseai:stocks-cache";
-const STOCKS_CACHE_TTL_MS = 60_000;
+const DEFAULT_POLL_INTERVAL_MS = 5_000;
 
 type StocksCache = {
   data: Stock[];
@@ -16,8 +14,13 @@ type StocksCache = {
 let memoryCache: StocksCache | null = null;
 let inFlightRequest: Promise<Stock[]> | null = null;
 
-function isCacheFresh(cache: StocksCache) {
-  return Date.now() - cache.cachedAt < STOCKS_CACHE_TTL_MS;
+function getPollIntervalMs() {
+  const configured = Number(import.meta.env.VITE_STOCKS_POLL_INTERVAL_MS);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+
+  return DEFAULT_POLL_INTERVAL_MS;
 }
 
 function persistCache(cache: StocksCache) {
@@ -89,27 +92,6 @@ async function fetchAndCacheStocks() {
   return inFlightRequest;
 }
 
-function mergeLiveEvent(stocks: Stock[], event: StockLiveEvent) {
-  let touched = false;
-  const merged = stocks.map((stock) => {
-    if (stock.symbol !== event.symbol) {
-      return stock;
-    }
-
-    touched = true;
-    return {
-      ...stock,
-      price: event.price,
-      changePercent: event.changePercent,
-      volume: event.volume,
-      lastUpdated: event.marketTimestamp,
-      source: event.source,
-    };
-  });
-
-  return { merged, touched };
-}
-
 export function useStocks() {
   const [stocks, setStocks] = useState<Stock[]>(() => getCachedStocks()?.data ?? []);
   const [loading, setLoading] = useState(() => getCachedStocks() == null);
@@ -117,25 +99,27 @@ export function useStocks() {
 
   useEffect(() => {
     let isMounted = true;
+    const pollIntervalMs = getPollIntervalMs();
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
 
     const loadStocks = async () => {
       const cache = getCachedStocks();
       if (cache && cache.data.length > 0) {
+        console.log("[useStocks] Using cached stocks:", cache.data.length);
         setStocks(cache.data);
         setLoading(false);
-
-        if (isCacheFresh(cache)) {
-          return;
-        }
       } else {
+        console.log("[useStocks] No cached stocks, loading from API");
         setLoading(true);
       }
 
       try {
+        console.log("[useStocks] Fetching stocks from API...");
         const data = await fetchAndCacheStocks();
         if (!isMounted) {
           return;
         }
+        console.log("[useStocks] Successfully loaded stocks from API:", data.length);
         setStocks(data);
         setError(null);
       } catch (err) {
@@ -143,6 +127,7 @@ export function useStocks() {
           return;
         }
 
+        console.error("[useStocks] Error fetching stocks:", err);
         if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
           setError(err.response.data.message);
         } else {
@@ -158,32 +143,54 @@ export function useStocks() {
       }
     };
 
+    const refreshStocks = async () => {
+      try {
+        const data = await fetchAndCacheStocks();
+        if (!isMounted) {
+          return;
+        }
+
+        setStocks(data);
+        setError(null);
+      } catch (err) {
+        if (!isMounted) {
+          return;
+        }
+
+        if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+          setError(err.response.data.message);
+        }
+      }
+    };
+
+    const handleForegroundRefresh = () => {
+      void refreshStocks();
+    };
+
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        void refreshStocks();
+      }
+    };
+
     void loadStocks();
+
+    pollTimer = setInterval(() => {
+      void refreshStocks();
+    }, pollIntervalMs);
+
+    window.addEventListener("focus", handleForegroundRefresh);
+    window.addEventListener("online", handleForegroundRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
 
     return () => {
       isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const disconnect = connectStockLiveFeed((event) => {
-      setStocks((previous) => {
-        if (previous.length === 0) {
-          return previous;
-        }
-
-        const { merged, touched } = mergeLiveEvent(previous, event);
-        if (!touched) {
-          return previous;
-        }
-
-        persistCache({ data: merged, cachedAt: Date.now() });
-        return merged;
-      });
-    });
-
-    return () => {
-      disconnect();
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+      window.removeEventListener("focus", handleForegroundRefresh);
+      window.removeEventListener("online", handleForegroundRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
     };
   }, []);
 

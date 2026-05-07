@@ -71,6 +71,7 @@ public class StockResponseDTO {
         this.active = active;
     }
 
+
     public Double getPrice() {
         return price;
     }

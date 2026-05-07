@@ -1,6 +1,15 @@
 # TradePulseAI
 
-**TradePulseAI** is a web application that allows users to track stocks, buy and sell shares, view analytics, and monitor their portfolio. The platform integrates AI  based predictions to provide insights and support informed trading decisions. Future updates will include LLM and generative AI features for enhanced recommendations.
+**TradePulseAI** is a web application that allows users to track stocks, buy and sell shares, view analytics, and monitor their portfolio. The platform integrates AI based predictions to provide insights and support informed trading decisions.
+
+---
+
+## 🚀 Quick Start
+
+Ready to get started? Follow these guides:
+
+- **[QUICK_START.md](QUICK_START.md)** - How to set up and run the system (5 minutes)
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Understand the real-time data pipeline
 
 ---
 
@@ -99,9 +108,21 @@
 
 ---
 
+## **Key Features**
+
+### Real-Time Stock Data Pipeline
+The system fetches live stock prices from Polygon.io and delivers them through:
+- **Kafka** - Message queue for reliable data streaming
+- **PostgreSQL** - Persistent storage for historical analysis
+- **WebSocket** - Real-time delivery to frontend (~70ms latency)
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
+
+---
+
 ## **Future Features**
 - LLM and generative AI for personalized recommendations.
 - Advanced predictive analytics dashboards.
-- Real-time notifications and alerts for stock movements.
+- Mobile app for iOS and Android.
 
 

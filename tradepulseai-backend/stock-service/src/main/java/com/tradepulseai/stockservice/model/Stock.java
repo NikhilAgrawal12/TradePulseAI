@@ -5,10 +5,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
-import java.math.BigDecimal;
-import java.time.Instant;
 
 @Entity
 @Table(name = "stocks")
@@ -25,8 +25,9 @@ public class Stock {
     @Column(name = "name", length = 255)
     private String name;
 
-    @Column(name = "exchange", length = 100)
-    private String exchange;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exchange_id")
+    private Exchange exchange;
 
     @Column(name = "market", length = 50)
     private String market;
@@ -34,23 +35,23 @@ public class Stock {
     @Column(name = "locale", length = 20)
     private String locale;
 
+    @Column(name = "type", length = 50)
+    private String type;
+
     @Column(name = "active")
     private Boolean active;
 
-    @Column(name = "price", precision = 18, scale = 4)
-    private BigDecimal price;
+    @Column(name = "currency_name", length = 20)
+    private String currencyName;
 
-    @Column(name = "change_percent", precision = 9, scale = 4)
-    private BigDecimal changePercent;
+    @Column(name = "cik", length = 30)
+    private String cik;
 
-    @Column(name = "volume")
-    private Long volume;
+    @Column(name = "composite_figi", length = 50)
+    private String compositeFigi;
 
-    @Column(name = "last_updated")
-    private Instant lastUpdated;
-
-    @Column(name = "source", length = 50)
-    private String source;
+    @Column(name = "share_class_figi", length = 50)
+    private String shareClassFigi;
 
     public Long getStockId() {
         return stockId;
@@ -76,11 +77,11 @@ public class Stock {
         this.name = name;
     }
 
-    public String getExchange() {
+    public Exchange getExchange() {
         return exchange;
     }
 
-    public void setExchange(String exchange) {
+    public void setExchange(Exchange exchange) {
         this.exchange = exchange;
     }
 
@@ -100,6 +101,14 @@ public class Stock {
         this.locale = locale;
     }
 
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
     public Boolean getActive() {
         return active;
     }
@@ -108,43 +117,35 @@ public class Stock {
         this.active = active;
     }
 
-    public BigDecimal getPrice() {
-        return price;
+    public String getCurrencyName() {
+        return currencyName;
     }
 
-    public void setPrice(BigDecimal price) {
-        this.price = price;
+    public void setCurrencyName(String currencyName) {
+        this.currencyName = currencyName;
     }
 
-    public BigDecimal getChangePercent() {
-        return changePercent;
+    public String getCik() {
+        return cik;
     }
 
-    public void setChangePercent(BigDecimal changePercent) {
-        this.changePercent = changePercent;
+    public void setCik(String cik) {
+        this.cik = cik;
     }
 
-    public Long getVolume() {
-        return volume;
+    public String getCompositeFigi() {
+        return compositeFigi;
     }
 
-    public void setVolume(Long volume) {
-        this.volume = volume;
+    public void setCompositeFigi(String compositeFigi) {
+        this.compositeFigi = compositeFigi;
     }
 
-    public Instant getLastUpdated() {
-        return lastUpdated;
+    public String getShareClassFigi() {
+        return shareClassFigi;
     }
 
-    public void setLastUpdated(Instant lastUpdated) {
-        this.lastUpdated = lastUpdated;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public void setSource(String source) {
-        this.source = source;
+    public void setShareClassFigi(String shareClassFigi) {
+        this.shareClassFigi = shareClassFigi;
     }
 }

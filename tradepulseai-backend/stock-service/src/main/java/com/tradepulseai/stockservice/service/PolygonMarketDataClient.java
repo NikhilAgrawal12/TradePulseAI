@@ -1,6 +1,7 @@
 package com.tradepulseai.stockservice.service;
 
-import com.tradepulseai.stockservice.dto.market.PolygonPreviousCloseResponse;
+import com.tradepulseai.stockservice.dto.market.PolygonExchangeResponse;
+import com.tradepulseai.stockservice.dto.market.PolygonGroupedDailyMarketSummaryResponse;
 import com.tradepulseai.stockservice.dto.market.PolygonTickerReferenceResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,31 +36,31 @@ public class PolygonMarketDataClient {
         return apiKey != null && !apiKey.isBlank();
     }
 
-    public Optional<PolygonPreviousCloseResponse.PolygonAggregate> fetchPreviousClose(String symbol) {
+    public Optional<PolygonGroupedDailyMarketSummaryResponse> fetchGroupedDailyMarketSummary(LocalDate marketDate) {
         if (!isConfigured()) {
             return Optional.empty();
         }
 
         try {
-            PolygonPreviousCloseResponse response = restClient.get()
+            PolygonGroupedDailyMarketSummaryResponse response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/v2/aggs/ticker/{symbol}/prev")
+                            .path("/v2/aggs/grouped/locale/us/market/stocks/{date}")
                             .queryParam("adjusted", true)
                             .queryParam("apiKey", apiKey)
-                            .build(symbol))
+                            .build(marketDate))
                     .retrieve()
-                    .body(PolygonPreviousCloseResponse.class);
+                    .body(PolygonGroupedDailyMarketSummaryResponse.class);
 
             if (response == null || response.results() == null || response.results().isEmpty()) {
                 return Optional.empty();
             }
 
-            return Optional.ofNullable(response.results().getFirst());
+            return Optional.of(response);
         } catch (RestClientResponseException e) {
-            log.warn("Polygon request failed for symbol {} with status {} and body {}",
-                    symbol, e.getStatusCode(), e.getResponseBodyAsString());
+            log.warn("Polygon grouped daily summary request failed for date {} with status {} and body {}",
+                    marketDate, e.getStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
-            log.warn("Unexpected Polygon fetch error for symbol {}", symbol, e);
+            log.warn("Unexpected Polygon grouped daily summary fetch error for date {}", marketDate, e);
         }
 
         return Optional.empty();
@@ -108,6 +110,37 @@ public class PolygonMarketDataClient {
         }
 
         return collected;
+    }
+
+    public List<PolygonExchangeResponse.PolygonExchange> fetchUsStockExchanges() {
+        if (!isConfigured()) {
+            return List.of();
+        }
+
+        try {
+            PolygonExchangeResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v3/reference/exchanges")
+                            .queryParam("asset_class", "stocks")
+                            .queryParam("locale", "us")
+                            .queryParam("apiKey", apiKey)
+                            .build())
+                    .retrieve()
+                    .body(PolygonExchangeResponse.class);
+
+            if (response == null || response.results() == null) {
+                return List.of();
+            }
+
+            return response.results();
+        } catch (RestClientResponseException e) {
+            log.warn("Polygon exchange request failed with status {} and body {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.warn("Unexpected Polygon exchange fetch error", e);
+        }
+
+        return List.of();
     }
 
     private PolygonTickerReferenceResponse requestTickerPage(String nextUrl, int pageSize) {
