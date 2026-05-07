@@ -86,10 +86,10 @@ export function PaymentPage() {
               <h1>Complete Payment</h1>
               <form onSubmit={handlePayNow} className="payment-form">
                 <label htmlFor="card-name">Cardholder Name</label>
-                <input id="card-name" type="text" placeholder="Nikhil Agrawal" required />
+                <input id="card-name" type="text" placeholder="Name on card" required />
 
                 <label htmlFor="card-number">Card Number</label>
-                <input id="card-number" type="text" inputMode="numeric" maxLength={19} placeholder="1234 5678 9012 3456" required />
+                <input id="card-number" type="text" inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000" required />
 
                 <div className="payment-row">
                   <div>
@@ -98,7 +98,7 @@ export function PaymentPage() {
                   </div>
                   <div>
                     <label htmlFor="cvv">CVV</label>
-                    <input id="cvv" type="password" inputMode="numeric" maxLength={4} placeholder="123" required />
+                    <input id="cvv" type="password" inputMode="numeric" maxLength={4} placeholder="000" required />
                   </div>
                 </div>
 

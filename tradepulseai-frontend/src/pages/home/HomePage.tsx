@@ -69,7 +69,7 @@ export function HomePage() {
                           <h3>{stock.symbol}</h3>
                           <p>{stock.name ?? "N/A"}</p>
                         </div>
-                        <span className="recommendation-badge hold">{stock.source ?? "live"}</span>
+                        <span className={`recommendation-badge ${stock.active ? "active" : "inactive"}`}>{stock.active ? "Active" : "Inactive"}</span>
                       </div>
 
                       <div className="stock-price-row">
@@ -84,7 +84,7 @@ export function HomePage() {
                         <p className="metric-item"><span>Volume</span><strong className="metric-value">{(stock.volume ?? 0).toLocaleString()}</strong></p>
                       </div>
 
-                      <p className="stock-rating">Last update: {stock.lastUpdated ? new Date(stock.lastUpdated).toLocaleTimeString() : "N/A"}</p>
+                      <p className="stock-rating">Last update: {stock.lastUpdated ? new Date(stock.lastUpdated).toLocaleString() : "N/A"}</p>
 
                       <div className="stock-card-actions">
                         <button

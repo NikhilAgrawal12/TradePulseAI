@@ -190,6 +190,16 @@
   background: #ffecec;
 }
 
+.recommendation-badge.active {
+  color: #0c7a40;
+  background: #e9f8ef;
+}
+
+.recommendation-badge.inactive {
+  color: #666666;
+  background: #f0f0f0;
+}
+
 .stock-price-row {
   margin-top: 10px;
   display: flex;
