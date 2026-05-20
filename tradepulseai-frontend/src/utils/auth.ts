@@ -1,5 +1,4 @@
 const AUTH_CHANGED_EVENT = "tradepulseai:auth-changed";
-const AUTH_REQUIRED_MESSAGE_KEY = "tradepulseai:auth-required-message";
 
 export function getStoredToken(): string | null {
   return localStorage.getItem("authToken") ?? sessionStorage.getItem("authToken");
@@ -23,7 +22,7 @@ export function showSignInRequiredMessage(message: string = SIGN_IN_REQUIRED_MES
   );
 }
 
-export function requireSignIn(_message: string = SIGN_IN_REQUIRED_MESSAGE): void {
+export function requireSignIn(): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -36,17 +35,6 @@ export function requireSignIn(_message: string = SIGN_IN_REQUIRED_MESSAGE): void
   );
 }
 
-export function consumePendingAuthRequiredMessage(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const message = sessionStorage.getItem(AUTH_REQUIRED_MESSAGE_KEY);
-  if (message) {
-    sessionStorage.removeItem(AUTH_REQUIRED_MESSAGE_KEY);
-  }
-  return message;
-}
 
 function notifyAuthChanged(): void {
   if (typeof window === "undefined") {
@@ -112,6 +100,20 @@ export function getEmailFromToken(token: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+export function buildAuthHeaders(): { Authorization: string; "X-User-Id": string } {
+  const token = getStoredToken();
+  const userId = getUserIdFromToken(token);
+
+  if (!token || !userId) {
+    throw new Error("Missing valid authentication token.");
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+    "X-User-Id": userId,
+  };
 }
 
 export function getUserIdFromToken(token: string | null): string | null {

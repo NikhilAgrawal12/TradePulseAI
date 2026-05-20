@@ -1,20 +1,6 @@
 import axios from "axios";
 import type { PortfolioResponse, SellPortfolioItemRequest } from "../types/portfolio";
-import { getStoredToken, getUserIdFromToken } from "./auth";
-
-function buildAuthHeaders() {
-  const token = getStoredToken();
-  const userId = getUserIdFromToken(token);
-
-  if (!token || !userId) {
-    throw new Error("Missing valid authentication token.");
-  }
-
-  return {
-    Authorization: `Bearer ${token}`,
-    "X-User-Id": userId,
-  };
-}
+import { buildAuthHeaders } from "./auth";
 
 export async function fetchPortfolio(): Promise<PortfolioResponse> {
   const response = await axios.get<PortfolioResponse>("/api/customers/portfolio", {

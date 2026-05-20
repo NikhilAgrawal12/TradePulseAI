@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { Link } from "react-router";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import type { CartItem } from "../../types/cart";

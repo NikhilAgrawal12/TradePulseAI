@@ -105,21 +105,17 @@ export function useStocks() {
     const loadStocks = async () => {
       const cache = getCachedStocks();
       if (cache && cache.data.length > 0) {
-        console.log("[useStocks] Using cached stocks:", cache.data.length);
         setStocks(cache.data);
         setLoading(false);
       } else {
-        console.log("[useStocks] No cached stocks, loading from API");
         setLoading(true);
       }
 
       try {
-        console.log("[useStocks] Fetching stocks from API...");
         const data = await fetchAndCacheStocks();
         if (!isMounted) {
           return;
         }
-        console.log("[useStocks] Successfully loaded stocks from API:", data.length);
         setStocks(data);
         setError(null);
       } catch (err) {

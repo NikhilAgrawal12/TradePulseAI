@@ -79,7 +79,7 @@ export function AboutPage() {
 						<div className="about-hero-ctas">
 							<Link to="/registration" className="about-btn-primary">
 								Get started free
-					x		</Link>
+							</Link>
 							<Link to="/analytics" className="about-btn-secondary">
 								Explore analytics
 							</Link>
