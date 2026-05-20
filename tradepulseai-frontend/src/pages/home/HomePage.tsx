@@ -7,6 +7,8 @@ import { isUserAuthenticated } from "../../utils/auth";
 import { useStocks } from "../../utils/useStocks";
 import "./HomePage.css";
 
+const IMPORTANT_STOCKS_ORDER = ["GOOGL", "GOOG", "META", "AAPL", "NVDA", "MSFT", "AMZN", "TSLA"];
+const IMPORTANT_STOCK_PRIORITY = new Map(IMPORTANT_STOCKS_ORDER.map((symbol, index) => [symbol, index]));
 
 export function HomePage() {
   const { addToCart } = useCart();
@@ -24,6 +26,22 @@ export function HomePage() {
     [stocks],
   );
 
+  const prioritizedStocks = useMemo(
+    () =>
+      [...pricedStocks].sort((a, b) => {
+        const symbolA = a.symbol.trim().toUpperCase();
+        const symbolB = b.symbol.trim().toUpperCase();
+        const priorityA = IMPORTANT_STOCK_PRIORITY.get(symbolA) ?? Number.MAX_SAFE_INTEGER;
+        const priorityB = IMPORTANT_STOCK_PRIORITY.get(symbolB) ?? Number.MAX_SAFE_INTEGER;
+
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+
+        return symbolA.localeCompare(symbolB);
+      }),
+    [pricedStocks],
+  );
 
   return (
     <>
@@ -46,18 +64,18 @@ export function HomePage() {
           <section className="home-stocks-section" aria-labelledby="stocks-heading">
             <div className="stocks-top-row">
               <h2 id="stocks-heading">Available Stocks</h2>
-              <p>{loading ? "Loading..." : `${pricedStocks.length} stocks available`}</p>
+              <p>{loading ? "Loading..." : `${prioritizedStocks.length} stocks available`}</p>
             </div>
 
             {error ? (
               <p className="error-message">{error}</p>
             ) : loading ? (
               <p className="loading-message">Loading stocks from backend...</p>
-            ) : pricedStocks.length === 0 ? (
+            ) : prioritizedStocks.length === 0 ? (
               <p className="no-data-message">No stocks available at the moment. Check back later.</p>
             ) : (
               <div className="stocks-grid">
-                {pricedStocks.map((stock) => {
+                {prioritizedStocks.map((stock) => {
                   const isPositive = (stock.changePercent ?? 0) >= 0;
                   const price = stock.price ?? 0;
                   const change = stock.changePercent ?? 0;
