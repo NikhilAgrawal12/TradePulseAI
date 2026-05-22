@@ -23,13 +23,6 @@ public class OrderItemMapper {
         return item;
     }
 
-    public static TradeOrderItem toModel(TradeOrder order, CartItem cartItem) {
-        return toModel(
-                order,
-                cartItem,
-                new StockQuote(cartItem.getStockId(), String.valueOf(cartItem.getStockId()), BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP))
-        );
-    }
 
     public static OrderItemResponseDTO toDTO(TradeOrderItem item) {
         OrderItemResponseDTO dto = new OrderItemResponseDTO();

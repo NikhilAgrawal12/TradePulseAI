@@ -6,8 +6,6 @@ import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.service.StockQuote;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,16 +24,6 @@ public class PortfolioOrderMapper {
         return request;
     }
 
-    public static PortfolioOrderSyncRequestDTO toSyncRequest(List<CartItem> cartItems) {
-        Map<Long, StockQuote> fallbackQuotes = new LinkedHashMap<>();
-        for (CartItem item : cartItems) {
-            fallbackQuotes.putIfAbsent(
-                    item.getStockId(),
-                    new StockQuote(item.getStockId(), String.valueOf(item.getStockId()), BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP))
-            );
-        }
-        return toSyncRequest(cartItems, fallbackQuotes);
-    }
 
     private static PortfolioOrderItemDTO toItem(CartItem cartItem, StockQuote stockQuote) {
         PortfolioOrderItemDTO item = new PortfolioOrderItemDTO();

@@ -52,14 +52,6 @@ public class PortfolioMapper {
         return transaction;
     }
 
-    public static PortfolioHoldingResponseDTO toHoldingResponse(PortfolioHolding holding) {
-        return toHoldingResponse(
-                holding,
-                new StockCatalogClient.StockQuote(holding.getId().getStockId(), String.valueOf(holding.getId().getStockId()), BigDecimal.ZERO),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO
-        );
-    }
 
     public static PortfolioHoldingResponseDTO toHoldingResponse(
             PortfolioHolding holding,
@@ -95,9 +87,6 @@ public class PortfolioMapper {
         return response;
     }
 
-    public static PortfolioTransactionResponseDTO toTransactionResponse(PortfolioTransaction transaction) {
-        return toTransactionResponse(transaction, String.valueOf(transaction.getStockId()), BigDecimal.ZERO);
-    }
 
     public static PortfolioTransactionResponseDTO toTransactionResponse(
             PortfolioTransaction transaction,
@@ -121,9 +110,6 @@ public class PortfolioMapper {
         return scaleMoney(price.multiply(BigDecimal.valueOf(quantity)));
     }
 
-    public static BigDecimal calculateGrossAmount(BigDecimal price, BigDecimal quantity) {
-        return scaleMoney(price.multiply(quantity));
-    }
 
     public static BigDecimal scaleMoney(BigDecimal value) {
         return Objects.requireNonNullElse(value, BigDecimal.ZERO)

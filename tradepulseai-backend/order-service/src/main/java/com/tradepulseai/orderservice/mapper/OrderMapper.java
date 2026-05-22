@@ -6,8 +6,6 @@ import com.tradepulseai.orderservice.model.TradeOrder;
 import com.tradepulseai.orderservice.service.StockQuote;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,16 +39,6 @@ public class OrderMapper {
         return order;
     }
 
-    public static TradeOrder toModel(Long userId, String status, List<CartItem> cartItems) {
-        Map<Long, StockQuote> fallbackQuotes = new LinkedHashMap<>();
-        for (CartItem item : cartItems) {
-            fallbackQuotes.putIfAbsent(
-                    item.getStockId(),
-                    new StockQuote(item.getStockId(), String.valueOf(item.getStockId()), BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP))
-            );
-        }
-        return toModel(userId, status, cartItems, fallbackQuotes);
-    }
 
     public static OrderResponseDTO toDTO(TradeOrder order) {
         OrderResponseDTO dto = new OrderResponseDTO();
