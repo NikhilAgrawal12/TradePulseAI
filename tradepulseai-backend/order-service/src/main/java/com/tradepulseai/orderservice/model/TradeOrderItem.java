@@ -1,14 +1,15 @@
 package com.tradepulseai.orderservice.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
 
@@ -16,29 +17,26 @@ import java.math.BigDecimal;
 @Table(name = "order_items")
 public class TradeOrderItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "order_item_id")
-    private Long id;
+    @EmbeddedId
+    private TradeOrderItemId id;
 
+    @MapsId("orderId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "order_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private TradeOrder order;
-
-    @Column(name = "stock_id", nullable = false)
-    private Long stockId;
 
     @Column(name = "price", nullable = false, precision = 18, scale = 4)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
-    private BigDecimal quantity;
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
 
-    public Long getId() {
+    public TradeOrderItemId getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(TradeOrderItemId id) {
         this.id = id;
     }
 
@@ -51,11 +49,14 @@ public class TradeOrderItem {
     }
 
     public Long getStockId() {
-        return stockId;
+        return id != null ? id.getStockId() : null;
     }
 
     public void setStockId(Long stockId) {
-        this.stockId = stockId;
+        if (this.id == null) {
+            this.id = new TradeOrderItemId();
+        }
+        this.id.setStockId(stockId);
     }
 
     public BigDecimal getPrice() {
@@ -66,11 +67,11 @@ public class TradeOrderItem {
         this.price = price;
     }
 
-    public BigDecimal getQuantity() {
+    public Integer getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(BigDecimal quantity) {
+    public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
 }

@@ -53,12 +53,9 @@ public class CustomerRequestDTO {
     @NotBlank(message = "Date of birth is required")
     private String dateOfBirth;
 
-
     @NotBlank(groups = CreateCustomerValidationGroup.class, message = "Registration date is required")
     private String registrationDate;
 
-    // Backward-compatibility alias for older clients still sending registeredDate.
-    private String registeredDate;
 
     public Long getUserId() {
         return userId;
@@ -162,14 +159,6 @@ public class CustomerRequestDTO {
 
     public void setRegistrationDate(String registrationDate) {
         this.registrationDate = registrationDate;
-    }
-
-    public String getRegisteredDate() {
-        return registeredDate;
-    }
-
-    public void setRegisteredDate(String registeredDate) {
-        this.registeredDate = registeredDate;
     }
 }
 

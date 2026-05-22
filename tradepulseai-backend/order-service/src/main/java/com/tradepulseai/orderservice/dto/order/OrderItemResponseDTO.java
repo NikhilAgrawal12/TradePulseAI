@@ -42,9 +42,6 @@ public class OrderItemResponseDTO {
         this.quantity = quantity;
     }
 
-    public void setQuantityValue(BigDecimal quantity) {
-        this.quantity = quantity;
-    }
 
     public void setQuantity(int quantity) {
         this.quantity = BigDecimal.valueOf(quantity).setScale(4, java.math.RoundingMode.HALF_UP);
