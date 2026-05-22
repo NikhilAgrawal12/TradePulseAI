@@ -106,8 +106,8 @@ public class PortfolioMapper {
         return response;
     }
 
-    public static BigDecimal calculateGrossAmount(BigDecimal price, int quantity) {
-        return scaleMoney(price.multiply(BigDecimal.valueOf(quantity)));
+    public static BigDecimal calculateGrossAmount(BigDecimal price, BigDecimal quantity) {
+        return scaleMoney(price.multiply(quantity));
     }
 
 
