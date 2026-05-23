@@ -24,6 +24,7 @@ public class PortfolioMapper {
         id.setStockId(Long.parseLong(request.getStockId()));
         holding.setId(id);
         holding.setTotalQuantity(scaleQuantity(BigDecimal.valueOf(request.getQuantity())));
+        holding.setAvgBuyPrice(scaleMoney(request.getPrice()));
         return holding;
     }
 

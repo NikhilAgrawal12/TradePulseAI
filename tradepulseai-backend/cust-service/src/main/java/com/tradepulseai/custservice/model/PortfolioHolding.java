@@ -20,6 +20,9 @@ public class PortfolioHolding {
     @Column(name = "total_quantity", nullable = false, precision = 18, scale = 4)
     private BigDecimal totalQuantity;
 
+    @Column(name = "avg_buy_price", precision = 18, scale = 4)
+    private BigDecimal avgBuyPrice;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -55,6 +58,14 @@ public class PortfolioHolding {
 
     public void setTotalQuantity(BigDecimal totalQuantity) {
         this.totalQuantity = totalQuantity;
+    }
+
+    public BigDecimal getAvgBuyPrice() {
+        return avgBuyPrice;
+    }
+
+    public void setAvgBuyPrice(BigDecimal avgBuyPrice) {
+        this.avgBuyPrice = avgBuyPrice;
     }
 
     public Instant getCreatedAt() {
