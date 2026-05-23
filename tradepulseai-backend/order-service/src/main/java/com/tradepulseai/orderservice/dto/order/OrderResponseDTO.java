@@ -6,7 +6,7 @@ import java.util.List;
 
 public class OrderResponseDTO {
 
-    private Long id;
+    private String id;
     private Long userId;
     private String status;
     private Instant createdAtIso;
@@ -15,11 +15,11 @@ public class OrderResponseDTO {
     private BigDecimal total;
     private List<OrderItemResponseDTO> items;
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

@@ -43,10 +43,6 @@ public class OrderItemResponseDTO {
     }
 
 
-    public void setQuantity(int quantity) {
-        this.quantity = BigDecimal.valueOf(quantity).setScale(4, java.math.RoundingMode.HALF_UP);
-    }
-
     public BigDecimal getLineTotal() {
         return lineTotal;
     }

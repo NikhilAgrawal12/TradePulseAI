@@ -21,9 +21,9 @@ import java.util.List;
 public class TradeOrder {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "order_id")
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "order_id", length = 36, updatable = false, nullable = false)
+    private String id;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -51,11 +51,11 @@ public class TradeOrder {
         this.createdAt = Instant.now();
     }
 
-    public Long getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(String id) {
         this.id = id;
     }
 

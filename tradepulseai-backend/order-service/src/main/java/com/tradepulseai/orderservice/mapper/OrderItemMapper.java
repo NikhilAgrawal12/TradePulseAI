@@ -17,19 +17,19 @@ public class OrderItemMapper {
     public static TradeOrderItem toModel(TradeOrder order, CartItem cartItem, StockQuote stockQuote) {
         TradeOrderItem item = new TradeOrderItem();
         item.setOrder(order);
-        item.setStockId(cartItem.getStockId());
+        item.setStockId(String.valueOf(cartItem.getStockId()));
         item.setPrice(scaleMoney(stockQuote.unitPrice()));
-        item.setQuantity(toWholeNumberQuantity(cartItem.getQuantity(), cartItem.getStockId()));
+        item.setQuantity(scaleQuantity(cartItem.getQuantity()));
         return item;
     }
 
 
     public static OrderItemResponseDTO toDTO(TradeOrderItem item) {
         OrderItemResponseDTO dto = new OrderItemResponseDTO();
-        dto.setStockId(String.valueOf(item.getStockId()));
+        dto.setStockId(item.getStockId());
         dto.setPrice(scaleMoney(item.getPrice()));
         dto.setQuantity(item.getQuantity());
-        dto.setLineTotal(scaleMoney(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))));
+        dto.setLineTotal(scaleMoney(item.getPrice().multiply(item.getQuantity())));
         return dto;
     }
 
@@ -37,12 +37,7 @@ public class OrderItemMapper {
         return value.setScale(4, RoundingMode.HALF_UP);
     }
 
-    private static int toWholeNumberQuantity(BigDecimal quantity, Long stockId) {
-        try {
-            return quantity.intValueExact();
-        } catch (ArithmeticException exception) {
-            throw new IllegalArgumentException("Order items support whole-number quantity only for stockId: " + stockId, exception);
-        }
+    private static BigDecimal scaleQuantity(BigDecimal quantity) {
+        return quantity.setScale(8, RoundingMode.HALF_UP);
     }
 }
-

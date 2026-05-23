@@ -121,7 +121,7 @@ public class CartService {
             throw new IllegalStateException("Payment failed for orderId: " + savedOrder.getId(), exception);
         }
 
-        validateCompletedPaymentResponse(response, String.valueOf(savedOrder.getId()));
+        validateCompletedPaymentResponse(response, savedOrder.getId());
 
         portfolioSyncClient.syncCompletedOrder(userId, PortfolioOrderMapper.toSyncRequest(cartItems, stockQuotes));
 

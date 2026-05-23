@@ -29,8 +29,8 @@ public class TradeOrderItem {
     @Column(name = "price", nullable = false, precision = 18, scale = 4)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false)
-    private Integer quantity;
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 8)
+    private BigDecimal quantity;
 
     public TradeOrderItemId getId() {
         return id;
@@ -48,11 +48,11 @@ public class TradeOrderItem {
         this.order = order;
     }
 
-    public Long getStockId() {
+    public String getStockId() {
         return id != null ? id.getStockId() : null;
     }
 
-    public void setStockId(Long stockId) {
+    public void setStockId(String stockId) {
         if (this.id == null) {
             this.id = new TradeOrderItemId();
         }
@@ -67,11 +67,11 @@ public class TradeOrderItem {
         this.price = price;
     }
 
-    public Integer getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(Integer quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 }

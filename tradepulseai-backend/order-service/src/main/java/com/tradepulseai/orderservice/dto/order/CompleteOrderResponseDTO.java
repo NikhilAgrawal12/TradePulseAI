@@ -2,24 +2,24 @@ package com.tradepulseai.orderservice.dto.order;
 
 public class CompleteOrderResponseDTO {
 
-    private Long orderId;
+    private String orderId;
     private String accountId;
     private String status;
 
     public CompleteOrderResponseDTO() {
     }
 
-    public CompleteOrderResponseDTO(Long orderId, String accountId, String status) {
+    public CompleteOrderResponseDTO(String orderId, String accountId, String status) {
         this.orderId = orderId;
         this.accountId = accountId;
         this.status = status;
     }
 
-    public Long getOrderId() {
+    public String getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(Long orderId) {
+    public void setOrderId(String orderId) {
         this.orderId = orderId;
     }
 
@@ -39,4 +39,3 @@ public class CompleteOrderResponseDTO {
         this.status = status;
     }
 }
-

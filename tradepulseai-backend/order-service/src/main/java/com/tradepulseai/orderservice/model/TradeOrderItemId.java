@@ -9,33 +9,33 @@ import java.util.Objects;
 @Embeddable
 public class TradeOrderItemId implements Serializable {
 
-    @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    @Column(name = "order_id", length = 36, nullable = false)
+    private String orderId;
 
-    @Column(name = "stock_id", nullable = false)
-    private Long stockId;
+    @Column(name = "stock_id", length = 36, nullable = false)
+    private String stockId;
 
     public TradeOrderItemId() {
     }
 
-    public TradeOrderItemId(Long orderId, Long stockId) {
+    public TradeOrderItemId(String orderId, String stockId) {
         this.orderId = orderId;
         this.stockId = stockId;
     }
 
-    public Long getOrderId() {
+    public String getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(Long orderId) {
+    public void setOrderId(String orderId) {
         this.orderId = orderId;
     }
 
-    public Long getStockId() {
+    public String getStockId() {
         return stockId;
     }
 
-    public void setStockId(Long stockId) {
+    public void setStockId(String stockId) {
         this.stockId = stockId;
     }
 
@@ -55,4 +55,3 @@ public class TradeOrderItemId implements Serializable {
         return Objects.hash(orderId, stockId);
     }
 }
-

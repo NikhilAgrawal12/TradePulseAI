@@ -39,9 +39,9 @@ public class OrderPaymentGrpcClient {
      * @param totalAmount the complete order total (subtotal + tax)
      * @param userId  the buyer's user id
      */
-    public OrderPaymentResponse completeOrderPayment(Long orderId, BigDecimal totalAmount, Long userId) {
+    public OrderPaymentResponse completeOrderPayment(String orderId, BigDecimal totalAmount, Long userId) {
         OrderPaymentRequest request = OrderPaymentRequest.newBuilder()
-                .setOrderId(String.valueOf(orderId))
+                .setOrderId(orderId)
                 .setUserId(String.valueOf(userId))
                 .setTotalAmount(totalAmount.doubleValue())
                 .build();
