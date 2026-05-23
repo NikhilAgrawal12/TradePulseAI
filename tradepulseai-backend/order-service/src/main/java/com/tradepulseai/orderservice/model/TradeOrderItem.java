@@ -22,7 +22,7 @@ public class TradeOrderItem {
 
     @MapsId("orderId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_id", nullable = false, columnDefinition = "VARCHAR(36)")
     @OnDelete(action = OnDeleteAction.CASCADE)
     private TradeOrder order;
 

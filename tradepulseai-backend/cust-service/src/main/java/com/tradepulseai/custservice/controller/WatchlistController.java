@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,14 +46,6 @@ public class WatchlistController {
         return ResponseEntity.ok(watchlistService.addToWatchlist(normalizeUserId(userId), request));
     }
 
-    @PutMapping("/items/{stockId}")
-    @Operation(summary = "Update watchlist entry")
-    public ResponseEntity<List<WatchlistItemResponseDTO>> updateWatchlistItem(
-            @RequestHeader(USER_ID_HEADER) String userId,
-            @PathVariable String stockId
-    ) {
-        return ResponseEntity.ok(watchlistService.updateWatchlistItem(normalizeUserId(userId), stockId));
-    }
 
     @DeleteMapping("/items/{stockId}")
     @Operation(summary = "Remove stock from watchlist")

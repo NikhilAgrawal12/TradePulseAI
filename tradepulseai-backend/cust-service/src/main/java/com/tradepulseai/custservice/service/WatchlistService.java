@@ -39,14 +39,6 @@ public class WatchlistService {
         return getWatchlist(userId);
     }
 
-    @Transactional
-    public List<WatchlistItemResponseDTO> updateWatchlistItem(Long userId, String stockId) {
-        Long parsedStockId = parseStockId(stockId);
-
-        watchlistItemRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
-                .orElseThrow(() -> new IllegalArgumentException("Watchlist item not found for stockId: " + stockId));
-        return getWatchlist(userId);
-    }
 
     @Transactional
     public List<WatchlistItemResponseDTO> removeFromWatchlist(Long userId, String stockId) {
