@@ -40,7 +40,7 @@ public class StockService {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with id: " + id));
 
-        StockMarketData latestMarketData = stockMarketDataRepository.findTopByStockOrderByMarketTimestampDesc(stock)
+        StockMarketData latestMarketData = stockMarketDataRepository.findTopByStockOrderByTradingDateDesc(stock)
                 .orElseThrow(() -> new StockNotFoundException("Stock quote not available yet for id: " + id));
 
         if (latestMarketData.getClosePrice() == null) {
@@ -54,7 +54,7 @@ public class StockService {
         Stock stock = stockRepository.findBySymbol(symbol)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with symbol: " + symbol));
 
-        StockMarketData latestMarketData = stockMarketDataRepository.findTopByStockOrderByMarketTimestampDesc(stock)
+        StockMarketData latestMarketData = stockMarketDataRepository.findTopByStockOrderByTradingDateDesc(stock)
                 .orElseThrow(() -> new StockNotFoundException("Stock quote not available yet for symbol: " + symbol));
 
         if (latestMarketData.getClosePrice() == null) {

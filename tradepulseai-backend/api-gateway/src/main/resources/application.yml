@@ -36,10 +36,6 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: stock-websocket-route
-          uri: ws://stock-service:4003
-          predicates:
-            - Path=/ws/**
 
         - id: watchlist-service-route
           uri: http://cust-service:4000

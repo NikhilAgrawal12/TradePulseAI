@@ -4,6 +4,9 @@ import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.model.StockMarketData;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 public class StockMapper {
 
     private StockMapper() {
@@ -26,12 +29,23 @@ public class StockMapper {
 
         if (latestMarketData != null) {
             dto.setPrice(latestMarketData.getClosePrice() == null ? null : latestMarketData.getClosePrice().doubleValue());
-            dto.setChangePercent(latestMarketData.getChangePercent() == null ? null : latestMarketData.getChangePercent().doubleValue());
+            dto.setChangePercent(calculateChangePercent(latestMarketData.getOpenPrice(), latestMarketData.getClosePrice()));
             dto.setVolume(latestMarketData.getVolume());
-            dto.setLastUpdated(latestMarketData.getMarketTimestamp() == null ? null : latestMarketData.getMarketTimestamp().toString());
-            dto.setSource(latestMarketData.getSource());
+            dto.setLastUpdated(latestMarketData.getUpdatedAt() == null ? null : latestMarketData.getUpdatedAt().toString());
         }
 
         return dto;
+    }
+
+    private static Double calculateChangePercent(BigDecimal openPrice, BigDecimal closePrice) {
+        if (openPrice == null || closePrice == null || openPrice.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+
+        return closePrice
+                .subtract(openPrice)
+                .divide(openPrice, 6, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
     }
 }

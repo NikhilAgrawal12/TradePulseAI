@@ -9,50 +9,79 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
-@Table(name = "stock_market_data", indexes = {
-        @Index(name = "idx_stock_market_data_stock_ts", columnList = "stock_id,market_timestamp"),
-        @Index(name = "idx_stock_market_data_market_ts", columnList = "market_timestamp")
+@Table(name = "stock_daily_ohlc", indexes = {
+        @Index(name = "idx_stock_daily_ohlc_stock_date", columnList = "stock_id,trading_date")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_stock_daily_ohlc_stock_date", columnNames = {"stock_id", "trading_date"})
 })
 public class StockMarketData {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "market_data_id")
+    @Column(name = "id")
     private Long marketDataId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;
 
-    @Column(name = "market_timestamp", nullable = false)
-    private Instant marketTimestamp;
+    @Column(name = "trading_date", nullable = false)
+    private LocalDate tradingDate;
 
-    @Column(name = "open_price", precision = 18, scale = 4)
+    @Column(name = "open_price", nullable = false, precision = 12, scale = 4)
     private BigDecimal openPrice;
 
-    @Column(name = "high_price", precision = 18, scale = 4)
+    @Column(name = "high_price", nullable = false, precision = 12, scale = 4)
     private BigDecimal highPrice;
 
-    @Column(name = "low_price", precision = 18, scale = 4)
+    @Column(name = "low_price", nullable = false, precision = 12, scale = 4)
     private BigDecimal lowPrice;
 
-    @Column(name = "close_price", precision = 18, scale = 4)
+    @Column(name = "close_price", nullable = false, precision = 12, scale = 4)
     private BigDecimal closePrice;
 
-    @Column(name = "volume")
+    @Column(name = "volume", nullable = false)
     private Long volume;
 
-    @Column(name = "change_percent", precision = 9, scale = 4)
-    private BigDecimal changePercent;
+    @Column(name = "vwap", precision = 12, scale = 4)
+    private BigDecimal vwap;
 
-    @Column(name = "source", length = 50)
-    private String source;
+    @Column(name = "pre_market_price", precision = 12, scale = 4)
+    private BigDecimal preMarketPrice;
+
+    @Column(name = "after_hours_price", precision = 12, scale = 4)
+    private BigDecimal afterHoursPrice;
+
+    @Column(name = "is_otc", nullable = false)
+    private Boolean otc;
+
+    @Column(name = "adjusted", nullable = false)
+    private Boolean adjusted;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    public void touch() {
+        this.updatedAt = Instant.now();
+        if (this.otc == null) {
+            this.otc = false;
+        }
+        if (this.adjusted == null) {
+            this.adjusted = true;
+        }
+    }
 
     public Long getMarketDataId() {
         return marketDataId;
@@ -70,12 +99,12 @@ public class StockMarketData {
         this.stock = stock;
     }
 
-    public Instant getMarketTimestamp() {
-        return marketTimestamp;
+    public LocalDate getTradingDate() {
+        return tradingDate;
     }
 
-    public void setMarketTimestamp(Instant marketTimestamp) {
-        this.marketTimestamp = marketTimestamp;
+    public void setTradingDate(LocalDate tradingDate) {
+        this.tradingDate = tradingDate;
     }
 
     public BigDecimal getOpenPrice() {
@@ -118,20 +147,48 @@ public class StockMarketData {
         this.volume = volume;
     }
 
-    public BigDecimal getChangePercent() {
-        return changePercent;
+    public BigDecimal getVwap() {
+        return vwap;
     }
 
-    public void setChangePercent(BigDecimal changePercent) {
-        this.changePercent = changePercent;
+    public void setVwap(BigDecimal vwap) {
+        this.vwap = vwap;
     }
 
-    public String getSource() {
-        return source;
+    public BigDecimal getPreMarketPrice() {
+        return preMarketPrice;
     }
 
-    public void setSource(String source) {
-        this.source = source;
+    public void setPreMarketPrice(BigDecimal preMarketPrice) {
+        this.preMarketPrice = preMarketPrice;
+    }
+
+    public BigDecimal getAfterHoursPrice() {
+        return afterHoursPrice;
+    }
+
+    public void setAfterHoursPrice(BigDecimal afterHoursPrice) {
+        this.afterHoursPrice = afterHoursPrice;
+    }
+
+    public Boolean getOtc() {
+        return otc;
+    }
+
+    public void setOtc(Boolean otc) {
+        this.otc = otc;
+    }
+
+    public Boolean getAdjusted() {
+        return adjusted;
+    }
+
+    public void setAdjusted(Boolean adjusted) {
+        this.adjusted = adjusted;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }
 

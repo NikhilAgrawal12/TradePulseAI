@@ -2,8 +2,6 @@ package com.tradepulseai.stockservice.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -12,27 +10,26 @@ import jakarta.persistence.Table;
 public class Exchange {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "exchange_id")
-    private Long exchangeId;
-
-    @Column(name = "provider_exchange_id", unique = true)
-    private Integer providerExchangeId;
+    private Integer exchangeId;
 
     @Column(name = "acronym", length = 50)
     private String acronym;
 
-    @Column(name = "asset_class", length = 50)
+    @Column(name = "asset_class", length = 20)
     private String assetClass;
 
-    @Column(name = "locale", length = 20)
+    @Column(name = "locale", length = 10)
     private String locale;
 
-    @Column(name = "mic", length = 20, unique = true)
+    @Column(name = "mic", length = 10, unique = true)
     private String mic;
 
-    @Column(name = "name", length = 255)
+    @Column(name = "name", length = 255, nullable = false)
     private String name;
+
+    @Column(name = "status", length = 20)
+    private String status;
 
     @Column(name = "operating_mic", length = 20)
     private String operatingMic;
@@ -40,26 +37,18 @@ public class Exchange {
     @Column(name = "participant_id", length = 20)
     private String participantId;
 
-    @Column(name = "type", length = 50)
+    @Column(name = "type", length = 20)
     private String type;
 
     @Column(name = "url", length = 500)
     private String url;
 
-    public Long getExchangeId() {
+    public Integer getExchangeId() {
         return exchangeId;
     }
 
-    public void setExchangeId(Long exchangeId) {
+    public void setExchangeId(Integer exchangeId) {
         this.exchangeId = exchangeId;
-    }
-
-    public Integer getProviderExchangeId() {
-        return providerExchangeId;
-    }
-
-    public void setProviderExchangeId(Integer providerExchangeId) {
-        this.providerExchangeId = providerExchangeId;
     }
 
     public String getAcronym() {
@@ -100,6 +89,14 @@ public class Exchange {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getOperatingMic() {

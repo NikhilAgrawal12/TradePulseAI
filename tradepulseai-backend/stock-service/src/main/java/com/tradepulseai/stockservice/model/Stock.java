@@ -8,7 +8,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+
+import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "stocks")
@@ -19,39 +24,54 @@ public class Stock {
     @Column(name = "stock_id")
     private Long stockId;
 
-    @Column(name = "symbol", nullable = false, length = 50, unique = true)
+    @Column(name = "ticker", nullable = false, length = 20, unique = true)
     private String symbol;
 
-    @Column(name = "name", length = 255)
+    @Column(name = "name", length = 255, nullable = false)
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "exchange_id")
     private Exchange exchange;
 
-    @Column(name = "market", length = 50)
+    @Column(name = "market", length = 20)
     private String market;
 
-    @Column(name = "locale", length = 20)
+    @Column(name = "locale", length = 10)
     private String locale;
 
-    @Column(name = "type", length = 50)
+    @Column(name = "type", length = 30)
     private String type;
 
     @Column(name = "active")
     private Boolean active;
 
-    @Column(name = "currency_name", length = 20)
-    private String currencyName;
+    @Column(name = "sic_code", length = 10)
+    private String sicCode;
 
-    @Column(name = "cik", length = 30)
+    @Column(name = "sic_description")
+    private String sicDescription;
+
+    @Column(name = "cik", length = 20)
     private String cik;
 
-    @Column(name = "composite_figi", length = 50)
-    private String compositeFigi;
+    @Column(name = "homepage_url")
+    private String homepageUrl;
 
-    @Column(name = "share_class_figi", length = 50)
-    private String shareClassFigi;
+    @Column(name = "list_date")
+    private LocalDate listDate;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    public void updateTimestamp() {
+        this.updatedAt = Instant.now();
+        if (this.active == null) {
+            this.active = true;
+        }
+    }
 
     public Long getStockId() {
         return stockId;
@@ -117,12 +137,20 @@ public class Stock {
         this.active = active;
     }
 
-    public String getCurrencyName() {
-        return currencyName;
+    public String getSicCode() {
+        return sicCode;
     }
 
-    public void setCurrencyName(String currencyName) {
-        this.currencyName = currencyName;
+    public void setSicCode(String sicCode) {
+        this.sicCode = sicCode;
+    }
+
+    public String getSicDescription() {
+        return sicDescription;
+    }
+
+    public void setSicDescription(String sicDescription) {
+        this.sicDescription = sicDescription;
     }
 
     public String getCik() {
@@ -133,19 +161,23 @@ public class Stock {
         this.cik = cik;
     }
 
-    public String getCompositeFigi() {
-        return compositeFigi;
+    public String getHomepageUrl() {
+        return homepageUrl;
     }
 
-    public void setCompositeFigi(String compositeFigi) {
-        this.compositeFigi = compositeFigi;
+    public void setHomepageUrl(String homepageUrl) {
+        this.homepageUrl = homepageUrl;
     }
 
-    public String getShareClassFigi() {
-        return shareClassFigi;
+    public LocalDate getListDate() {
+        return listDate;
     }
 
-    public void setShareClassFigi(String shareClassFigi) {
-        this.shareClassFigi = shareClassFigi;
+    public void setListDate(LocalDate listDate) {
+        this.listDate = listDate;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

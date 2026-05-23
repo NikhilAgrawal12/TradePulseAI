@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface ExchangeRepository extends JpaRepository<Exchange, Long> {
+public interface ExchangeRepository extends JpaRepository<Exchange, Integer> {
     Optional<Exchange> findByMic(String mic);
 }
 
