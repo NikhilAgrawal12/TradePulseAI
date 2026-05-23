@@ -1,7 +1,6 @@
 package com.tradepulseai.custservice.service;
 
 import com.tradepulseai.custservice.dto.watchlist.AddWatchlistItemRequestDTO;
-import com.tradepulseai.custservice.dto.watchlist.UpdateWatchlistItemRequestDTO;
 import com.tradepulseai.custservice.dto.watchlist.WatchlistItemResponseDTO;
 import com.tradepulseai.custservice.model.WatchlistItem;
 import com.tradepulseai.custservice.model.WatchlistItemId;
@@ -9,9 +8,7 @@ import com.tradepulseai.custservice.repository.WatchlistItemRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class WatchlistService {
@@ -24,7 +21,7 @@ public class WatchlistService {
 
     @Transactional(readOnly = true)
     public List<WatchlistItemResponseDTO> getWatchlist(Long userId) {
-        return watchlistItemRepository.findByIdUserIdOrderByUpdatedAtDesc(userId)
+        return watchlistItemRepository.findByIdUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -35,11 +32,7 @@ public class WatchlistService {
         Long stockId = parseStockId(request.getStockId());
 
         WatchlistItem watchlistItem = watchlistItemRepository.findByIdUserIdAndIdStockId(userId, stockId)
-                .map(existing -> {
-                    existing.setQuantity(scaleQuantity(existing.getQuantity().add(request.getQuantity())));
-                    return existing;
-                })
-                .orElseGet(() -> newWatchlistItem(userId, stockId, request.getQuantity()));
+                .orElseGet(() -> newWatchlistItem(userId, stockId));
 
 
         watchlistItemRepository.save(watchlistItem);
@@ -47,14 +40,11 @@ public class WatchlistService {
     }
 
     @Transactional
-    public List<WatchlistItemResponseDTO> updateWatchlistItem(Long userId, String stockId, UpdateWatchlistItemRequestDTO request) {
+    public List<WatchlistItemResponseDTO> updateWatchlistItem(Long userId, String stockId) {
         Long parsedStockId = parseStockId(stockId);
 
-        WatchlistItem watchlistItem = watchlistItemRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
+        watchlistItemRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
                 .orElseThrow(() -> new IllegalArgumentException("Watchlist item not found for stockId: " + stockId));
-
-        watchlistItem.setQuantity(scaleQuantity(request.getQuantity()));
-        watchlistItemRepository.save(watchlistItem);
         return getWatchlist(userId);
     }
 
@@ -73,17 +63,15 @@ public class WatchlistService {
     private WatchlistItemResponseDTO toResponse(WatchlistItem watchlistItem) {
         WatchlistItemResponseDTO response = new WatchlistItemResponseDTO();
         response.setStockId(String.valueOf(watchlistItem.getId().getStockId()));
-        response.setQuantity(watchlistItem.getQuantity());
         return response;
     }
 
-    private WatchlistItem newWatchlistItem(Long userId, Long stockId, BigDecimal quantity) {
+    private WatchlistItem newWatchlistItem(Long userId, Long stockId) {
         WatchlistItem item = new WatchlistItem();
         WatchlistItemId id = new WatchlistItemId();
         id.setUserId(userId);
         id.setStockId(stockId);
         item.setId(id);
-        item.setQuantity(scaleQuantity(quantity));
         return item;
     }
 
@@ -95,8 +83,4 @@ public class WatchlistService {
         }
     }
 
-    private BigDecimal scaleQuantity(BigDecimal quantity) {
-        return Objects.requireNonNullElse(quantity, BigDecimal.ZERO)
-                .setScale(4, java.math.RoundingMode.HALF_UP);
-    }
 }

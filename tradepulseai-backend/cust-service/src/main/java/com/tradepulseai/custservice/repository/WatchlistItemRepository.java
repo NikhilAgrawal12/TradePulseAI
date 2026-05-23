@@ -9,7 +9,7 @@ import java.util.Optional;
 
 public interface WatchlistItemRepository extends JpaRepository<WatchlistItem, WatchlistItemId> {
 
-    List<WatchlistItem> findByIdUserIdOrderByUpdatedAtDesc(Long userId);
+    List<WatchlistItem> findByIdUserIdOrderByCreatedAtDesc(Long userId);
 
     Optional<WatchlistItem> findByIdUserIdAndIdStockId(Long userId, Long stockId);
 

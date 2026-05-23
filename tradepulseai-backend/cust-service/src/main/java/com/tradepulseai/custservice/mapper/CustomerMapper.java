@@ -11,7 +11,6 @@ public class CustomerMapper {
 
     public static CustomerResponseDTO toDTO(Customer cust, String email){
         CustomerResponseDTO custDTO = new CustomerResponseDTO();
-        custDTO.setCustomerId(cust.getCustomerId());
         custDTO.setUserId(cust.getUserId());
         custDTO.setFirstName(cust.getFirstName());
         custDTO.setLastName(cust.getLastName());
@@ -46,9 +45,6 @@ public class CustomerMapper {
 
     private static Instant parseRegistrationTimestamp(CustomerRequestDTO custRequestDTO) {
         String raw = custRequestDTO.getRegistrationDate();
-        if (raw == null || raw.isBlank()) {
-            raw = custRequestDTO.getRegisteredDate();
-        }
         if (raw == null || raw.isBlank()) {
             throw new IllegalArgumentException("Registration date is required");
         }

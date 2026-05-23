@@ -11,9 +11,9 @@ import java.time.LocalDate;
 public class Customer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "customer_id")
-    private Long customerId;
+    @NotNull
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @NotNull
     @Column(name = "first_name", nullable = false, length = 100)
@@ -58,17 +58,6 @@ public class Customer {
     @Column(name = "registration_date", nullable = false)
     private Instant registrationDate;
 
-    @NotNull
-    @Column(name = "user_id", nullable = false, unique = true)
-    private Long userId;
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
 
     public String getFirstName() {
         return firstName;

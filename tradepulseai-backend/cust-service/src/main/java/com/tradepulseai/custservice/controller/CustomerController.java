@@ -38,20 +38,20 @@ public class CustomerController {
         return ResponseEntity.ok().body(custResponseDTO);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{userId}")
     @Operation(summary = "Update customer")
     public ResponseEntity<CustomerResponseDTO> updateUser(
-            @PathVariable Long id,
+            @PathVariable Long userId,
             @Validated({Default.class}) @RequestBody CustomerRequestDTO customerRequestDTO
     ) {
-        CustomerResponseDTO custResponseDTO = customerService.updateCustomer(id, customerRequestDTO);
+        CustomerResponseDTO custResponseDTO = customerService.updateCustomer(userId, customerRequestDTO);
         return ResponseEntity.ok().body(custResponseDTO);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{userId}")
     @Operation(summary = "Delete customer")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        customerService.deleteCustomer(id);
+    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
+        customerService.deleteCustomer(userId);
         return ResponseEntity.noContent().build();
     }
 }

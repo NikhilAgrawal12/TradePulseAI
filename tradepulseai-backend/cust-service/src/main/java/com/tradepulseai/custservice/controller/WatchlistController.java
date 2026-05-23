@@ -1,7 +1,6 @@
 package com.tradepulseai.custservice.controller;
 
 import com.tradepulseai.custservice.dto.watchlist.AddWatchlistItemRequestDTO;
-import com.tradepulseai.custservice.dto.watchlist.UpdateWatchlistItemRequestDTO;
 import com.tradepulseai.custservice.dto.watchlist.WatchlistItemResponseDTO;
 import com.tradepulseai.custservice.service.WatchlistService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,10 +51,9 @@ public class WatchlistController {
     @Operation(summary = "Update watchlist entry")
     public ResponseEntity<List<WatchlistItemResponseDTO>> updateWatchlistItem(
             @RequestHeader(USER_ID_HEADER) String userId,
-            @PathVariable String stockId,
-            @Valid @RequestBody UpdateWatchlistItemRequestDTO request
+            @PathVariable String stockId
     ) {
-        return ResponseEntity.ok(watchlistService.updateWatchlistItem(normalizeUserId(userId), stockId, request));
+        return ResponseEntity.ok(watchlistService.updateWatchlistItem(normalizeUserId(userId), stockId));
     }
 
     @DeleteMapping("/items/{stockId}")

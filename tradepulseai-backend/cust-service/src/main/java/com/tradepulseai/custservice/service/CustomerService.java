@@ -28,7 +28,7 @@ public class CustomerService {
     }
 
     public CustomerResponseDTO getCustomerByUserId(Long userId) {
-        Customer customer = customerRepository.findByUserId(userId)
+        Customer customer = customerRepository.findById(userId)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found with userId: " + userId));
 
         String resolvedEmail = normalizeEmail(authServiceClient.getUserById(userId).email());
@@ -43,7 +43,7 @@ public class CustomerService {
         AuthServiceClient.AuthUser authUser = authServiceClient.getUserById(customerRequestDTO.getUserId());
         String normalizedEmail = normalizeEmail(authUser.email());
 
-        if (customerRepository.existsByUserId(authUser.userId())) {
+        if (customerRepository.existsById(authUser.userId())) {
             throw new EmailAlreadyExistsException("A customer with this user already exists " + normalizedEmail);
         }
         customerRequestDTO.setUserId(authUser.userId());
@@ -55,8 +55,9 @@ public class CustomerService {
         return CustomerMapper.toDTO(customer, normalizedEmail);
     }
 
-    public CustomerResponseDTO updateCustomer(Long id, CustomerRequestDTO customerRequestDTO) {
-        Customer customer = customerRepository.findById(id).orElseThrow(() -> new CustomerNotFoundException("Patient not found with ID: " + id));
+    public CustomerResponseDTO updateCustomer(Long userId, CustomerRequestDTO customerRequestDTO) {
+        Customer customer = customerRepository.findById(userId)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with userId: " + userId));
 
         if (customerRequestDTO.getUserId() != null && !Objects.equals(customerRequestDTO.getUserId(), customer.getUserId())) {
             throw new IllegalArgumentException("userId cannot be changed for an existing customer");
@@ -80,8 +81,8 @@ public class CustomerService {
     }
 
 
-    public void deleteCustomer(Long id) {
-        customerRepository.deleteById(id);
+    public void deleteCustomer(Long userId) {
+        customerRepository.deleteById(userId);
     }
 
     private String normalizeEmail(String email) {

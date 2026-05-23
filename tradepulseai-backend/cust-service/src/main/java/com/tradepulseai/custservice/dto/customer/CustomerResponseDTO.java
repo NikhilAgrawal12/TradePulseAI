@@ -2,7 +2,6 @@ package com.tradepulseai.custservice.dto.customer;
 
 public class CustomerResponseDTO {
 
-    private Long customerId;
     private Long userId;
     private String firstName;
     private String lastName;
@@ -16,14 +15,6 @@ public class CustomerResponseDTO {
     private String country;
     private String dateOfBirth;
 
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
 
     public Long getUserId() {
         return userId;
