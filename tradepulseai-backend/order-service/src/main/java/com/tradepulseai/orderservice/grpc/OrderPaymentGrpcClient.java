@@ -20,7 +20,7 @@ public class OrderPaymentGrpcClient {
     private final OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub blockingStub;
 
     public OrderPaymentGrpcClient(
-            @Value("${order.payment.service.address:localhost}") String serverAddress,
+            @Value("${order.payment.service.address:payment-service}") String serverAddress,
             @Value("${order.payment.service.grpc.port:9002}") int serverPort
     ) {
         log.info("Connecting to OrderPayment gRPC at {}:{}", serverAddress, serverPort);

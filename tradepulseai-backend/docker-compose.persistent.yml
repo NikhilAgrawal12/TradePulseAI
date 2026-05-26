@@ -167,8 +167,6 @@ services:
       stock-service:
         condition: service_started
     environment:
-      PAYMENT_SERVICE_ADDRESS: payment-service
-      PAYMENT_SERVICE_GRPC_PORT: 9001
       SPRING_DATASOURCE_URL: jdbc:postgresql://cust-service-db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -199,6 +197,10 @@ services:
       SPRING_SQL_INIT_MODE: always
       ORDER_PAYMENT_SERVICE_ADDRESS: payment-service
       ORDER_PAYMENT_SERVICE_GRPC_PORT: 9002
+      PORTFOLIO_SERVICE_GRPC_ADDRESS: cust-service
+      PORTFOLIO_SERVICE_GRPC_PORT: 9004
+      STOCK_SERVICE_GRPC_ADDRESS: stock-service
+      STOCK_SERVICE_GRPC_PORT: 9003
     networks:
       - tradepulse
 
