@@ -24,6 +24,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - auth_db_data:/var/lib/postgresql/data
+    ports:
+      - "5001:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -41,6 +43,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - cust_db_data:/var/lib/postgresql/data
+    ports:
+      - "5000:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -58,6 +62,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - order_db_data:/var/lib/postgresql/data
+    ports:
+      - "5003:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -75,6 +81,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - payment_db_data:/var/lib/postgresql/data
+    ports:
+      - "5004:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -92,6 +100,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - stock_db_data:/var/lib/postgresql/data
+    ports:
+      - "5002:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -141,8 +151,7 @@ services:
       stock-service-db:
         condition: service_healthy
     environment:
-      POLYGON_API_KEY: ${POLYGON_API_KEY}
-      POLYGON_FETCH_ENABLED: "true"
+      MASSIVE_API_KEY: ${MASSIVE_API_KEY}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       STOCK_KAFKA_TOPIC: stocks
       SPRING_DATASOURCE_URL: jdbc:postgresql://stock-service-db:5432/${POSTGRES_DB}
@@ -161,7 +170,7 @@ services:
       cust-service-db:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
       auth-service:
         condition: service_started
       stock-service:
