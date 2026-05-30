@@ -56,12 +56,6 @@ public class StockMarketData {
     @Column(name = "vwap", precision = 12, scale = 4)
     private BigDecimal vwap;
 
-    @Column(name = "pre_market_price", precision = 12, scale = 4)
-    private BigDecimal preMarketPrice;
-
-    @Column(name = "after_hours_price", precision = 12, scale = 4)
-    private BigDecimal afterHoursPrice;
-
     @Column(name = "is_otc", nullable = false)
     private Boolean otc;
 
@@ -153,22 +147,6 @@ public class StockMarketData {
 
     public void setVwap(BigDecimal vwap) {
         this.vwap = vwap;
-    }
-
-    public BigDecimal getPreMarketPrice() {
-        return preMarketPrice;
-    }
-
-    public void setPreMarketPrice(BigDecimal preMarketPrice) {
-        this.preMarketPrice = preMarketPrice;
-    }
-
-    public BigDecimal getAfterHoursPrice() {
-        return afterHoursPrice;
-    }
-
-    public void setAfterHoursPrice(BigDecimal afterHoursPrice) {
-        this.afterHoursPrice = afterHoursPrice;
     }
 
     public Boolean getOtc() {

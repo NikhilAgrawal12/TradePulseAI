@@ -3,6 +3,7 @@ package com.tradepulseai.stockservice.repository;
 import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.model.StockMarketData;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -18,6 +19,12 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
     boolean existsByStockAndTradingDate(Stock stock, LocalDate tradingDate);
 
     Optional<StockMarketData> findTopByOrderByTradingDateDesc();
+
+    @Query("SELECT MAX(smd.tradingDate) FROM StockMarketData smd")
+    Optional<LocalDate> findMaxTradingDate();
+
+    @Query("SELECT smd.stock.stockId FROM StockMarketData smd WHERE smd.tradingDate = :tradingDate")
+    List<Long> findStockIdsByTradingDate(@Param("tradingDate") LocalDate tradingDate);
 
     @Query("""
             SELECT smd
