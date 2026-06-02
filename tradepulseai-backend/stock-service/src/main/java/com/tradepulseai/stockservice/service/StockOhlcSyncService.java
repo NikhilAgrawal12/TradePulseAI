@@ -4,13 +4,14 @@ import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.model.StockMarketData;
 import com.tradepulseai.stockservice.repository.StockMarketDataRepository;
 import com.tradepulseai.stockservice.repository.StockRepository;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -28,6 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @Order(3)
@@ -42,9 +46,13 @@ public class StockOhlcSyncService implements ApplicationRunner {
     private final boolean syncOnStartup;
     private final boolean dailySyncEnabled;
     private final int yearsBack;
+    private final long refreshInitialDelayMinutes;
+    private final long refreshIntervalMinutes;
     private final boolean adjusted;
     private final boolean includeOtc;
     private final ZoneId syncZone;
+    private final ScheduledExecutorService refreshExecutor;
+    private final AtomicBoolean refreshLoopStarted = new AtomicBoolean(false);
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public StockOhlcSyncService(
@@ -55,6 +63,8 @@ public class StockOhlcSyncService implements ApplicationRunner {
             @Value("${massive.ohlc.sync-on-startup:true}") boolean syncOnStartup,
             @Value("${massive.ohlc.daily-sync-enabled:true}") boolean dailySyncEnabled,
             @Value("${massive.ohlc.years-back:3}") int yearsBack,
+            @Value("${massive.ohlc.refresh-initial-delay-minutes:1}") long refreshInitialDelayMinutes,
+            @Value("${massive.ohlc.refresh-interval-minutes:30}") long refreshIntervalMinutes,
             @Value("${massive.ohlc.adjusted:true}") boolean adjusted,
             @Value("${massive.ohlc.include-otc:false}") boolean includeOtc,
             @Value("${massive.ohlc.sync-zone:UTC}") String syncZone) {
@@ -64,28 +74,34 @@ public class StockOhlcSyncService implements ApplicationRunner {
         this.syncOnStartup = syncOnStartup;
         this.dailySyncEnabled = dailySyncEnabled;
         this.yearsBack = yearsBack;
+        this.refreshInitialDelayMinutes = Math.max(1L, refreshInitialDelayMinutes);
+        this.refreshIntervalMinutes = Math.max(1L, refreshIntervalMinutes);
         this.adjusted = adjusted;
         this.includeOtc = includeOtc;
         this.syncZone = ZoneId.of(syncZone);
+        this.refreshExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "stock-ohlc-refresh");
+            thread.setDaemon(true);
+            return thread;
+        });
         this.restClient = RestClient.builder()
                 .baseUrl(apiBaseUrl)
                 .build();
     }
 
     @Override
-    public void run(ApplicationArguments args) {
-        if (!syncOnStartup) {
-            return;
+    public void run(@NonNull ApplicationArguments args) {
+        if (syncOnStartup || dailySyncEnabled) {
+            ensureApiKeyConfigured();
         }
-        syncMissingData("startup");
-    }
 
-    @Scheduled(cron = "${massive.ohlc.daily-cron:0 30 22 * * *}", zone = "${massive.ohlc.sync-zone:UTC}")
-    public void scheduledSync() {
-        if (!dailySyncEnabled) {
-            return;
+        if (dailySyncEnabled) {
+            startBackgroundRefreshLoop();
         }
-        syncMissingData("scheduled");
+
+        if (syncOnStartup) {
+            syncMissingData("startup");
+        }
     }
 
     private void syncMissingData(String trigger) {
@@ -142,6 +158,34 @@ public class StockOhlcSyncService implements ApplicationRunner {
         }
     }
 
+    private void startBackgroundRefreshLoop() {
+        if (!refreshLoopStarted.compareAndSet(false, true)) {
+            return;
+        }
+
+        refreshExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                syncMissingData("background");
+            } catch (Exception ex) {
+                log.error("Unexpected failure during background OHLC sync.", ex);
+            }
+        }, refreshInitialDelayMinutes, refreshIntervalMinutes, TimeUnit.MINUTES);
+
+        log.info("Started background OHLC refresh loop with initial delay {} minute(s) and interval {} minute(s).",
+                refreshInitialDelayMinutes, refreshIntervalMinutes);
+    }
+
+    private void ensureApiKeyConfigured() {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("massive.api.key is required for OHLC sync");
+        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        refreshExecutor.shutdownNow();
+    }
+
     private int syncSingleDate(LocalDate date, Map<String, Stock> stockByTicker) {
         JsonNode response;
         try {
@@ -168,7 +212,8 @@ public class StockOhlcSyncService implements ApplicationRunner {
         List<StockMarketData> rows = new java.util.ArrayList<>();
 
         for (JsonNode node : resultsNode) {
-            String ticker = normalize(text(node.path("T").asText(null)));
+            JsonNode tickerNode = node.get("T");
+            String ticker = normalize(text(tickerNode == null || tickerNode.isNull() ? null : tickerNode.asText()));
             if (ticker == null) {
                 continue;
             }
