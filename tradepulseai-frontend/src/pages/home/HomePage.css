@@ -93,6 +93,65 @@
   padding: 24px;
 }
 
+.stocks-top-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stocks-top-row h2 {
+  margin: 0;
+}
+
+.stocks-top-row p {
+  margin: 0;
+  color: #38644f;
+  font-size: 0.92rem;
+}
+
+.stocks-feed-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.feed-pill {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.feed-pill.idle {
+  color: #455a64;
+  background: #eceff1;
+}
+
+.feed-pill.connecting {
+  color: #7a5600;
+  background: #fff7de;
+}
+
+.feed-pill.live {
+  color: #0c7a40;
+  background: #e9f8ef;
+}
+
+.feed-pill.error {
+  color: #b02a2a;
+  background: #ffecec;
+}
+
+.feed-error-inline {
+  color: #b02a2a;
+  font-size: 0.82rem;
+}
+
 .search-wrapper {
   margin-top: 12px;
 }
@@ -200,15 +259,16 @@
   background: #f0f0f0;
 }
 
-.stock-price-row {
+.quote-price-row {
   margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
-.stock-price-row strong {
-  font-size: 1.15rem;
+.quote-price-row strong {
+  font-size: 1.4rem;
   color: #14532d;
 }
 
@@ -222,14 +282,44 @@
   font-weight: 700;
 }
 
-.stock-meta-grid {
-  margin-top: 6px;
+.quote-block,
+.trade-block,
+.aggregate-block {
+  margin-top: 10px;
+  border: 1px solid #d2f0dd;
+  border-radius: 12px;
+  padding: 8px;
+  background: #f9fffb;
+}
+
+.trade-block {
+  background: #fcfefc;
+}
+
+.aggregate-block {
+  background: #f9fffb;
+}
+
+.block-title {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #3b7058;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.quote-grid,
+.trade-grid,
+.aggregate-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px 10px;
 }
 
-.stock-meta-grid p {
+.quote-grid p,
+.trade-grid p,
+.aggregate-grid p {
   margin: 0;
   font-size: 0.82rem;
   color: #315b49;
@@ -245,7 +335,9 @@
   grid-column: 1 / -1;
 }
 
-.stock-meta-grid span {
+.quote-grid span,
+.trade-grid span,
+.aggregate-grid span {
   font-size: 0.72rem;
   color: #5a8772;
   text-transform: uppercase;
@@ -264,9 +356,9 @@
 }
 
 .stock-rating {
-  margin-top: 3px;
+  margin-top: 8px;
   color: #4d735f;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
 }
 
 .stock-card-actions {
