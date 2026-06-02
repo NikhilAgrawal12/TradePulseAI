@@ -335,6 +335,15 @@
   grid-column: 1 / -1;
 }
 
+.aggregate-grid .metric-item-full {
+  justify-content: flex-start;
+  gap: 20px;
+}
+
+.aggregate-grid .metric-item-full .metric-value {
+  text-align: left;
+}
+
 .quote-grid span,
 .trade-grid span,
 .aggregate-grid span {
