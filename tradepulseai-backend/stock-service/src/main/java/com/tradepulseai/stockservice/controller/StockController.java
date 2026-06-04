@@ -1,16 +1,20 @@
 package com.tradepulseai.stockservice.controller;
 
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
+import com.tradepulseai.stockservice.service.FeaturedStockRefreshService;
 import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/stocks")
@@ -18,15 +22,40 @@ import java.util.List;
 public class StockController {
 
     private final StockService stockService;
+    private final FeaturedStockRefreshService featuredStockRefreshService;
 
-    public StockController(StockService stockService) {
+    public StockController(StockService stockService, FeaturedStockRefreshService featuredStockRefreshService) {
         this.stockService = stockService;
+        this.featuredStockRefreshService = featuredStockRefreshService;
     }
 
     @GetMapping
     @Operation(summary = "Get all stocks")
     public ResponseEntity<List<StockResponseDTO>> getStocks() {
         return ResponseEntity.ok(stockService.getStocks());
+    }
+
+    @GetMapping("/featured")
+    @Operation(summary = "Get top 50 featured stocks ordered by sort_order")
+    public ResponseEntity<List<StockResponseDTO>> getFeaturedStocks() {
+        return ResponseEntity.ok(stockService.getFeaturedStocks());
+    }
+
+    @PostMapping("/featured/refresh-once")
+    @Operation(summary = "Manually populate featured cache once")
+    public ResponseEntity<Map<String, Object>> refreshFeaturedStocksOnce() {
+        featuredStockRefreshService.triggerManualRefresh();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("accepted", true);
+        response.put("message", "Manual featured-stock refresh queued.");
+        return ResponseEntity.accepted().body(response);
+    }
+
+    @GetMapping("/featured/health")
+    @Operation(summary = "Check if featured stocks cache is populated and ready")
+    public ResponseEntity<Map<String, Object>> getFeaturedCacheHealth() {
+        return ResponseEntity.ok(stockService.getFeaturedCacheStatus());
     }
 
     @GetMapping("/{id}")

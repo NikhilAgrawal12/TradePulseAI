@@ -7,6 +7,7 @@ import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.model.StockMarketData;
 import com.tradepulseai.stockservice.repository.StockMarketDataRepository;
 import com.tradepulseai.stockservice.repository.StockRepository;
+import com.tradepulseai.stockservice.repository.FeaturedStockCacheRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -18,10 +19,14 @@ public class StockService {
 
     private final StockRepository stockRepository;
     private final StockMarketDataRepository stockMarketDataRepository;
+    private final FeaturedStockCacheRepository featuredStockCacheRepository;
 
-    public StockService(StockRepository stockRepository, StockMarketDataRepository stockMarketDataRepository) {
+    public StockService(StockRepository stockRepository,
+                        StockMarketDataRepository stockMarketDataRepository,
+                        FeaturedStockCacheRepository featuredStockCacheRepository) {
         this.stockRepository = stockRepository;
         this.stockMarketDataRepository = stockMarketDataRepository;
+        this.featuredStockCacheRepository = featuredStockCacheRepository;
     }
 
     public List<StockResponseDTO> getStocks() {
@@ -33,6 +38,27 @@ public class StockService {
                 .stream()
                 .filter(stock -> latestByStockId.containsKey(stock.getStockId()))
                 .map(stock -> StockMapper.toDTO(stock, latestByStockId.get(stock.getStockId())))
+                .toList();
+    }
+
+    public List<StockResponseDTO> getFeaturedStocks() {
+        // Fetch featured stocks from cache (top 50 ranking)
+        var cachedFeaturedStocks = featuredStockCacheRepository.findAllByOrderBySortOrderAsc();
+
+        if (cachedFeaturedStocks.isEmpty()) {
+            // If cache is empty, return empty list (frontend will handle gracefully)
+            return List.of();
+        }
+
+        // Fetch latest market data for all stocks
+        Map<Long, StockMarketData> latestByStockId = new HashMap<>();
+        stockMarketDataRepository.findLatestForAllStocks()
+                .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
+
+        // Map cached entries to DTOs with latest market data
+        return cachedFeaturedStocks.stream()
+                .map(cacheEntry -> StockMapper.toDTO(cacheEntry.getStock(),
+                        latestByStockId.get(cacheEntry.getStock().getStockId())))
                 .toList();
     }
 
