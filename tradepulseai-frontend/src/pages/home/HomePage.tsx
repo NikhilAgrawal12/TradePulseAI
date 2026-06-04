@@ -11,6 +11,8 @@ import "./HomePage.css";
 const MAX_VISIBLE_STOCKS = 50;
 const MASSIVE_DELAYED_WS_URL = "wss://delayed.massive.com/stocks";
 const MASSIVE_API_KEY = import.meta.env.VITE_MASSIVE_API_KEY as string | undefined;
+const AGGREGATE_CACHE_KEY = "tradepulseai_home_aggregate_cache_v1";
+const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const TOP_50_COMPANIES = [
   { symbol: "AAPL", name: "Apple" },
@@ -80,6 +82,11 @@ type LiveAggregate = {
   timestampMs: number;
 };
 
+type AggregateCachePayload = {
+  savedAt: number;
+  data: Record<string, LiveAggregate>;
+};
+
 function normalizeSymbol(value: string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -102,6 +109,42 @@ function calculateChangePercent(previousClose: number | null, close: number): nu
   return ((close - previousClose) / previousClose) * 100;
 }
 
+function loadAggregateCache(): Record<string, LiveAggregate> {
+  try {
+    const raw = localStorage.getItem(AGGREGATE_CACHE_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw) as AggregateCachePayload;
+    if (!parsed || typeof parsed !== "object" || typeof parsed.savedAt !== "number" || !parsed.data || typeof parsed.data !== "object") {
+      return {};
+    }
+
+    if (Date.now() - parsed.savedAt > MAX_CACHE_AGE_MS) {
+      return {};
+    }
+
+    const entries = Object.entries(parsed.data).filter(([symbol, value]) => {
+      return (
+        TOP_50_SYMBOLS.has(symbol) &&
+        value &&
+        typeof value.open === "number" &&
+        typeof value.close === "number" &&
+        typeof value.high === "number" &&
+        typeof value.low === "number" &&
+        typeof value.volume === "number" &&
+        typeof value.vwap === "number" &&
+        typeof value.timestampMs === "number"
+      );
+    });
+
+    return Object.fromEntries(entries);
+  } catch {
+    return {};
+  }
+}
+
 export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
@@ -109,7 +152,7 @@ export function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [, setFeedStatus] = useState<FeedStatus>("idle");
   const setFeedError = useState<string | null>(null)[1];
-  const [aggregateBySymbol, setAggregateBySymbol] = useState<Record<string, LiveAggregate>>({});
+  const [aggregateBySymbol, setAggregateBySymbol] = useState<Record<string, LiveAggregate>>(() => loadAggregateCache());
   const socketGenerationRef = useRef(0);
   const [socketRetryNonce, setSocketRetryNonce] = useState(0);
 
@@ -178,6 +221,18 @@ export function HomePage() {
   );
 
   const visibleSymbolsKey = useMemo(() => visibleSymbols.join(","), [visibleSymbols]);
+
+  useEffect(() => {
+    try {
+      const payload: AggregateCachePayload = {
+        savedAt: Date.now(),
+        data: aggregateBySymbol,
+      };
+      localStorage.setItem(AGGREGATE_CACHE_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore cache persistence failures.
+    }
+  }, [aggregateBySymbol]);
 
   useEffect(() => {
     if (visibleSymbols.length === 0) {
