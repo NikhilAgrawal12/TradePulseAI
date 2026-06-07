@@ -3,16 +3,8 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, requireSignIn } from "../../utils/auth";
-import { useWebSocketPrices } from "../../utils/useWebSocketPrices";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
-
-function calculateChangePercent(previousClose: number | null, close: number): number {
-  if (previousClose === null || previousClose <= 0) {
-    return 0;
-  }
-  return ((close - previousClose) / previousClose) * 100;
-}
 
 export function WatchlistPage() {
   useEffect(() => { document.title = "Watchlist | TradePulseAI"; }, []);
@@ -60,11 +52,8 @@ export function WatchlistPage() {
     });
   }, [addSearch, watchlist, stocks]);
 
-  const symbols = useMemo(() => watchlistStocks.map(({ stock }) => stock.symbol), [watchlistStocks]);
-  const aggregateBySymbol = useWebSocketPrices(symbols);
   const totalCurrent = watchlistStocks.reduce((sum, entry) => {
-    const symbol = entry.stock.symbol.trim().toUpperCase();
-    const livePrice = aggregateBySymbol[symbol]?.close ?? entry.stock.price ?? 0;
+    const livePrice = entry.stock.price ?? 0;
     return sum + livePrice * entry.quantity;
   }, 0);
   const totalQuantity = watchlistStocks.reduce((s, e) => s + e.quantity, 0);
@@ -211,12 +200,8 @@ export function WatchlistPage() {
               </thead>
               <tbody>
                 {filtered.map(({ stock, quantity }) => {
-                  const symbol = stock.symbol.trim().toUpperCase();
-                  const aggregate = aggregateBySymbol[symbol];
-                  const livePrice = aggregate?.close ?? stock.price ?? 0;
-                  const liveChange = aggregate
-                    ? calculateChangePercent(aggregate.previousClose, aggregate.close)
-                    : (stock.changePercent ?? 0);
+                  const livePrice = stock.price ?? 0;
+                  const liveChange = stock.changePercent ?? 0;
                   const currentValue = livePrice * quantity;
 
                   return (

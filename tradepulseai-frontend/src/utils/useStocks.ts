@@ -1,28 +1,16 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import type { Stock } from "../types/stock";
-
-const STOCKS_CACHE_KEY = "tradepulseai_stocks_cache";
+const STOCKS_REFRESH_MS = 2000;
 
 export function useStocks() {
-  const [stocks, setStocks] = useState<Stock[]>(() => {
-    // Load from cache immediately on mount
-    try {
-      const cached = localStorage.getItem(STOCKS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached) as Stock[];
-        return Array.isArray(parsed) ? parsed : [];
-      }
-    } catch {
-      // Ignore cache errors
-    }
-    return [];
-  });
+  const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    let intervalId: number | null = null;
 
     const loadStocks = async () => {
       try {
@@ -33,12 +21,6 @@ export function useStocks() {
         const data = Array.isArray(response.data) ? response.data : [];
         setStocks(data);
         setError(null);
-        // Cache the stocks
-        try {
-          localStorage.setItem(STOCKS_CACHE_KEY, JSON.stringify(data));
-        } catch {
-          // Ignore cache write errors
-        }
       } catch {
         if (!mounted) {
           return;
@@ -52,9 +34,15 @@ export function useStocks() {
     };
 
     void loadStocks();
+    intervalId = window.setInterval(() => {
+      void loadStocks();
+    }, STOCKS_REFRESH_MS);
 
     return () => {
       mounted = false;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
     };
   }, []);
 

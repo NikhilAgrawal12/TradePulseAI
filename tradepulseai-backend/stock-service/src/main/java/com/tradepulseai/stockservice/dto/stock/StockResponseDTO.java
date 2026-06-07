@@ -12,6 +12,10 @@ public class StockResponseDTO {
     private Double price;
     private Double changePercent;
     private Long volume;
+    private Double open;
+    private Double high;
+    private Double low;
+    private Double vwap;
     private String lastUpdated;
     private String source;
 
@@ -94,6 +98,38 @@ public class StockResponseDTO {
 
     public void setVolume(Long volume) {
         this.volume = volume;
+    }
+
+    public Double getOpen() {
+        return open;
+    }
+
+    public void setOpen(Double open) {
+        this.open = open;
+    }
+
+    public Double getHigh() {
+        return high;
+    }
+
+    public void setHigh(Double high) {
+        this.high = high;
+    }
+
+    public Double getLow() {
+        return low;
+    }
+
+    public void setLow(Double low) {
+        this.low = low;
+    }
+
+    public Double getVwap() {
+        return vwap;
+    }
+
+    public void setVwap(Double vwap) {
+        this.vwap = vwap;
     }
 
     public String getLastUpdated() {

@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useStocks } from "../../utils/useStocks";
-import { useWebSocketPrices } from "../../utils/useWebSocketPrices";
 import "./CheckoutPage.css";
 
 type EnrichedItem = {
@@ -11,6 +10,8 @@ type EnrichedItem = {
   symbol: string;
   name: string | null;
   basePrice: number;
+  changePercent: number | null;
+  source: string | null;
   quantity: number;
 };
 
@@ -37,36 +38,24 @@ export function CheckoutPage() {
           // prefer REST-API symbol; gRPC fallback gives numeric IDs
           symbol: stock?.symbol ?? item.symbol,
           name: stock?.name ?? null,
-          // prefer REST-API OHLC close; gRPC fallback gives 0
+          // prefer backend cached aggregate close; gRPC fallback gives 0
           basePrice: stock?.price ?? item.price ?? 0,
+          changePercent: stock?.changePercent ?? null,
+          source: stock?.source ?? null,
           quantity: Number(item.quantity),
         };
       }),
     [cart, stockById],
   );
 
-  const symbols = useMemo(
-    () => enrichedItems.map((item) => item.symbol),
-    [enrichedItems],
-  );
-  const aggregateBySymbol = useWebSocketPrices(symbols);
-
-  // Price chain: live websocket close → REST OHLC price → 0
+  // Price chain: backend all-stocks cache close → cart fallback price → 0
   function livePrice(item: EnrichedItem): number {
-    const agg = aggregateBySymbol[item.symbol.trim().toUpperCase()];
-    return typeof agg?.close === "number" ? agg.close : item.basePrice;
-  }
-
-  function changePercent(item: EnrichedItem): number | null {
-    const agg = aggregateBySymbol[item.symbol.trim().toUpperCase()];
-    if (!agg || agg.previousClose === null || agg.previousClose <= 0) return null;
-    return ((agg.close - agg.previousClose) / agg.previousClose) * 100;
+    return item.basePrice;
   }
 
   const totalPrice = useMemo(
     () => enrichedItems.reduce((sum, item) => sum + livePrice(item) * item.quantity, 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enrichedItems, aggregateBySymbol],
+    [enrichedItems],
   );
 
   const handleQuantityChange = (stockId: string, qty: string) => {
@@ -122,9 +111,8 @@ export function CheckoutPage() {
                   <tbody>
                     {enrichedItems.map((item) => {
                       const price = livePrice(item);
-                      const change = changePercent(item);
-                      const sym = item.symbol.trim().toUpperCase();
-                      const isLive = typeof aggregateBySymbol[sym]?.close === "number";
+                      const change = item.changePercent;
+                      const isLive = item.source === "all-stocks-cache";
 
                       return (
                         <tr key={item.stockId}>

@@ -6,7 +6,6 @@ import { useWatchlist } from "../../context/WatchlistContext";
 import type { Stock } from "../../types/stock";
 import { isUserAuthenticated } from "../../utils/auth";
 import { useFeaturedStocks } from "../../utils/useFeaturedStocks";
-import { useWebSocketPrices } from "../../utils/useWebSocketPrices";
 import { useStocks } from "../../utils/useStocks";
 import "./HomePage.css";
 
@@ -19,18 +18,12 @@ function normalizeSymbol(value: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function formatRealtimeTime(timestampMs: number | null | undefined): string {
-  if (!timestampMs) {
+function formatRealtimeTime(lastUpdated: string | null | undefined): string {
+  if (!lastUpdated) {
     return "--";
   }
-  return new Date(timestampMs).toLocaleTimeString();
-}
-
-function calculateChangePercent(previousClose: number | null, close: number): number {
-  if (previousClose === null || previousClose <= 0) {
-    return 0;
-  }
-  return ((close - previousClose) / previousClose) * 100;
+  const parsed = new Date(lastUpdated);
+  return Number.isNaN(parsed.getTime()) ? "--" : parsed.toLocaleTimeString();
 }
 
 export function HomePage() {
@@ -94,16 +87,6 @@ export function HomePage() {
       .slice(0, MAX_VISIBLE_STOCKS);
   }, [defaultStocks, fetchedStocks, searchTerm]);
 
-  const visibleSymbols = useMemo(
-    () =>
-      filteredStocks
-        .map((stock) => normalizeSymbol(stock.symbol))
-        .filter((symbol): symbol is string => Boolean(symbol)),
-    [filteredStocks],
-  );
-
-  const aggregateBySymbol = useWebSocketPrices(visibleSymbols);
-
   return (
     <>
       <Header />
@@ -149,11 +132,8 @@ export function HomePage() {
               <div className="stocks-grid">
                 {filteredStocks.map((stock) => {
                     const symbol = stock.symbol.trim().toUpperCase();
-                    const aggregate = aggregateBySymbol[symbol];
-                    const stickerPrice = aggregate?.close ?? stock.price ?? 0;
-                    const change = aggregate
-                      ? calculateChangePercent(aggregate.previousClose, aggregate.close)
-                      : (stock.changePercent ?? 0);
+                    const stickerPrice = stock.price ?? 0;
+                    const change = stock.changePercent ?? 0;
                     const isPositive = change >= 0;
 
                     return (
@@ -174,12 +154,12 @@ export function HomePage() {
                         <div className="aggregate-block">
                           <p className="block-title">Live Snapshot</p>
                           <div className="aggregate-grid">
-                            <p className="metric-item"><span>Open</span><strong className="metric-value">{aggregate ? `$${aggregate.open.toFixed(2)}` : "--"}</strong></p>
-                            <p className="metric-item"><span>High</span><strong className="metric-value">{aggregate ? `$${aggregate.high.toFixed(2)}` : "--"}</strong></p>
-                            <p className="metric-item"><span>Low</span><strong className="metric-value">{aggregate ? `$${aggregate.low.toFixed(2)}` : "--"}</strong></p>
-                            <p className="metric-item"><span>Volume</span><strong className="metric-value">{aggregate ? aggregate.volume.toLocaleString() : "--"}</strong></p>
-                            <p className="metric-item"><span>VWAP</span><strong className="metric-value">{aggregate ? `$${aggregate.vwap.toFixed(2)}` : "--"}</strong></p>
-                            <p className="metric-item metric-item-full"><span>Updated</span><strong className="metric-value">{formatRealtimeTime(aggregate?.timestampMs)}</strong></p>
+                            <p className="metric-item"><span>Open</span><strong className="metric-value">{typeof stock.open === "number" ? `$${stock.open.toFixed(2)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>High</span><strong className="metric-value">{typeof stock.high === "number" ? `$${stock.high.toFixed(2)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>Low</span><strong className="metric-value">{typeof stock.low === "number" ? `$${stock.low.toFixed(2)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>Volume</span><strong className="metric-value">{typeof stock.volume === "number" ? stock.volume.toLocaleString() : "--"}</strong></p>
+                            <p className="metric-item"><span>VWAP</span><strong className="metric-value">{typeof stock.vwap === "number" ? `$${stock.vwap.toFixed(2)}` : "--"}</strong></p>
+                            <p className="metric-item metric-item-full"><span>Updated</span><strong className="metric-value">{formatRealtimeTime(stock.lastUpdated)}</strong></p>
                           </div>
                         </div>
 
