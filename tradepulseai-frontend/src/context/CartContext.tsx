@@ -8,7 +8,7 @@ const CART_ERROR_MESSAGE = "Unable to update cart right now. Please try again.";
 type CartContextType = {
   cart: CartItem[];
   totalItems: number;
-  addToCart: (stockId: string, symbol: string, price: number, qty: number) => Promise<void>;
+  addToCart: (stockId: string, qty: number) => Promise<void>;
   removeFromCart: (stockId: string) => Promise<void>;
   updateQuantity: (stockId: string, qty: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -56,7 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, [authVersion]);
 
-  const addToCart = async (stockId: string, _symbol: string, _price: number, qty: number) => {
+  const addToCart = async (stockId: string, qty: number) => {
     if (!isUserAuthenticated()) {
       requireSignIn();
       return;

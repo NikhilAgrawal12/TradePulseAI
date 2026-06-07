@@ -96,6 +96,48 @@
   color: #14532d;
 }
 
+.cart-stock-name {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: #5a8a70;
+  margin-top: 2px;
+}
+
+.cart-price {
+  font-weight: 700;
+  color: #14532d;
+}
+
+.cart-live-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 5px;
+  vertical-align: middle;
+}
+
+.cart-no-data {
+  color: #a0b8a8;
+  font-size: 0.88rem;
+}
+
+.price-up {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.price-down {
+  color: #c0392b;
+  font-weight: 600;
+}
+
 .cart-total {
   font-weight: 700;
   color: #2f5f4b;

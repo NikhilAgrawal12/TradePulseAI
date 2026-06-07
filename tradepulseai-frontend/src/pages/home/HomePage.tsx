@@ -1,92 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import type { Stock } from "../../types/stock";
 import { isUserAuthenticated } from "../../utils/auth";
+import { useFeaturedStocks } from "../../utils/useFeaturedStocks";
+import { useWebSocketPrices } from "../../utils/useWebSocketPrices";
 import { useStocks } from "../../utils/useStocks";
 import "./HomePage.css";
 
 const MAX_VISIBLE_STOCKS = 50;
-const MASSIVE_DELAYED_WS_URL = "wss://delayed.massive.com/stocks";
-const MASSIVE_API_KEY = import.meta.env.VITE_MASSIVE_API_KEY as string | undefined;
-const AGGREGATE_CACHE_KEY = "tradepulseai_home_aggregate_cache_v1";
-const MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
-const TOP_50_COMPANIES = [
-  { symbol: "AAPL", name: "Apple" },
-  { symbol: "MSFT", name: "Microsoft" },
-  { symbol: "NVDA", name: "NVIDIA" },
-  { symbol: "AMZN", name: "Amazon" },
-  { symbol: "GOOGL", name: "Alphabet" },
-  { symbol: "META", name: "Meta Platforms" },
-  { symbol: "TSLA", name: "Tesla" },
-  { symbol: "AVGO", name: "Broadcom" },
-  { symbol: "LLY", name: "Eli Lilly" },
-  { symbol: "JPM", name: "JPMorgan Chase" },
-  { symbol: "V", name: "Visa" },
-  { symbol: "MA", name: "Mastercard" },
-  { symbol: "WMT", name: "Walmart" },
-  { symbol: "XOM", name: "Exxon Mobil" },
-  { symbol: "UNH", name: "UnitedHealth Group" },
-  { symbol: "JNJ", name: "Johnson & Johnson" },
-  { symbol: "PG", name: "Procter & Gamble" },
-  { symbol: "HD", name: "Home Depot" },
-  { symbol: "COST", name: "Costco" },
-  { symbol: "MRK", name: "Merck" },
-  { symbol: "ABBV", name: "AbbVie" },
-  { symbol: "BAC", name: "Bank of America" },
-  { symbol: "KO", name: "Coca-Cola" },
-  { symbol: "PEP", name: "PepsiCo" },
-  { symbol: "CVX", name: "Chevron" },
-  { symbol: "ADBE", name: "Adobe" },
-  { symbol: "CRM", name: "Salesforce" },
-  { symbol: "ORCL", name: "Oracle" },
-  { symbol: "NFLX", name: "Netflix" },
-  { symbol: "AMD", name: "Advanced Micro Devices" },
-  { symbol: "CSCO", name: "Cisco" },
-  { symbol: "IBM", name: "IBM" },
-  { symbol: "INTC", name: "Intel" },
-  { symbol: "QCOM", name: "Qualcomm" },
-  { symbol: "MCD", name: "McDonald's" },
-  { symbol: "DIS", name: "Walt Disney" },
-  { symbol: "ABT", name: "Abbott Laboratories" },
-  { symbol: "TMO", name: "Thermo Fisher Scientific" },
-  { symbol: "AMGN", name: "Amgen" },
-  { symbol: "GE", name: "GE Aerospace" },
-  { symbol: "CAT", name: "Caterpillar" },
-  { symbol: "GS", name: "Goldman Sachs" },
-  { symbol: "MS", name: "Morgan Stanley" },
-  { symbol: "NKE", name: "Nike" },
-  { symbol: "TXN", name: "Texas Instruments" },
-  { symbol: "NOW", name: "ServiceNow" },
-  { symbol: "UBER", name: "Uber" },
-  { symbol: "BKNG", name: "Booking Holdings" },
-  { symbol: "SPGI", name: "S&P Global" },
-  { symbol: "ACN", name: "Accenture" },
-] as const;
-
-const TOP_50_SYMBOLS: Set<string> = new Set(TOP_50_COMPANIES.map((company) => company.symbol));
-
-type FeedStatus = "idle" | "connecting" | "live" | "error";
-
-type LiveAggregate = {
-  previousClose: number | null;
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-  volume: number;
-  vwap: number;
-  timestampMs: number;
-};
-
-type AggregateCachePayload = {
-  savedAt: number;
-  data: Record<string, LiveAggregate>;
-};
-
 function normalizeSymbol(value: string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -109,56 +33,16 @@ function calculateChangePercent(previousClose: number | null, close: number): nu
   return ((close - previousClose) / previousClose) * 100;
 }
 
-function loadAggregateCache(): Record<string, LiveAggregate> {
-  try {
-    const raw = localStorage.getItem(AGGREGATE_CACHE_KEY);
-    if (!raw) {
-      return {};
-    }
-
-    const parsed = JSON.parse(raw) as AggregateCachePayload;
-    if (!parsed || typeof parsed !== "object" || typeof parsed.savedAt !== "number" || !parsed.data || typeof parsed.data !== "object") {
-      return {};
-    }
-
-    if (Date.now() - parsed.savedAt > MAX_CACHE_AGE_MS) {
-      return {};
-    }
-
-    const entries = Object.entries(parsed.data).filter(([symbol, value]) => {
-      return (
-        TOP_50_SYMBOLS.has(symbol) &&
-        value &&
-        typeof value.open === "number" &&
-        typeof value.close === "number" &&
-        typeof value.high === "number" &&
-        typeof value.low === "number" &&
-        typeof value.volume === "number" &&
-        typeof value.vwap === "number" &&
-        typeof value.timestampMs === "number"
-      );
-    });
-
-    return Object.fromEntries(entries);
-  } catch {
-    return {};
-  }
-}
-
 export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
   const { stocks: fetchedStocks, error } = useStocks();
+  const { featuredStocks } = useFeaturedStocks();
   const [searchTerm, setSearchTerm] = useState("");
-  const [, setFeedStatus] = useState<FeedStatus>("idle");
-  const setFeedError = useState<string | null>(null)[1];
-  const [aggregateBySymbol, setAggregateBySymbol] = useState<Record<string, LiveAggregate>>(() => loadAggregateCache());
-  const socketGenerationRef = useRef(0);
-  const [socketRetryNonce, setSocketRetryNonce] = useState(0);
 
-  // Always render a stable top-50 list immediately, overlay backend metadata when available.
-  const stocks = useMemo(() => {
-    const fetchedBySymbol = new Map(
+  // Indexed map of all 800 backend stocks for fast search lookups
+  const fetchedBySymbol = useMemo(() => {
+    return new Map(
       fetchedStocks
         .map((stock) => {
           const normalized = normalizeSymbol(stock.symbol);
@@ -166,25 +50,25 @@ export function HomePage() {
         })
         .filter((entry): entry is readonly [string, Stock] => Boolean(entry)),
     );
+  }, [fetchedStocks]);
 
-    return TOP_50_COMPANIES.map((company, index) => {
-      const fetched = fetchedBySymbol.get(company.symbol);
+  // Default view: use featured stocks from backend (cached locally for instant load).
+  // Overlay latest market data from the all-stocks fetch when available.
+  const defaultStocks = useMemo(() => {
+    return featuredStocks.map((featured) => {
+      const sym = normalizeSymbol(featured.symbol);
+      const fresh = sym ? fetchedBySymbol.get(sym) : undefined;
+      if (!fresh) return featured;
       return {
-        id: fetched?.id ?? `top-${index + 1}`,
-        symbol: company.symbol,
-        name: fetched?.name ?? company.name,
-        exchange: fetched?.exchange ?? null,
-        market: fetched?.market ?? null,
-        locale: fetched?.locale ?? null,
-        active: fetched?.active ?? true,
-        price: fetched?.price ?? 0,
-        changePercent: fetched?.changePercent ?? 0,
-        volume: fetched?.volume ?? null,
-        source: fetched?.source ?? "top-50-default",
-        lastUpdated: fetched?.lastUpdated ?? null,
+        ...featured,
+        name: fresh.name ?? featured.name,
+        price: fresh.price ?? featured.price,
+        changePercent: fresh.changePercent ?? featured.changePercent,
+        active: fresh.active ?? featured.active,
+        lastUpdated: fresh.lastUpdated ?? featured.lastUpdated,
       } satisfies Stock;
     });
-  }, [fetchedStocks]);
+  }, [featuredStocks, fetchedBySymbol]);
 
   useEffect(() => {
     document.title = "Home | TradePulseAI";
@@ -192,25 +76,23 @@ export function HomePage() {
 
   const isLoggedIn = useMemo(() => isUserAuthenticated(), []);
 
-  const prioritizedStocks = useMemo(
-    () => stocks.filter((stock) => typeof stock.symbol === "string" && stock.symbol.trim().length > 0),
-    [stocks],
-  );
-
   const filteredStocks = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) {
-      return prioritizedStocks.slice(0, MAX_VISIBLE_STOCKS);
+      // No search — show featured top 50 from backend
+      return defaultStocks.filter((stock) => typeof stock.symbol === "string" && stock.symbol.trim().length > 0);
     }
 
-    return prioritizedStocks
+    // Search active — search all 800 fetched stocks from backend
+    return fetchedStocks
       .filter((stock) => {
+        if (typeof stock.symbol !== "string" || stock.symbol.trim().length === 0) return false;
         const symbol = stock.symbol.toLowerCase();
         const name = (stock.name ?? "").toLowerCase();
         return symbol.includes(query) || name.includes(query);
       })
       .slice(0, MAX_VISIBLE_STOCKS);
-  }, [prioritizedStocks, searchTerm]);
+  }, [defaultStocks, fetchedStocks, searchTerm]);
 
   const visibleSymbols = useMemo(
     () =>
@@ -220,167 +102,7 @@ export function HomePage() {
     [filteredStocks],
   );
 
-  const visibleSymbolsKey = useMemo(() => visibleSymbols.join(","), [visibleSymbols]);
-
-  useEffect(() => {
-    try {
-      const payload: AggregateCachePayload = {
-        savedAt: Date.now(),
-        data: aggregateBySymbol,
-      };
-      localStorage.setItem(AGGREGATE_CACHE_KEY, JSON.stringify(payload));
-    } catch {
-      // Ignore cache persistence failures.
-    }
-  }, [aggregateBySymbol]);
-
-  useEffect(() => {
-    if (visibleSymbols.length === 0) {
-      setFeedStatus("idle");
-      setFeedError(null);
-      return undefined;
-    }
-
-    if (!MASSIVE_API_KEY) {
-      setFeedStatus("error");
-      setFeedError("Set VITE_MASSIVE_API_KEY in frontend env to stream stock aggregate data.");
-      return undefined;
-    }
-
-    const connectionGeneration = ++socketGenerationRef.current;
-    setFeedStatus("connecting");
-    setFeedError(null);
-
-    let closedByEffect = false;
-    let reconnectScheduled = false;
-    let reconnectTimeoutId: number | null = null;
-    const socket = new WebSocket(MASSIVE_DELAYED_WS_URL);
-
-    const scheduleReconnect = (message: string) => {
-      if (closedByEffect || reconnectScheduled || socketGenerationRef.current !== connectionGeneration) {
-        return;
-      }
-      reconnectScheduled = true;
-      setFeedStatus("connecting");
-      setFeedError(message);
-      reconnectTimeoutId = window.setTimeout(() => {
-        if (closedByEffect || socketGenerationRef.current !== connectionGeneration) {
-          return;
-        }
-        setSocketRetryNonce((current) => current + 1);
-      }, 1500);
-    };
-
-    const subscribeToVisibleSymbols = () => {
-      if (closedByEffect || socketGenerationRef.current !== connectionGeneration) {
-        return;
-      }
-      const params = visibleSymbols.map((symbol) => `A.${symbol}`).join(",");
-
-      socket.send(JSON.stringify({ action: "subscribe", params }));
-      setFeedStatus("live");
-    };
-
-    const handleMessage = (payload: unknown) => {
-      if (!Array.isArray(payload)) {
-        return;
-      }
-
-      for (const rawEvent of payload) {
-        if (!rawEvent || typeof rawEvent !== "object") {
-          continue;
-        }
-
-        const event = rawEvent as Record<string, unknown>;
-        const eventType = typeof event.ev === "string" ? event.ev : "";
-
-        if (eventType === "status") {
-          const status = typeof event.status === "string" ? event.status : "";
-          if (status === "connected") {
-            socket.send(JSON.stringify({ action: "auth", params: MASSIVE_API_KEY }));
-          } else if (status === "auth_success") {
-            subscribeToVisibleSymbols();
-          } else if (status === "auth_failed") {
-            if (closedByEffect || socketGenerationRef.current !== connectionGeneration) {
-              continue;
-            }
-            setFeedStatus("error");
-            setFeedError("Massive authentication failed. Check VITE_MASSIVE_API_KEY.");
-          }
-          continue;
-        }
-
-        if (eventType === "A") {
-          const symbol = normalizeSymbol(typeof event.sym === "string" ? event.sym : null);
-          if (!symbol || !TOP_50_SYMBOLS.has(symbol)) {
-            continue;
-          }
-          const open = typeof event.o === "number" ? event.o : null;
-          const close = typeof event.c === "number" ? event.c : null;
-          const high = typeof event.h === "number" ? event.h : close;
-          const low = typeof event.l === "number" ? event.l : close;
-          const volume = typeof event.v === "number" ? event.v : 0;
-          const vwap = typeof event.vw === "number" ? event.vw : (close ?? 0);
-          const timestamp = typeof event.e === "number" ? event.e : Date.now();
-
-          if (open === null || close === null || high === null || low === null) {
-            continue;
-          }
-
-          setAggregateBySymbol((prev) => {
-            const previous = prev[symbol];
-            return {
-              ...prev,
-              [symbol]: {
-                previousClose: previous?.close ?? null,
-                open,
-                close,
-                high,
-                low,
-                volume,
-                vwap,
-                timestampMs: timestamp,
-              },
-            };
-          });
-        }
-      }
-    };
-
-    socket.onmessage = (event) => {
-      if (closedByEffect || socketGenerationRef.current !== connectionGeneration) {
-        return;
-      }
-      try {
-        handleMessage(JSON.parse(event.data as string));
-      } catch {
-        scheduleReconnect("Market feed reconnecting...");
-      }
-    };
-
-    socket.onerror = () => {
-      if (closedByEffect || socketGenerationRef.current !== connectionGeneration) {
-        return;
-      }
-      scheduleReconnect("Market feed reconnecting...");
-    };
-
-    socket.onclose = () => {
-      if (!closedByEffect && socketGenerationRef.current === connectionGeneration) {
-        scheduleReconnect("Market feed reconnecting...");
-      }
-    };
-
-    return () => {
-      closedByEffect = true;
-      if (reconnectTimeoutId !== null) {
-        window.clearTimeout(reconnectTimeoutId);
-      }
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-        socket.close();
-      }
-    };
-  }, [visibleSymbolsKey, socketRetryNonce]);
+  const aggregateBySymbol = useWebSocketPrices(visibleSymbols);
 
   return (
     <>
@@ -417,6 +139,12 @@ export function HomePage() {
 
             {error ? (
               <p className="error-message">{error}</p>
+            ) : filteredStocks.length === 0 ? (
+              <p className="error-message">
+                {searchTerm.trim()
+                  ? "No stocks matched your search."
+                  : "Featured stocks are refreshing. Please check back in a moment."}
+              </p>
             ) : (
               <div className="stocks-grid">
                 {filteredStocks.map((stock) => {
@@ -459,7 +187,7 @@ export function HomePage() {
                         <div className="stock-card-actions">
                           <button
                             className="stock-add-to-cart-btn"
-                            onClick={() => void addToCart(stock.id, stock.symbol, stickerPrice, 1)}
+                            onClick={() => void addToCart(stock.id, 1)}
                           >
                             🛒 Add to cart
                           </button>

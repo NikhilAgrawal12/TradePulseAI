@@ -3,8 +3,16 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, requireSignIn } from "../../utils/auth";
+import { useWebSocketPrices } from "../../utils/useWebSocketPrices";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
+
+function calculateChangePercent(previousClose: number | null, close: number): number {
+  if (previousClose === null || previousClose <= 0) {
+    return 0;
+  }
+  return ((close - previousClose) / previousClose) * 100;
+}
 
 export function WatchlistPage() {
   useEffect(() => { document.title = "Watchlist | TradePulseAI"; }, []);
@@ -29,8 +37,7 @@ export function WatchlistPage() {
         }
 
         const quantity = Number(entry.quantity);
-        const currentValue = stock.price * quantity;
-        return [{ ...entry, quantity, stock, currentValue }];
+        return [{ ...entry, quantity, stock }];
       }),
     [stockMap, watchlist],
   );
@@ -53,7 +60,13 @@ export function WatchlistPage() {
     });
   }, [addSearch, watchlist, stocks]);
 
-  const totalCurrent = watchlistStocks.reduce((s, e) => s + e.currentValue, 0);
+  const symbols = useMemo(() => watchlistStocks.map(({ stock }) => stock.symbol), [watchlistStocks]);
+  const aggregateBySymbol = useWebSocketPrices(symbols);
+  const totalCurrent = watchlistStocks.reduce((sum, entry) => {
+    const symbol = entry.stock.symbol.trim().toUpperCase();
+    const livePrice = aggregateBySymbol[symbol]?.close ?? entry.stock.price ?? 0;
+    return sum + livePrice * entry.quantity;
+  }, 0);
   const totalQuantity = watchlistStocks.reduce((s, e) => s + e.quantity, 0);
 
   const handleAdd = () => {
@@ -197,35 +210,45 @@ export function WatchlistPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(({ stock, quantity, currentValue }) => (
-                  <tr key={stock.id}>
-                    <td><strong>{stock.symbol}</strong></td>
-                    <td><span className="wl-name">{stock.name ?? "N/A"}</span><span className="wl-sector">{stock.exchange ?? "N/A"}</span></td>
-                    <td><span className="rec-badge hold">{stock.source ?? "live"}</span></td>
-                    <td>${(stock.price ?? 0).toFixed(2)}</td>
-                    <td className={(stock.changePercent ?? 0) >= 0 ? "price-up" : "price-down"}>
-                      {(stock.changePercent ?? 0) >= 0 ? "+" : ""}{(stock.changePercent ?? 0).toFixed(2)}%
-                    </td>
-                    <td>{quantity}</td>
-                    <td>${currentValue.toFixed(2)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="wl-add-to-cart-btn"
-                        onClick={() => void addToCart(stock.id, stock.symbol, stock.price ?? 0, quantity)}
-                        title="Add to cart"
-                      >🛒</button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="wl-remove-btn"
-                        onClick={() => handleRemove(stock.id)}
-                        title="Remove from watchlist"
-                      >✕</button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(({ stock, quantity }) => {
+                  const symbol = stock.symbol.trim().toUpperCase();
+                  const aggregate = aggregateBySymbol[symbol];
+                  const livePrice = aggregate?.close ?? stock.price ?? 0;
+                  const liveChange = aggregate
+                    ? calculateChangePercent(aggregate.previousClose, aggregate.close)
+                    : (stock.changePercent ?? 0);
+                  const currentValue = livePrice * quantity;
+
+                  return (
+                    <tr key={stock.id}>
+                      <td><strong>{stock.symbol}</strong></td>
+                      <td><span className="wl-name">{stock.name ?? "N/A"}</span><span className="wl-sector">{stock.exchange ?? "N/A"}</span></td>
+                      <td><span className="rec-badge hold">{stock.source ?? "live"}</span></td>
+                      <td>${livePrice.toFixed(2)}</td>
+                      <td className={liveChange >= 0 ? "price-up" : "price-down"}>
+                        {liveChange >= 0 ? "+" : ""}{liveChange.toFixed(2)}%
+                      </td>
+                      <td>{quantity}</td>
+                      <td>${currentValue.toFixed(2)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="wl-add-to-cart-btn"
+                          onClick={() => void addToCart(stock.id, quantity)}
+                          title="Add to cart"
+                        >🛒</button>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="wl-remove-btn"
+                          onClick={() => handleRemove(stock.id)}
+                          title="Remove from watchlist"
+                        >✕</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
