@@ -62,6 +62,17 @@ public class StockService {
                 .toList();
     }
 
+    public Map<String, Object> getFeaturedCacheStatus() {
+        long cachedCount = featuredStockCacheRepository.count();
+        Map<String, Object> status = new HashMap<>();
+        status.put("ready", cachedCount > 0);
+        status.put("cachedCount", cachedCount);
+        status.put("message", cachedCount > 0
+                ? "Featured stocks cache is ready"
+                : "Featured stocks cache is empty — trigger POST /stocks/featured/refresh-once to populate");
+        return status;
+    }
+
     public StockResponseDTO getStockById(Long id) {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with id: " + id));

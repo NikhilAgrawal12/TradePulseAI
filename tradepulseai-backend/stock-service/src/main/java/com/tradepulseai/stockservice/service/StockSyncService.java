@@ -4,6 +4,7 @@ import com.tradepulseai.stockservice.model.Exchange;
 import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.repository.ExchangeRepository;
 import com.tradepulseai.stockservice.repository.StockRepository;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -58,7 +60,7 @@ public class StockSyncService implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments args) {
+    public void run(@NonNull ApplicationArguments args) {
         if (!syncOnStartup) {
             return;
         }
@@ -131,7 +133,7 @@ public class StockSyncService implements ApplicationRunner {
                 }
             }
 
-            nextPath = normalizeNextPath(response.path("next_url").asText(null));
+            nextPath = normalizeNextPath(text(response.path("next_url")));
         }
 
         log.info("Fetched {} active US common-stock candidates from Massive.", uniqueByTicker.size());
@@ -181,6 +183,7 @@ public class StockSyncService implements ApplicationRunner {
         stock.setCik(firstNonBlank(overview.cik(), summary.cik()));
         stock.setHomepageUrl(overview.homepageUrl());
         stock.setListDate(overview.listDate());
+        stock.setMarketCap(BigDecimal.valueOf(overview.marketCap()));
         return stock;
     }
 
@@ -236,7 +239,7 @@ public class StockSyncService implements ApplicationRunner {
                 text(node.get("type")),
                 text(node.get("cik")),
                 text(node.get("primary_exchange")),
-                booleanOrDefault(node.get("active"), true)
+                booleanOrTrue(node.get("active"))
         );
     }
 
@@ -280,7 +283,7 @@ public class StockSyncService implements ApplicationRunner {
                 text(result.get("homepage_url")),
                 parseDate(text(result.get("list_date"))),
                 booleanOrNull(result.get("active")),
-                numberOrDefault(result.get("market_cap"), 0d)
+                numberOrZero(result.get("market_cap"))
         );
     }
 
@@ -296,7 +299,7 @@ public class StockSyncService implements ApplicationRunner {
         if (node == null || node.isNull()) {
             return null;
         }
-        return text(node.asText());
+        return node.isTextual() ? text(node.textValue()) : text(node.toString());
     }
 
     private String text(String value) {
@@ -312,11 +315,11 @@ public class StockSyncService implements ApplicationRunner {
         return text == null ? null : text.toUpperCase(Locale.ROOT);
     }
 
-    private boolean booleanOrDefault(JsonNode node, boolean defaultValue) {
+    private boolean booleanOrTrue(JsonNode node) {
         if (node == null || node.isNull()) {
-            return defaultValue;
+            return true;
         }
-        return node.asBoolean(defaultValue);
+        return node.asBoolean(true);
     }
 
     private Boolean booleanOrNull(JsonNode node) {
@@ -326,11 +329,11 @@ public class StockSyncService implements ApplicationRunner {
         return node.asBoolean();
     }
 
-    private double numberOrDefault(JsonNode node, double defaultValue) {
+    private double numberOrZero(JsonNode node) {
         if (node == null || node.isNull()) {
-            return defaultValue;
+            return 0d;
         }
-        return node.asDouble(defaultValue);
+        return node.asDouble(0d);
     }
 
     private LocalDate parseDate(String date) {

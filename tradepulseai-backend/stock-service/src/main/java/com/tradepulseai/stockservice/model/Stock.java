@@ -12,6 +12,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -61,6 +62,15 @@ public class Stock {
     @Column(name = "list_date")
     private LocalDate listDate;
 
+    @Column(name = "market_cap", precision = 22, scale = 2)
+    private BigDecimal marketCap;
+
+    @Column(name = "is_featured", nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean featured = false;
+
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
@@ -70,6 +80,9 @@ public class Stock {
         this.updatedAt = Instant.now();
         if (this.active == null) {
             this.active = true;
+        }
+        if (this.featured == null) {
+            this.featured = false;
         }
     }
 
@@ -177,7 +190,31 @@ public class Stock {
         this.listDate = listDate;
     }
 
+    public BigDecimal getMarketCap() {
+        return marketCap;
+    }
+
+    public void setMarketCap(BigDecimal marketCap) {
+        this.marketCap = marketCap;
+    }
+
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Boolean getFeatured() {
+        return featured;
+    }
+
+    public void setFeatured(Boolean featured) {
+        this.featured = featured;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 }
