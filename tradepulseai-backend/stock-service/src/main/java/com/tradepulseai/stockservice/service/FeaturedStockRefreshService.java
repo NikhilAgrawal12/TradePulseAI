@@ -20,8 +20,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -29,7 +31,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 @Component
 @Order(4)
@@ -43,7 +44,6 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
     private final RestClient restClient;
     private final String apiKey;
     private final boolean dailyRefreshEnabled;
-    private final int targetCount;
     private final ScheduledExecutorService refreshExecutor;
     private final AtomicBoolean refreshLoopStarted = new AtomicBoolean(false);
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -54,14 +54,12 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
             FeaturedStockCacheRepository featuredStockCacheRepository,
             @Value("${massive.api.base-url}") String apiBaseUrl,
             @Value("${massive.api.key:}") String apiKey,
-            @Value("${massive.featured.daily-refresh-enabled:true}") boolean dailyRefreshEnabled,
-            @Value("${massive.featured.target-count:50}") int targetCount) {
+            @Value("${massive.featured.daily-refresh-enabled:true}") boolean dailyRefreshEnabled) {
         this.stockRepository = stockRepository;
         this.stockMarketDataRepository = stockMarketDataRepository;
         this.featuredStockCacheRepository = featuredStockCacheRepository;
         this.apiKey = apiKey;
         this.dailyRefreshEnabled = dailyRefreshEnabled;
-        this.targetCount = Math.max(1, targetCount);
         this.refreshExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "featured-stock-refresh");
             thread.setDaemon(true);
@@ -134,41 +132,44 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
             // Save market cap updates
             stockRepository.saveAll(stocks);
 
-            // Step 2: Compute top 50 ranking based on market cap
-            Set<Long> stockIdsWithLatestQuote = stockMarketDataRepository.findLatestForAllStocks()
-                    .stream()
-                    .map(StockMarketData::getStock)
-                    .map(Stock::getStockId)
-                    .filter(java.util.Objects::nonNull)
-                    .collect(Collectors.toSet());
+            // Step 2: Compute ranking for all stocks with latest quote.
+            // We still sort by market cap first so /stocks/featured can return top-ranked items.
+            Map<Long, StockMarketData> latestByStockId = new HashMap<>();
+            stockMarketDataRepository.findLatestForAllStocks()
+                    .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
+
+            Set<Long> stockIdsWithLatestQuote = latestByStockId.keySet();
 
             List<Stock> rankedStocks = stocks.stream()
-                    .filter(stock -> Boolean.TRUE.equals(stock.getActive()))
                     .filter(stock -> stock.getStockId() != null && stockIdsWithLatestQuote.contains(stock.getStockId()))
-                    .filter(stock -> stock.getMarketCap() != null && stock.getMarketCap().signum() > 0)
-                    .sorted(Comparator.comparing(Stock::getMarketCap).reversed()
+                    .sorted(Comparator
+                            .comparing(Stock::getMarketCap, Comparator.nullsLast(Comparator.reverseOrder()))
                             .thenComparing(stock -> normalize(stock.getSymbol()), Comparator.nullsLast(String::compareTo)))
-                    .limit(targetCount)
                     .toList();
 
             if (rankedStocks.isEmpty()) {
-                log.warn("Skipping featured-stock cache update for trigger {} because no ranked stocks with market cap and latest quote were available.", trigger);
+                log.warn("Skipping featured-stock cache update for trigger {} because no stocks with latest quote were available.", trigger);
                 return;
             }
 
-            // Step 3: Update cache (replace entire cache with new top 50)
-            featuredStockCacheRepository.deleteAll();
-            List<FeaturedStockCache> cacheEntries = new java.util.ArrayList<>();
-            for (int index = 0; index < rankedStocks.size(); index++) {
-                FeaturedStockCache entry = new FeaturedStockCache();
-                entry.setStock(rankedStocks.get(index));
-                entry.setSortOrder(index + 1);
-                cacheEntries.add(entry);
-            }
-            featuredStockCacheRepository.saveAll(cacheEntries);
+            // Step 3: Limit to top 50 and update cache with ranking only (no quote data)
+             int targetCount = 50;
+             List<Stock> topFeatured = rankedStocks.stream().limit(targetCount).toList();
 
-            log.info("Featured-stock refresh ({}) completed. Ranked {} featured stocks (cached), refreshed {} market caps. Stocks table remains unchanged with {} stocks.",
-                    trigger, rankedStocks.size(), refreshedMarketCaps, stocks.size());
+             featuredStockCacheRepository.deleteAll();
+             List<FeaturedStockCache> cacheEntries = new java.util.ArrayList<>();
+             for (int index = 0; index < topFeatured.size(); index++) {
+                 Stock stock = topFeatured.get(index);
+
+                 FeaturedStockCache entry = new FeaturedStockCache();
+                 entry.setStock(stock);
+                 entry.setSortOrder(index + 1);
+                 cacheEntries.add(entry);
+             }
+             featuredStockCacheRepository.saveAll(cacheEntries);
+
+             log.info("Featured-stock refresh ({}) completed. Cached top {} featured stocks, refreshed {} market caps. Stocks table remains unchanged with {} stocks.",
+                     trigger, cacheEntries.size(), refreshedMarketCaps, stocks.size());
         } finally {
             running.set(false);
         }
@@ -259,6 +260,17 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed.toUpperCase(Locale.ROOT);
+    }
+
+    private BigDecimal calculateChangePercent(BigDecimal openPrice, BigDecimal closePrice) {
+        if (openPrice == null || closePrice == null || openPrice.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+
+        return closePrice
+                .subtract(openPrice)
+                .divide(openPrice, 6, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100));
     }
 
     @PreDestroy

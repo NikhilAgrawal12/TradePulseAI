@@ -13,12 +13,12 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
  * Holds the top 50 featured stocks ranking.
- * This is a cache table that gets refreshed daily.
- * The stocks table itself is never modified - only market cap and other frequently-changing values are updated.
+ * Simple cache with just ranking information (stock_id and sort_order).
  */
 @Entity
 @Table(name = "featured_stocks_cache", uniqueConstraints = {
@@ -51,7 +51,6 @@ public class FeaturedStockCache {
         this.cachedAt = Instant.now();
     }
 
-    // Getters and Setters
     public Long getCacheId() {
         return cacheId;
     }
@@ -76,6 +75,7 @@ public class FeaturedStockCache {
         this.sortOrder = sortOrder;
     }
 
+
     public Instant getCachedAt() {
         return cachedAt;
     }
@@ -84,4 +84,3 @@ public class FeaturedStockCache {
         this.cachedAt = cachedAt;
     }
 }
-
