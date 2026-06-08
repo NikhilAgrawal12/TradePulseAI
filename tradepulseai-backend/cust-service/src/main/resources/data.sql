@@ -2,13 +2,14 @@ CREATE TABLE IF NOT EXISTS watchlist_items
 (
     user_id    BIGINT         NOT NULL,
     stock_id   BIGINT         NOT NULL,
+    quantity   NUMERIC(18, 4) NOT NULL DEFAULT 1,
     created_at TIMESTAMP      NOT NULL,
 
     CONSTRAINT pk_watchlist_items
         PRIMARY KEY (user_id, stock_id)
 );
 
-ALTER TABLE IF EXISTS watchlist_items DROP COLUMN IF EXISTS quantity;
+ALTER TABLE IF EXISTS watchlist_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(18, 4) NOT NULL DEFAULT 1;
 ALTER TABLE IF EXISTS watchlist_items DROP COLUMN IF EXISTS updated_at;
 
 ALTER TABLE IF EXISTS customer DROP CONSTRAINT IF EXISTS customer_pkey;

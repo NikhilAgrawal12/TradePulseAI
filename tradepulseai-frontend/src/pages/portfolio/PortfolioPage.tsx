@@ -248,19 +248,25 @@ export function PortfolioPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {transactionsWithSymbols.map((transaction) => (
-                                                <tr key={transaction.transactionId}>
-                                                    <td>{transaction.transactionType}</td>
-                                                    <td><strong>{transaction.symbol}</strong></td>
-                                                    <td>{transaction.quantity}</td>
-                                                    <td>{formatCurrency(transaction.price)}</td>
-                                                    <td>{formatCurrency(transaction.grossAmount)}</td>
-                                                    <td className={transaction.realizedPnl >= 0 ? "positive" : "negative"}>
-                                                        {transaction.realizedPnl >= 0 ? "+" : ""}{formatCurrency(transaction.realizedPnl)}
-                                                    </td>
-                                                    <td>{new Date(transaction.executedAt).toLocaleString()}</td>
-                                                </tr>
-                                            ))}
+                                            {transactionsWithSymbols.map((transaction) => {
+                                                const isSell = String(transaction.transactionType).toUpperCase() === "SELL";
+
+                                                return (
+                                                    <tr key={transaction.transactionId}>
+                                                        <td>{transaction.transactionType}</td>
+                                                        <td><strong>{transaction.symbol}</strong></td>
+                                                        <td>{transaction.quantity}</td>
+                                                        <td>{formatCurrency(transaction.price)}</td>
+                                                        <td>{formatCurrency(transaction.grossAmount)}</td>
+                                                        <td className={isSell ? (transaction.realizedPnl >= 0 ? "positive" : "negative") : ""}>
+                                                            {isSell
+                                                                ? `${transaction.realizedPnl >= 0 ? "+" : ""}${formatCurrency(transaction.realizedPnl)}`
+                                                                : "-"}
+                                                        </td>
+                                                        <td>{new Date(transaction.executedAt).toLocaleString()}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 )}

@@ -31,6 +31,21 @@
   color: #14532d;
 }
 
+.payment-price-lock {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  color: #7c2d12;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.payment-price-lock strong {
+  font-size: 1rem;
+}
+
 .payment-form {
   display: grid;
   gap: 8px;

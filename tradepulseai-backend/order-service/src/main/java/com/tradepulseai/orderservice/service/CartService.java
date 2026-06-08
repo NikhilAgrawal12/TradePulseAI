@@ -104,6 +104,7 @@ public class CartService {
         }
 
         Map<Long, StockQuote> stockQuotes = loadStockQuotes(cartItems);
+        validateQuotesForCheckout(stockQuotes);
 
         TradeOrder savedOrder = orderHistoryService.saveCompletedOrder(
                 OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, cartItems, stockQuotes)
@@ -127,6 +128,17 @@ public class CartService {
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
+    }
+
+    private void validateQuotesForCheckout(Map<Long, StockQuote> stockQuotes) {
+        boolean hasInvalidQuote = stockQuotes.values().stream()
+                .anyMatch(quote -> quote == null
+                        || quote.unitPrice() == null
+                        || quote.unitPrice().compareTo(BigDecimal.ZERO) <= 0);
+
+        if (hasInvalidQuote) {
+            throw new IllegalStateException("Live price unavailable for one or more cart items. Please refresh your cart and try again.");
+        }
     }
 
     private CartItemResponseDTO toCartResponse(CartItem cartItem, StockQuote stockQuote) {
@@ -172,13 +184,13 @@ public class CartService {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
-    private void validateCompletedPaymentResponse(OrderPaymentResponse response, String stockId) {
+    private void validateCompletedPaymentResponse(OrderPaymentResponse response, String orderId) {
         if (response == null) {
-            throw new IllegalStateException("Payment failed for stockId: " + stockId);
+            throw new IllegalStateException("Payment failed for orderId: " + orderId);
         }
 
         if (!PAYMENT_STATUS_COMPLETED.equalsIgnoreCase(response.getStatus())) {
-            throw new IllegalStateException("Payment failed for stockId: " + stockId);
+            throw new IllegalStateException("Payment failed for orderId: " + orderId);
         }
     }
 }

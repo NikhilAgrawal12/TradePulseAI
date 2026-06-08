@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 
 public class PaymentMapper {
 
-    public static Payment toModel(Long orderId, BigDecimal totalAmount) {
+    public static Payment toModel(String orderId, BigDecimal totalAmount) {
         BigDecimal scaled = totalAmount.setScale(4, java.math.RoundingMode.HALF_UP);
 
         Payment payment = new Payment();

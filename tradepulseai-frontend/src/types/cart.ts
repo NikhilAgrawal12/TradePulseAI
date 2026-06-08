@@ -17,7 +17,7 @@ export type UpdateCartItemRequest = {
 };
 
 export type CompleteOrderResponse = {
-  orderId?: number;
+  orderId?: string;
   accountId: string;
   status: string;
 };

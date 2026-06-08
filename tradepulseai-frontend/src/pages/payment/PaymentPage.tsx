@@ -5,7 +5,10 @@ import { useCart } from "../../context/CartContext";
 import { useOrders } from "../../context/OrdersContext";
 import type { CartItem } from "../../types/cart";
 import { completeOrder } from "../../utils/cartApi";
+import { fetchOrderHistory } from "../../utils/ordersApi";
 import "./PaymentPage.css";
+
+const PRICE_LOCK_SECONDS = 30;
 
 export function PaymentPage() {
   useEffect(() => {
@@ -20,6 +23,7 @@ export function PaymentPage() {
   const [paidTotal, setPaidTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(PRICE_LOCK_SECONDS);
 
   const state = location.state as {
     subtotal?: number;
@@ -36,6 +40,34 @@ export function PaymentPage() {
   const tax = useMemo(() => state?.tax ?? subtotal * 0.08, [state?.tax, subtotal]);
   const total = useMemo(() => state?.total ?? subtotal + tax, [state?.total, subtotal, tax]);
 
+  useEffect(() => {
+    if (showSuccess || processing) {
+      return;
+    }
+
+    if (secondsLeft <= 0) {
+      navigate("/checkout", {
+        replace: true,
+        state: { paymentCancelled: true, reason: "Price lock expired. Please review your cart and try again." },
+      });
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setSecondsLeft((current) => {
+        if (current <= 1) {
+          window.clearInterval(timerId);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [navigate, processing, secondsLeft, showSuccess]);
+
   const handlePayNow = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -50,7 +82,13 @@ export function PaymentPage() {
 
       await clearCart();
       await refreshOrders();
-      setPaidTotal(total);
+
+      const orders = await fetchOrderHistory();
+      const completedOrder = response.orderId
+        ? orders.find((order) => order.id === response.orderId)
+        : orders[0];
+
+      setPaidTotal(completedOrder?.total ?? total);
       setShowSuccess(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unable to complete payment right now. Please try again.";
@@ -84,6 +122,9 @@ export function PaymentPage() {
           <>
             <section className="payment-form-card">
               <h1>Complete Payment</h1>
+              <p className="payment-price-lock" role="status" aria-live="polite">
+                Price lock expires in <strong>{secondsLeft}s</strong>
+              </p>
               <form onSubmit={handlePayNow} className="payment-form">
                 <label htmlFor="card-name">Cardholder Name</label>
                 <input id="card-name" type="text" placeholder="Name on card" required />
@@ -102,7 +143,7 @@ export function PaymentPage() {
                   </div>
                 </div>
 
-                <button type="submit" className="payment-primary-btn" disabled={processing}>
+                <button type="submit" className="payment-primary-btn" disabled={processing || secondsLeft <= 0}>
                   {processing ? "Processing..." : `Pay $${total.toFixed(2)}`}
                 </button>
                 {error && <p style={{ color: "#b91c1c", marginTop: "0.75rem" }}>{error}</p>}

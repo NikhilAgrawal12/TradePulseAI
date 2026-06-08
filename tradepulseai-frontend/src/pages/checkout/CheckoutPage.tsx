@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useStocks } from "../../utils/useStocks";
@@ -19,8 +19,12 @@ export function CheckoutPage() {
   useEffect(() => { document.title = "Order Cart | TradePulseAI"; }, []);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { cart, removeFromCart, updateQuantity } = useCart();
   const { stocks } = useStocks();
+  const paymentCancelledMessage = (location.state as { reason?: string; paymentCancelled?: boolean } | null)?.paymentCancelled
+    ? (location.state as { reason?: string }).reason ?? "Payment was cancelled."
+    : null;
 
   // stockId → Stock lookup so we always have the correct symbol/name/price
   // even when the backend gRPC fallback returns a numeric stockId as the symbol
@@ -88,6 +92,7 @@ export function CheckoutPage() {
       <main className="checkout-page">
         <div className="checkout-container">
           <h1>Order Cart</h1>
+          {paymentCancelledMessage && <p className="checkout-notice">{paymentCancelledMessage}</p>}
 
           {cart.length === 0 ? (
             <div className="checkout-empty">

@@ -16,6 +16,17 @@
   color: #14532d;
 }
 
+.checkout-notice {
+  margin: -10px 0 20px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  color: #7c2d12;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 /* ── Empty state ── */
 .checkout-empty {
   background: #fff;

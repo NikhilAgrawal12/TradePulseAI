@@ -26,7 +26,7 @@ public class PaymentController {
 
     @GetMapping("/order/{orderId}")
     @Operation(summary = "Get all payments for an order")
-    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByOrderId(@PathVariable Long orderId) {
+    public ResponseEntity<List<PaymentResponseDTO>> getPaymentsByOrderId(@PathVariable String orderId) {
         return ResponseEntity.ok(
                 paymentRepository.findByOrderId(orderId)
                         .stream()

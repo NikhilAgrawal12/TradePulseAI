@@ -57,7 +57,7 @@ export function OrdersPage() {
                       {order.items.map((item) => (
                         <p key={`${order.id}-${item.stockId}`}>
                           <span>{item.symbol} x {item.quantity}</span>
-                          <strong>${(item.price * item.quantity).toFixed(2)}</strong>
+                          <strong>${item.lineTotal.toFixed(2)}</strong>
                         </p>
                       ))}
                     </div>

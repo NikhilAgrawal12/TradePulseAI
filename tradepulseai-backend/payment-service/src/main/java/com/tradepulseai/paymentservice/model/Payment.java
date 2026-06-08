@@ -20,8 +20,8 @@ public class Payment {
     @Column(name = "payment_id")
     private Long id;
 
-    @Column(name = "order_id", nullable = false)
-    private Long orderId;
+    @Column(name = "order_id", nullable = false, length = 64)
+    private String orderId;
 
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 4)
     private BigDecimal totalAmount;
@@ -46,11 +46,11 @@ public class Payment {
         this.id = id;
     }
 
-    public Long getOrderId() {
+    public String getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(Long orderId) {
+    public void setOrderId(String orderId) {
         this.orderId = orderId;
     }
 

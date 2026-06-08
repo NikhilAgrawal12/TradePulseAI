@@ -6,7 +6,7 @@ import java.time.Instant;
 public class PaymentResponseDTO {
 
     private Long id;
-    private Long orderId;
+    private String orderId;
     private BigDecimal totalAmount;
     private String status;
     private Instant createdAt;
@@ -14,7 +14,7 @@ public class PaymentResponseDTO {
     public PaymentResponseDTO() {
     }
 
-    public PaymentResponseDTO(Long id, Long orderId, BigDecimal totalAmount, String status, Instant createdAt) {
+    public PaymentResponseDTO(Long id, String orderId, BigDecimal totalAmount, String status, Instant createdAt) {
         this.id = id;
         this.orderId = orderId;
         this.totalAmount = totalAmount;
@@ -31,11 +31,11 @@ public class PaymentResponseDTO {
         this.id = id;
     }
 
-    public Long getOrderId() {
+    public String getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(Long orderId) {
+    public void setOrderId(String orderId) {
         this.orderId = orderId;
     }
 

@@ -24,7 +24,7 @@ public class PaymentProcessingService {
 
     @Transactional
     public Payment processPayment(String rawOrderId, String userId, double totalAmount) {
-        Long orderId = parseOrderId(rawOrderId);
+        String orderId = validateOrderId(rawOrderId);
         log.info("Processing payment for orderId={}, userId={}, totalAmount={}",
                 orderId, userId, totalAmount);
 
@@ -46,12 +46,11 @@ public class PaymentProcessingService {
         return "acct-" + userId + "-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
-    private Long parseOrderId(String rawOrderId) {
-        try {
-            return Long.parseLong(rawOrderId);
-        } catch (NumberFormatException exception) {
+    private String validateOrderId(String rawOrderId) {
+        if (rawOrderId == null || rawOrderId.isBlank()) {
             throw new IllegalArgumentException("Invalid order id format: " + rawOrderId);
         }
+        return rawOrderId;
     }
 }
 
