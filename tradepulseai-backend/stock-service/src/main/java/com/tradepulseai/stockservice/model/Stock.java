@@ -31,7 +31,7 @@ public class Stock {
     @Column(name = "name", length = 255, nullable = false)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "exchange_id")
     private Exchange exchange;
 

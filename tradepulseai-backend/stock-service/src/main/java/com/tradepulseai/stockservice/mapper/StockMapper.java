@@ -60,6 +60,10 @@ public class StockMapper {
         return dto;
     }
 
+    public static StockResponseDTO toDTOFromCache(Stock stock) {
+        return baseDTO(stock);
+    }
+
     private static Double calculateChangePercent(BigDecimal openPrice, BigDecimal closePrice) {
         if (openPrice == null || closePrice == null || openPrice.compareTo(BigDecimal.ZERO) == 0) {
             return null;
@@ -72,4 +76,3 @@ public class StockMapper {
                 .doubleValue();
     }
 }
-

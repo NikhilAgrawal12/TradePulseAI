@@ -1,22 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
-import type { Stock } from "../../types/stock";
 import { isUserAuthenticated } from "../../utils/auth";
-import { useFeaturedStocks } from "../../utils/useFeaturedStocks";
-import { useStocks } from "../../utils/useStocks";
+import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
-
-const MAX_VISIBLE_STOCKS = 50;
-function normalizeSymbol(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-  const normalized = value.trim().toUpperCase();
-  return normalized.length > 0 ? normalized : null;
-}
 
 function formatRealtimeTime(lastUpdated: string | null | undefined): string {
   if (!lastUpdated) {
@@ -29,39 +18,7 @@ function formatRealtimeTime(lastUpdated: string | null | undefined): string {
 export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
-  const { stocks: fetchedStocks, error } = useStocks();
-  const { featuredStocks } = useFeaturedStocks();
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // Indexed map of all 800 backend stocks for fast search lookups
-  const fetchedBySymbol = useMemo(() => {
-    return new Map(
-      fetchedStocks
-        .map((stock) => {
-          const normalized = normalizeSymbol(stock.symbol);
-          return normalized ? [normalized, stock] as const : null;
-        })
-        .filter((entry): entry is readonly [string, Stock] => Boolean(entry)),
-    );
-  }, [fetchedStocks]);
-
-  // Default view: use featured stocks from backend (cached locally for instant load).
-  // Overlay latest market data from the all-stocks fetch when available.
-  const defaultStocks = useMemo(() => {
-    return featuredStocks.map((featured) => {
-      const sym = normalizeSymbol(featured.symbol);
-      const fresh = sym ? fetchedBySymbol.get(sym) : undefined;
-      if (!fresh) return featured;
-      return {
-        ...featured,
-        name: fresh.name ?? featured.name,
-        price: fresh.price ?? featured.price,
-        changePercent: fresh.changePercent ?? featured.changePercent,
-        active: fresh.active ?? featured.active,
-        lastUpdated: fresh.lastUpdated ?? featured.lastUpdated,
-      } satisfies Stock;
-    });
-  }, [featuredStocks, fetchedBySymbol]);
+  const { stocks: streamedStocks, error, searchTerm, setSearchTerm } = useStreamedStocks();
 
   useEffect(() => {
     document.title = "Home | TradePulseAI";
@@ -69,23 +26,12 @@ export function HomePage() {
 
   const isLoggedIn = useMemo(() => isUserAuthenticated(), []);
 
+  // The streamed stocks are already filtered server-side:
+  // - If no search: featured stocks (top 50)
+  // - If search query: search results (top 50)
   const filteredStocks = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) {
-      // No search — show featured top 50 from backend
-      return defaultStocks.filter((stock) => typeof stock.symbol === "string" && stock.symbol.trim().length > 0);
-    }
-
-    // Search active — search all 800 fetched stocks from backend
-    return fetchedStocks
-      .filter((stock) => {
-        if (typeof stock.symbol !== "string" || stock.symbol.trim().length === 0) return false;
-        const symbol = stock.symbol.toLowerCase();
-        const name = (stock.name ?? "").toLowerCase();
-        return symbol.includes(query) || name.includes(query);
-      })
-      .slice(0, MAX_VISIBLE_STOCKS);
-  }, [defaultStocks, fetchedStocks, searchTerm]);
+    return streamedStocks.filter((stock) => typeof stock.symbol === "string" && stock.symbol.trim().length > 0);
+  }, [streamedStocks]);
 
   return (
     <>
@@ -120,14 +66,10 @@ export function HomePage() {
               />
             </div>
 
-            {error ? (
+            {error && searchTerm.trim() ? (
               <p className="error-message">{error}</p>
             ) : filteredStocks.length === 0 ? (
-              <p className="error-message">
-                {searchTerm.trim()
-                  ? "No stocks matched your search."
-                  : "Featured stocks are refreshing. Please check back in a moment."}
-              </p>
+              searchTerm.trim() ? <p className="error-message">No stocks matched your search.</p> : null
             ) : (
               <div className="stocks-grid">
                 {filteredStocks.map((stock) => {

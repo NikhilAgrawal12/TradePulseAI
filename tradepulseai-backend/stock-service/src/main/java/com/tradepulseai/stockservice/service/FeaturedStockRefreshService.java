@@ -20,16 +20,15 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
@@ -262,16 +261,6 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
         return trimmed.isEmpty() ? null : trimmed.toUpperCase(Locale.ROOT);
     }
 
-    private BigDecimal calculateChangePercent(BigDecimal openPrice, BigDecimal closePrice) {
-        if (openPrice == null || closePrice == null || openPrice.compareTo(BigDecimal.ZERO) == 0) {
-            return null;
-        }
-
-        return closePrice
-                .subtract(openPrice)
-                .divide(openPrice, 6, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
-    }
 
     @PreDestroy
     public void shutdown() {

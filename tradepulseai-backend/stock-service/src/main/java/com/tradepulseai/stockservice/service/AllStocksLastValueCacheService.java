@@ -22,6 +22,7 @@ import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -41,6 +42,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     private static final String MASSIVE_DELAYED_WS_URL = "wss://delayed.massive.com/stocks";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int SUBSCRIPTION_CHUNK_SIZE = 200;
+    private static final int PERSIST_FLUSH_INTERVAL_SECONDS = 2;
 
     private final StockRepository stockRepository;
     private final AllStocksLastValueCacheRepository allStocksLastValueCacheRepository;
@@ -52,11 +54,17 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         t.setDaemon(true);
         return t;
     });
+    private final ScheduledExecutorService persistExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "all-stocks-cache-persist");
+        t.setDaemon(true);
+        return t;
+    });
     private final AtomicBoolean reconnectQueued = new AtomicBoolean(false);
 
     private volatile WebSocket webSocket;
     private volatile Map<String, Stock> stockBySymbol = Map.of();
     private final Map<Long, AllStocksLastValueCache> cacheByStockId = new ConcurrentHashMap<>();
+    private final java.util.Set<Long> dirtyStockIds = ConcurrentHashMap.newKeySet();
 
     public AllStocksLastValueCacheService(
             StockRepository stockRepository,
@@ -76,8 +84,16 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
         loadStocks();
         warmInMemoryCache();
+        startPersistenceLoop();
         connect();
         log.info("All-stocks websocket cache started for {} symbols.", stockBySymbol.size());
+    }
+
+    private void startPersistenceLoop() {
+        persistExecutor.scheduleAtFixedRate(this::flushDirtyEntries,
+                PERSIST_FLUSH_INTERVAL_SECONDS,
+                PERSIST_FLUSH_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
     }
 
     private void loadStocks() {
@@ -139,7 +155,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         log.info("Subscribed websocket cache to {} symbols.", symbols.size());
     }
 
-    private void handleMessage(String payload) {
+    private void handleMessage(String payload, WebSocket socket) {
         try {
             JsonNode events = OBJECT_MAPPER.readTree(payload);
             if (!events.isArray()) {
@@ -150,13 +166,15 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
                 if (!event.isObject()) {
                     continue;
                 }
-                String ev = event.path("ev").asText("");
+                JsonNode evNode = event.get("ev");
+                String ev = evNode != null && !evNode.isNull() ? evNode.asText() : "";
                 if ("status".equals(ev)) {
-                    String status = event.path("status").asText("");
+                    JsonNode statusNode = event.get("status");
+                    String status = statusNode != null && !statusNode.isNull() ? statusNode.asText() : "";
                     if ("connected".equals(status)) {
-                        sendAuth(webSocket);
+                        sendAuth(socket);
                     } else if ("auth_success".equals(status)) {
-                        subscribeAll(webSocket);
+                        subscribeAll(socket);
                     } else if ("auth_failed".equals(status)) {
                         log.error("Massive websocket auth failed for all-stocks cache.");
                     }
@@ -173,7 +191,8 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     }
 
     private synchronized void upsertAggregate(JsonNode event) {
-        String symbol = normalizeSymbol(event.path("sym").asText(null));
+        JsonNode symbolNode = event.get("sym");
+        String symbol = normalizeSymbol(symbolNode != null && !symbolNode.isNull() ? symbolNode.asText() : null);
         if (symbol == null) {
             return;
         }
@@ -208,8 +227,53 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         entry.setCachedVwap(vwap != null ? vwap : close);
         entry.setCachedChangePercent(calculateChangePercent(open, close));
         entry.setAggregateUpdatedAt(Instant.ofEpochMilli(timestamp));
+        dirtyStockIds.add(stock.getStockId());
+    }
 
-        allStocksLastValueCacheRepository.save(entry);
+    private void flushDirtyEntries() {
+        if (dirtyStockIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> idsToFlush = new ArrayList<>(dirtyStockIds);
+        dirtyStockIds.removeAll(idsToFlush);
+
+        List<AllStocksLastValueCache> entriesToSave = idsToFlush.stream()
+                .map(cacheByStockId::get)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        if (entriesToSave.isEmpty()) {
+            return;
+        }
+
+        try {
+            allStocksLastValueCacheRepository.saveAll(entriesToSave);
+        } catch (Exception ex) {
+            idsToFlush.forEach(dirtyStockIds::add);
+            log.warn("Failed to flush {} all-stocks cache entries: {}", entriesToSave.size(), ex.getMessage());
+        }
+    }
+
+    public Map<Long, AllStocksLastValueCache> getCacheSnapshotByStockId() {
+        return new HashMap<>(cacheByStockId);
+    }
+
+    public Collection<AllStocksLastValueCache> getCacheSnapshotValues() {
+        return new ArrayList<>(cacheByStockId.values());
+    }
+
+    public AllStocksLastValueCache getCacheEntryByStockId(Long stockId) {
+        return stockId == null ? null : cacheByStockId.get(stockId);
+    }
+
+    public AllStocksLastValueCache getCacheEntryBySymbol(String symbol) {
+        String normalized = normalizeSymbol(symbol);
+        if (normalized == null) {
+            return null;
+        }
+        Stock stock = stockBySymbol.get(normalized);
+        return stock == null ? null : cacheByStockId.get(stock.getStockId());
     }
 
     private BigDecimal number(JsonNode node) {
@@ -240,6 +304,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     @PreDestroy
     public void shutdown() {
+        flushDirtyEntries();
         try {
             if (webSocket != null) {
                 webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "shutdown").join();
@@ -247,19 +312,25 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         } catch (Exception ignored) {
         }
         scheduler.shutdownNow();
+        persistExecutor.shutdownNow();
     }
 
     private final class MassiveWebSocketListener implements WebSocket.Listener {
+        private final StringBuilder textBuffer = new StringBuilder();
+
         @Override
         public void onOpen(WebSocket webSocket) {
+            AllStocksLastValueCacheService.this.webSocket = webSocket;
             WebSocket.Listener.super.onOpen(webSocket);
             webSocket.request(1);
         }
 
         @Override
         public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            textBuffer.append(data);
             if (last) {
-                handleMessage(data.toString());
+                handleMessage(textBuffer.toString(), webSocket);
+                textBuffer.setLength(0);
             }
             webSocket.request(1);
             return null;
@@ -268,12 +339,18 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
             log.warn("All-stocks websocket error: {}", error.getMessage());
+            if (AllStocksLastValueCacheService.this.webSocket == webSocket) {
+                AllStocksLastValueCacheService.this.webSocket = null;
+            }
             queueReconnect();
         }
 
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
             log.info("All-stocks websocket closed: {} {}", statusCode, reason);
+            if (AllStocksLastValueCacheService.this.webSocket == webSocket) {
+                AllStocksLastValueCacheService.this.webSocket = null;
+            }
             queueReconnect();
             return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
         }

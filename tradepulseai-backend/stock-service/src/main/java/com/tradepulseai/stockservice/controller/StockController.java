@@ -2,6 +2,7 @@ package com.tradepulseai.stockservice.controller;
 
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.service.FeaturedStockRefreshService;
+import com.tradepulseai.stockservice.service.FeaturedStockSSEService;
 import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,7 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,10 +26,14 @@ public class StockController {
 
     private final StockService stockService;
     private final FeaturedStockRefreshService featuredStockRefreshService;
+    private final FeaturedStockSSEService featuredStockSSEService;
 
-    public StockController(StockService stockService, FeaturedStockRefreshService featuredStockRefreshService) {
+    public StockController(StockService stockService,
+                          FeaturedStockRefreshService featuredStockRefreshService,
+                          FeaturedStockSSEService featuredStockSSEService) {
         this.stockService = stockService;
         this.featuredStockRefreshService = featuredStockRefreshService;
+        this.featuredStockSSEService = featuredStockSSEService;
     }
 
     @GetMapping
@@ -68,5 +75,37 @@ public class StockController {
     @Operation(summary = "Get stock by symbol")
     public ResponseEntity<StockResponseDTO> getStockBySymbol(@PathVariable String symbol) {
         return ResponseEntity.ok(stockService.getStockBySymbol(symbol));
+    }
+
+    @GetMapping("/stream/featured")
+    @Operation(summary = "Server-Sent Events stream for featured stocks + search results")
+    public SseEmitter streamFeaturedStocks(@RequestParam(required = false) String query) {
+        return featuredStockSSEService.subscribe(query);
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search all 800 stocks in cache by symbol or name")
+    public ResponseEntity<List<StockResponseDTO>> searchStocks(@RequestParam(required = false) String query) {
+        return ResponseEntity.ok(stockService.searchStocks(query));
+    }
+
+    @PostMapping("/stream/search")
+    @Operation(summary = "Update search term for SSE client")
+    public ResponseEntity<Map<String, Object>> updateStreamSearch(@RequestParam(required = false) String query) {
+        // This endpoint allows clients to signal their current search query
+        // The actual search is handled server-side in the SSE stream
+        Map<String, Object> response = new HashMap<>();
+        response.put("acknowledged", true);
+        response.put("searchQuery", query != null ? query : "");
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/stream/status")
+    @Operation(summary = "Check SSE stream health")
+    public ResponseEntity<Map<String, Object>> getStreamStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("connectedClients", featuredStockSSEService.getConnectedClientsCount());
+        status.put("streaming", true);
+        return ResponseEntity.ok(status);
     }
 }
