@@ -1,16 +1,15 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { WatchlistEntry } from "../types/watchlist";
 import { isUserAuthenticated, requireSignIn, showSignInRequiredMessage, subscribeToAuthChanges } from "../utils/auth";
-import { addWatchlistItem, clearWatchlistItems, fetchWatchlistItems, removeWatchlistItem, updateWatchlistItem } from "../utils/watchlistApi";
+import { addWatchlistItem, clearWatchlistItems, fetchWatchlistItems, removeWatchlistItem } from "../utils/watchlistApi";
 
 const WATCHLIST_ERROR_MESSAGE = "Unable to update watchlist right now. Please try again.";
 
 type WatchlistContextType = {
   watchlist: WatchlistEntry[];
   totalWatchlistItems: number;
-  addToWatchlist: (stockId: string, quantity: number) => Promise<void>;
+  addToWatchlist: (stockId: string) => Promise<void>;
   removeFromWatchlist: (stockId: string) => Promise<void>;
-  updateWatchlistEntry: (stockId: string, quantity: number) => Promise<void>;
   clearWatchlist: () => Promise<void>;
 };
 
@@ -56,17 +55,14 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     };
   }, [authVersion]);
 
-  const addToWatchlist = async (stockId: string, quantity: number) => {
+  const addToWatchlist = async (stockId: string) => {
     if (!isUserAuthenticated()) {
       requireSignIn();
       return;
     }
 
     try {
-      const updatedWatchlist = await addWatchlistItem({
-        stockId,
-        quantity,
-      });
+      const updatedWatchlist = await addWatchlistItem({ stockId });
       setWatchlist(updatedWatchlist);
     } catch {
       showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
@@ -87,25 +83,6 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateWatchlistEntry = async (stockId: string, quantity: number) => {
-    if (!isUserAuthenticated()) {
-      requireSignIn();
-      return;
-    }
-
-    if (quantity <= 0) {
-      await removeFromWatchlist(stockId);
-      return;
-    }
-
-    try {
-      const updatedWatchlist = await updateWatchlistItem(stockId, { quantity });
-      setWatchlist(updatedWatchlist);
-    } catch {
-      showSignInRequiredMessage(WATCHLIST_ERROR_MESSAGE);
-    }
-  };
-
   const clearWatchlist = async () => {
     if (!isUserAuthenticated()) {
       requireSignIn();
@@ -120,11 +97,11 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const totalWatchlistItems = useMemo(() => watchlist.reduce((sum, item) => sum + Number(item.quantity), 0), [watchlist]);
+  const totalWatchlistItems = useMemo(() => watchlist.length, [watchlist]);
 
   return (
     <WatchlistContext.Provider
-      value={{ watchlist, totalWatchlistItems, addToWatchlist, removeFromWatchlist, updateWatchlistEntry, clearWatchlist }}
+      value={{ watchlist, totalWatchlistItems, addToWatchlist, removeFromWatchlist, clearWatchlist }}
     >
       {children}
     </WatchlistContext.Provider>

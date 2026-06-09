@@ -14,7 +14,6 @@ export function WatchlistPage() {
   const { stocks, loading, error } = useStocks();
   const [search, setSearch] = useState("");
   const [addSearch, setAddSearch] = useState("");
-  const [addQty, setAddQty] = useState(1);
   const [addStock, setAddStock] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
@@ -28,8 +27,7 @@ export function WatchlistPage() {
           return [];
         }
 
-        const quantity = Number(entry.quantity);
-        return [{ ...entry, quantity, stock }];
+        return [{ ...entry, stock }];
       }),
     [stockMap, watchlist],
   );
@@ -52,18 +50,11 @@ export function WatchlistPage() {
     });
   }, [addSearch, watchlist, stocks]);
 
-  const totalCurrent = watchlistStocks.reduce((sum, entry) => {
-    const livePrice = entry.stock.price ?? 0;
-    return sum + livePrice * entry.quantity;
-  }, 0);
-  const totalQuantity = watchlistStocks.reduce((s, e) => s + e.quantity, 0);
-
   const handleAdd = () => {
     if (!addStock) return;
-    void addToWatchlist(addStock, addQty);
+    void addToWatchlist(addStock);
     setAddStock("");
     setAddSearch("");
-    setAddQty(1);
     setShowAdd(false);
   };
 
@@ -89,14 +80,6 @@ export function WatchlistPage() {
           <div className="wl-stat-card">
             <span>Stocks Tracked</span>
             <strong>{watchlistStocks.length}</strong>
-          </div>
-          <div className="wl-stat-card">
-            <span>Total Quantity</span>
-            <strong>{totalQuantity.toFixed(0)}</strong>
-          </div>
-          <div className="wl-stat-card">
-            <span>Current Value</span>
-            <strong>${totalCurrent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
           </div>
         </section>
 
@@ -152,16 +135,6 @@ export function WatchlistPage() {
               </div>
 
               <div className="wl-add-fields">
-                <label>
-                  Quantity
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={addQty}
-                    onChange={(e) => setAddQty(parseInt(e.target.value, 10) || 1)}
-                  />
-                </label>
                 <button
                   type="button"
                   className="wl-confirm-add"
@@ -189,37 +162,30 @@ export function WatchlistPage() {
                 <tr>
                   <th>Symbol</th>
                   <th>Company</th>
-                  <th>Source</th>
                   <th>Current price</th>
                   <th>Day change</th>
-                  <th>Qty</th>
-                  <th>Current value</th>
                   <th></th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(({ stock, quantity }) => {
+                {filtered.map(({ stock }) => {
                   const livePrice = stock.price ?? 0;
                   const liveChange = stock.changePercent ?? 0;
-                  const currentValue = livePrice * quantity;
 
                   return (
                     <tr key={stock.id}>
                       <td><strong>{stock.symbol}</strong></td>
                       <td><span className="wl-name">{stock.name ?? "N/A"}</span><span className="wl-sector">{stock.exchange ?? "N/A"}</span></td>
-                      <td><span className="rec-badge hold">{stock.source ?? "live"}</span></td>
                       <td>${livePrice.toFixed(2)}</td>
                       <td className={liveChange >= 0 ? "price-up" : "price-down"}>
                         {liveChange >= 0 ? "+" : ""}{liveChange.toFixed(2)}%
                       </td>
-                      <td>{quantity}</td>
-                      <td>${currentValue.toFixed(2)}</td>
                       <td>
                         <button
                           type="button"
                           className="wl-add-to-cart-btn"
-                          onClick={() => void addToCart(stock.id, quantity)}
+                          onClick={() => void addToCart(stock.id, 1)}
                           title="Add to cart"
                         >🛒</button>
                       </td>

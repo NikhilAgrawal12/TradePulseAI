@@ -259,6 +259,31 @@
   background: #f0f0f0;
 }
 
+/* ── Market session badges ── */
+.recommendation-badge.session-regular {
+  color: #0c7a40;
+  background: #e9f8ef;
+  border: 1px solid #a8e6c0;
+}
+
+.recommendation-badge.session-pre-market {
+  color: #6b4f00;
+  background: #fff3cd;
+  border: 1px solid #f5cc60;
+}
+
+.recommendation-badge.session-after-hours {
+  color: #6a1b9a;
+  background: #f3e5f5;
+  border: 1px solid #ce93d8;
+}
+
+.recommendation-badge.session-closed {
+  color: #5a5a5a;
+  background: #f0f0f0;
+  border: 1px solid #d0d0d0;
+}
+
 .quote-price-row {
   margin-top: 10px;
   display: flex;

@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated } from "../../utils/auth";
+import { getMarketSession, type SessionMeta } from "../../utils/marketSession";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
 
@@ -22,6 +23,13 @@ export function HomePage() {
 
   useEffect(() => {
     document.title = "Home | TradePulseAI";
+  }, []);
+
+  // Update session badge every minute
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+  useEffect(() => {
+    const id = window.setInterval(() => setSessionMeta(getMarketSession()), 60_000);
+    return () => window.clearInterval(id);
   }, []);
 
   const isLoggedIn = useMemo(() => isUserAuthenticated(), []);
@@ -85,7 +93,7 @@ export function HomePage() {
                             <h3>{symbol}</h3>
                             <p>{stock.name ?? "N/A"}</p>
                           </div>
-                          <span className={`recommendation-badge ${stock.active ? "active" : "inactive"}`}>{stock.active ? "Active" : "Inactive"}</span>
+                          <span className={`recommendation-badge ${sessionMeta.cssClass}`}>{sessionMeta.label}</span>
                         </div>
 
                         <div className="quote-price-row">
@@ -115,7 +123,7 @@ export function HomePage() {
                           </button>
                           <button
                             className="stock-add-to-watchlist-btn"
-                            onClick={() => void addToWatchlist(stock.id, 1)}
+                            onClick={() => void addToWatchlist(stock.id)}
                           >
                             ⭐ Add to watchlist
                           </button>

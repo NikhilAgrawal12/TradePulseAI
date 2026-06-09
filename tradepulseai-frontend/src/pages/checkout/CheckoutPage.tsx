@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
+import { getMarketSession, type SessionMeta } from "../../utils/marketSession";
 import { useStocks } from "../../utils/useStocks";
 import "./CheckoutPage.css";
 
@@ -22,6 +23,13 @@ export function CheckoutPage() {
   const location = useLocation();
   const { cart, removeFromCart, updateQuantity } = useCart();
   const { stocks } = useStocks();
+
+  // Update session badge every minute
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+  useEffect(() => {
+    const id = window.setInterval(() => setSessionMeta(getMarketSession()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const paymentCancelledMessage = (location.state as { reason?: string; paymentCancelled?: boolean } | null)?.paymentCancelled
     ? (location.state as { reason?: string }).reason ?? "Payment was cancelled."
     : null;
@@ -129,7 +137,7 @@ export function CheckoutPage() {
                           </td>
                           <td>
                             <span className="cart-price">${price.toFixed(2)}</span>
-                            {isLive && <span className="cart-live-badge">Live</span>}
+                            {isLive && <span className={`cart-session-badge ${sessionMeta.cssClass}`}>{sessionMeta.label}</span>}
                           </td>
                           <td>
                             {change !== null ? (

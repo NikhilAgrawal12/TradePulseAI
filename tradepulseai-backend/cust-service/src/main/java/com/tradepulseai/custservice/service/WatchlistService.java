@@ -8,7 +8,6 @@ import com.tradepulseai.custservice.repository.WatchlistItemRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -35,19 +34,7 @@ public class WatchlistService {
         WatchlistItem watchlistItem = watchlistItemRepository.findByIdUserIdAndIdStockId(userId, stockId)
                 .orElseGet(() -> newWatchlistItem(userId, stockId));
 
-        watchlistItem.setQuantity(BigDecimal.valueOf(request.getQuantity()));
         watchlistItemRepository.save(watchlistItem);
-        return getWatchlist(userId);
-    }
-
-    @Transactional
-    public List<WatchlistItemResponseDTO> updateWatchlistItem(Long userId, String stockId, Long quantity) {
-        Long parsedStockId = parseStockId(stockId);
-        watchlistItemRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
-                .ifPresent(item -> {
-                    item.setQuantity(BigDecimal.valueOf(quantity));
-                    watchlistItemRepository.save(item);
-                });
         return getWatchlist(userId);
     }
 
@@ -66,7 +53,6 @@ public class WatchlistService {
     private WatchlistItemResponseDTO toResponse(WatchlistItem watchlistItem) {
         WatchlistItemResponseDTO response = new WatchlistItemResponseDTO();
         response.setStockId(String.valueOf(watchlistItem.getId().getStockId()));
-        response.setQuantity(watchlistItem.getQuantity() != null ? watchlistItem.getQuantity().longValue() : 0L);
         return response;
     }
 
@@ -76,7 +62,6 @@ public class WatchlistService {
         id.setUserId(userId);
         id.setStockId(stockId);
         item.setId(id);
-        item.setQuantity(BigDecimal.ONE);
         return item;
     }
 
