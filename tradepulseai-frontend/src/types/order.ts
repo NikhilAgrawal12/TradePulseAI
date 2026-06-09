@@ -8,6 +8,7 @@ export type OrderItem = {
 
 export type OrderHistoryEntry = {
   id: string;
+  orderNumber: number;
   userId: number;
   status: string;
   createdAtIso: string;

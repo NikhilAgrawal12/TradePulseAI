@@ -115,3 +115,62 @@
 .negative {
   color: #b91c1c;
 }
+
+/* ── Transaction row tints ── */
+.tx-row-buy {
+  background: rgba(59, 130, 246, 0.10);
+}
+
+.tx-row-buy:hover {
+  background: rgba(59, 130, 246, 0.18) !important;
+}
+
+.tx-row-sell {
+  background: rgba(245, 158, 11, 0.10);
+}
+
+.tx-row-sell:hover {
+  background: rgba(245, 158, 11, 0.18) !important;
+}
+
+/* ── BUY / SELL type badges ── */
+.tx-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: 5px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+}
+
+.tx-badge-buy {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.tx-badge-sell {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+/* ── Legend ── */
+.tx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid #d9f1e4;
+  font-size: 0.8rem;
+  color: #4d735f;
+}
+
+.tx-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+

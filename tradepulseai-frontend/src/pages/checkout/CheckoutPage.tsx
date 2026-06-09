@@ -23,6 +23,7 @@ export function CheckoutPage() {
   const location = useLocation();
   const { cart, removeFromCart, updateQuantity } = useCart();
   const { stocks } = useStocks();
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   // Update session badge every minute
   const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
@@ -30,6 +31,8 @@ export function CheckoutPage() {
     const id = window.setInterval(() => setSessionMeta(getMarketSession()), 60_000);
     return () => window.clearInterval(id);
   }, []);
+  const closedMarketMessage =
+    "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM – 9:30 AM ET, Regular Market: 9:30 AM – 4:00 PM ET, After-Hours: 4:00 PM – 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.";
   const paymentCancelledMessage = (location.state as { reason?: string; paymentCancelled?: boolean } | null)?.paymentCancelled
     ? (location.state as { reason?: string }).reason ?? "Payment was cancelled."
     : null;
@@ -70,12 +73,24 @@ export function CheckoutPage() {
     [enrichedItems],
   );
 
+  const isMarketClosed = sessionMeta.session === "closed";
+  const visibleNotice = checkoutNotice ?? paymentCancelledMessage ?? (isMarketClosed ? closedMarketMessage : null);
+
   const handleQuantityChange = (stockId: string, qty: string) => {
     const newQty = parseInt(qty) || 0;
     void updateQuantity(stockId, newQty);
   };
 
   const handleCheckout = () => {
+    if (isMarketClosed) {
+      setCheckoutNotice(
+        "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM – 9:30 AM ET, Regular Market: 9:30 AM – 4:00 PM ET, After-Hours: 4:00 PM – 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.",
+      );
+      return;
+    }
+
+    setCheckoutNotice(null);
+
     const tax = totalPrice * 0.08;
     const pricedItems = enrichedItems.map((item) => ({
       stockId: item.stockId,
@@ -100,7 +115,7 @@ export function CheckoutPage() {
       <main className="checkout-page">
         <div className="checkout-container">
           <h1>Order Cart</h1>
-          {paymentCancelledMessage && <p className="checkout-notice">{paymentCancelledMessage}</p>}
+          {visibleNotice && <p className="checkout-notice">{visibleNotice}</p>}
 
           {cart.length === 0 ? (
             <div className="checkout-empty">
@@ -188,7 +203,7 @@ export function CheckoutPage() {
                 </div>
 
                 <div className="checkout-actions">
-                  <button className="checkout-btn" onClick={handleCheckout}>
+                  <button className="checkout-btn" onClick={handleCheckout} disabled={isMarketClosed}>
                     Complete Order
                   </button>
                   <Link to="/" className="continue-shopping">

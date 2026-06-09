@@ -10,5 +10,7 @@ public interface TradeOrderRepository extends JpaRepository<TradeOrder, String> 
 
     @EntityGraph(attributePaths = "items")
     List<TradeOrder> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    boolean existsByOrderNumber(Integer orderNumber);
 }
 

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -46,6 +47,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     private final StockRepository stockRepository;
     private final AllStocksLastValueCacheRepository allStocksLastValueCacheRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final String massiveApiKey;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -69,9 +71,11 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     public AllStocksLastValueCacheService(
             StockRepository stockRepository,
             AllStocksLastValueCacheRepository allStocksLastValueCacheRepository,
+            ApplicationEventPublisher eventPublisher,
             @Value("${massive.api.key:}") String massiveApiKey) {
         this.stockRepository = stockRepository;
         this.allStocksLastValueCacheRepository = allStocksLastValueCacheRepository;
+        this.eventPublisher = eventPublisher;
         this.massiveApiKey = massiveApiKey;
     }
 
@@ -228,6 +232,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         entry.setCachedChangePercent(calculateChangePercent(open, close));
         entry.setAggregateUpdatedAt(Instant.ofEpochMilli(timestamp));
         dirtyStockIds.add(stock.getStockId());
+        eventPublisher.publishEvent(new StockCacheUpdatedEvent(stock.getStockId()));
     }
 
     private void flushDirtyEntries() {

@@ -2,6 +2,12 @@ package com.tradepulseai.authservice.controller;
 
 import com.tradepulseai.authservice.dto.auth.LoginRequestDTO;
 import com.tradepulseai.authservice.dto.auth.LoginResponseDTO;
+import com.tradepulseai.authservice.dto.auth.ForgotPasswordCodeRequestDTO;
+import com.tradepulseai.authservice.dto.auth.ForgotPasswordCodeRequestResponseDTO;
+import com.tradepulseai.authservice.dto.auth.ForgotPasswordCodeVerifyRequestDTO;
+import com.tradepulseai.authservice.dto.auth.ForgotPasswordCodeVerifyResponseDTO;
+import com.tradepulseai.authservice.dto.auth.ForgotPasswordResetRequestDTO;
+import com.tradepulseai.authservice.dto.auth.ForgotPasswordResponseDTO;
 import com.tradepulseai.authservice.dto.auth.RegisterRequestDTO;
 import com.tradepulseai.authservice.dto.auth.RegisterResponseDTO;
 import com.tradepulseai.authservice.dto.credentials.CredentialsResponseDTO;
@@ -9,6 +15,7 @@ import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsRequestDTO;
 import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsResponseDTO;
 import com.tradepulseai.authservice.model.User;
 import com.tradepulseai.authservice.service.AuthService;
+import com.tradepulseai.authservice.service.ForgotPasswordService;
 import com.tradepulseai.authservice.service.UserService;
 import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,10 +36,12 @@ public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthService authService;
+    private final ForgotPasswordService forgotPasswordService;
     private final UserService userService;
 
-    public AuthController(AuthService authService, UserService userService) {
+    public AuthController(AuthService authService, ForgotPasswordService forgotPasswordService, UserService userService) {
         this.authService = authService;
+        this.forgotPasswordService = forgotPasswordService;
         this.userService = userService;
     }
 
@@ -86,6 +95,69 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(java.util.Map.of("message", "Registration failed due to an internal error"));
         }
+    }
+
+    @Operation(summary = "Send a 4-digit password reset code to the user email")
+    @PostMapping("/forgot-password/request-code")
+    public ResponseEntity<?> requestForgotPasswordCode(@Valid @RequestBody ForgotPasswordCodeRequestDTO request) {
+        try {
+            ForgotPasswordService.CodeRequestResult result = forgotPasswordService.requestCode(request.getEmail());
+            if (result.status() == ForgotPasswordService.CodeRequestStatus.USER_NOT_FOUND) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ForgotPasswordResponseDTO(result.message()));
+            }
+            return ResponseEntity.ok(new ForgotPasswordCodeRequestResponseDTO(
+                    result.message(),
+                    forgotPasswordService.getCodeTtlSeconds(),
+                    forgotPasswordService.getMaxAttempts()
+            ));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new ForgotPasswordResponseDTO(ex.getMessage()));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ForgotPasswordResponseDTO(ex.getMessage()));
+        }
+    }
+
+    @Operation(summary = "Verify 4-digit password reset code")
+    @PostMapping("/forgot-password/verify-code")
+    public ResponseEntity<?> verifyForgotPasswordCode(@Valid @RequestBody ForgotPasswordCodeVerifyRequestDTO request) {
+        ForgotPasswordService.CodeVerifyResult result = forgotPasswordService.verifyCode(request.getEmail(), request.getCode());
+
+        return switch (result.status()) {
+            case CODE_VERIFIED -> ResponseEntity.ok(
+                    new ForgotPasswordCodeVerifyResponseDTO(result.message(), result.resetToken(), result.attemptsRemaining())
+            );
+            case CODE_MISMATCH -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ForgotPasswordCodeVerifyResponseDTO(result.message(), null, result.attemptsRemaining()));
+            case ATTEMPTS_EXHAUSTED -> ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new ForgotPasswordCodeVerifyResponseDTO(result.message(), null, 0));
+            case CODE_EXPIRED -> ResponseEntity.status(HttpStatus.GONE)
+                    .body(new ForgotPasswordCodeVerifyResponseDTO(result.message(), null, 0));
+            case CODE_INVALID -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ForgotPasswordCodeVerifyResponseDTO(result.message(), null, 0));
+        };
+    }
+
+    @Operation(summary = "Reset password after successful code verification")
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetForgotPassword(@Valid @RequestBody ForgotPasswordResetRequestDTO request) {
+        ForgotPasswordService.ResetResult result = forgotPasswordService.resetPassword(
+                request.getEmail(),
+                request.getResetToken(),
+                request.getNewPassword(),
+                request.getConfirmPassword()
+        );
+
+        return switch (result.status()) {
+            case RESET_SUCCESS -> ResponseEntity.ok(new ForgotPasswordResponseDTO(result.message()));
+            case CODE_EXPIRED -> ResponseEntity.status(HttpStatus.GONE).body(new ForgotPasswordResponseDTO(result.message()));
+            case CODE_INVALID -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ForgotPasswordResponseDTO(result.message()));
+            case USER_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ForgotPasswordResponseDTO(result.message()));
+            case INVALID_PASSWORD, PASSWORD_MISMATCH, SAME_AS_OLD_PASSWORD -> ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ForgotPasswordResponseDTO(result.message()));
+        };
     }
 
     @Operation(summary = "Get user by id")

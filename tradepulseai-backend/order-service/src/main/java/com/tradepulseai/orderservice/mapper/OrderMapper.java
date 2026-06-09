@@ -43,6 +43,7 @@ public class OrderMapper {
     public static OrderResponseDTO toDTO(TradeOrder order) {
         OrderResponseDTO dto = new OrderResponseDTO();
         dto.setId(order.getId());
+        dto.setOrderNumber(order.getOrderNumber());
         dto.setUserId(order.getUserId());
         dto.setStatus(order.getStatus());
         dto.setCreatedAtIso(order.getCreatedAt());

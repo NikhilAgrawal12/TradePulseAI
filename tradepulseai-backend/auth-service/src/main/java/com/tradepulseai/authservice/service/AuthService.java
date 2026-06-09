@@ -87,6 +87,7 @@ public class AuthService {
         return new UpdateCredentialsResponseDTO(saved.getUserId(), saved.getEmail(), refreshedToken);
     }
 
+
     public Long extractUserId(String token) {
         try {
             return jwtUtil.extractUserId(token);

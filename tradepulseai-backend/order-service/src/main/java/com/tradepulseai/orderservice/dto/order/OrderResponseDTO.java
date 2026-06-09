@@ -7,6 +7,7 @@ import java.util.List;
 public class OrderResponseDTO {
 
     private String id;
+    private Integer orderNumber;
     private Long userId;
     private String status;
     private Instant createdAtIso;
@@ -21,6 +22,14 @@ public class OrderResponseDTO {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public Integer getOrderNumber() {
+        return orderNumber;
+    }
+
+    public void setOrderNumber(Integer orderNumber) {
+        this.orderNumber = orderNumber;
     }
 
     public Long getUserId() {

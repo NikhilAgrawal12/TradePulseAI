@@ -228,10 +228,12 @@
 
 .recommendation-badge {
   align-self: flex-start;
+  flex-shrink: 0;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
   padding: 4px 9px;
+  white-space: nowrap;
 }
 
 .recommendation-badge.buy {

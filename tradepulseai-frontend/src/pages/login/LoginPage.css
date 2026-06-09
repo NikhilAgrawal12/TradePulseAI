@@ -77,26 +77,16 @@
   margin-top: 4px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
 }
 
-.remember-me {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  color: #3c6a54;
-  cursor: pointer;
-}
-
-.remember-me input {
-  margin: 0;
-  width: 16px;
-  height: 16px;
-}
-
 .forgot-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.9rem;
   color: #22c55e;
   font-weight: 600;
   text-decoration: none;
@@ -104,6 +94,99 @@
 
 .forgot-link:hover {
   text-decoration: underline;
+}
+
+.forgot-link:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.forgot-password-card {
+  margin-top: 8px;
+  border: 1px solid #bbe5ca;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fff9;
+}
+
+.forgot-password-card p {
+  margin: 0 0 10px;
+  color: #2f5f47;
+  font-size: 0.88rem;
+}
+
+.forgot-password-form {
+  display: grid;
+  gap: 8px;
+}
+
+.forgot-password-form label {
+  font-size: 0.82rem;
+}
+
+.forgot-password-form input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #bbe5ca;
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.forgot-submit-btn {
+  margin-top: 6px;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0f8a44 0%, #22c55e 100%);
+  cursor: pointer;
+}
+
+.forgot-submit-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.forgot-feedback {
+  margin-top: 10px;
+}
+
+.forgot-success {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background-color: rgba(220, 252, 231, 0.8);
+  color: #14532d;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.forgot-code-intro {
+  margin-bottom: 8px;
+}
+
+.forgot-code-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.forgot-code-meta span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  border: 1px solid rgba(21, 128, 61, 0.22);
+  color: #166534;
+  background: rgba(220, 252, 231, 0.9);
 }
 
 .login-submit-btn {
@@ -156,6 +239,17 @@
   border: 1px solid rgba(205, 42, 77, 0.35);
   background-color: rgba(255, 236, 241, 0.8);
   color: #9e1a3f;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.login-info {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background-color: rgba(220, 252, 231, 0.8);
+  color: #14532d;
   font-size: 0.9rem;
   font-weight: 600;
 }

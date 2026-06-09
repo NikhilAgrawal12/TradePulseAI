@@ -235,6 +235,7 @@ export function PortfolioPage() {
                                 {portfolio.transactions.length === 0 ? (
                                     <p>No transactions yet.</p>
                                 ) : (
+                                    <>
                                     <table className="portfolio-table">
                                         <thead>
                                             <tr>
@@ -250,10 +251,15 @@ export function PortfolioPage() {
                                         <tbody>
                                             {transactionsWithSymbols.map((transaction) => {
                                                 const isSell = String(transaction.transactionType).toUpperCase() === "SELL";
+                                                const rowClass = isSell ? "tx-row-sell" : "tx-row-buy";
 
                                                 return (
-                                                    <tr key={transaction.transactionId}>
-                                                        <td>{transaction.transactionType}</td>
+                                                    <tr key={transaction.transactionId} className={rowClass}>
+                                                        <td>
+                                                            <span className={isSell ? "tx-badge tx-badge-sell" : "tx-badge tx-badge-buy"}>
+                                                                {transaction.transactionType}
+                                                            </span>
+                                                        </td>
                                                         <td><strong>{transaction.symbol}</strong></td>
                                                         <td>{transaction.quantity}</td>
                                                         <td>{formatCurrency(transaction.price)}</td>
@@ -269,6 +275,19 @@ export function PortfolioPage() {
                                             })}
                                         </tbody>
                                     </table>
+
+                                    {/* ── Legend ── */}
+                                    <div className="tx-legend">
+                                        <span className="tx-legend-item">
+                                            <span className="tx-badge tx-badge-buy">BUY</span>
+                                            Stock purchased
+                                        </span>
+                                        <span className="tx-legend-item">
+                                            <span className="tx-badge tx-badge-sell">SELL</span>
+                                            Stock sold
+                                        </span>
+                                    </div>
+                                    </>
                                 )}
                             </section>
                         </>

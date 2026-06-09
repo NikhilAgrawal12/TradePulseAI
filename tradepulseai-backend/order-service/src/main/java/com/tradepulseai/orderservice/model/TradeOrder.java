@@ -28,6 +28,9 @@ public class TradeOrder {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "order_number", unique = true)
+    private Integer orderNumber;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
@@ -65,6 +68,14 @@ public class TradeOrder {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public Integer getOrderNumber() {
+        return orderNumber;
+    }
+
+    public void setOrderNumber(Integer orderNumber) {
+        this.orderNumber = orderNumber;
     }
 
     public String getStatus() {

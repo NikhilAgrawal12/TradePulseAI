@@ -10,9 +10,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class OrderHistoryService {
+
+    private static final int ORDER_NUMBER_MIN = 1_000_000;
+    private static final int ORDER_NUMBER_MAX = 9_999_999;
+    private static final int ORDER_NUMBER_GENERATION_ATTEMPTS = 200;
 
     private final TradeOrderRepository tradeOrderRepository;
     private final StockCatalogClient stockCatalogClient;
@@ -24,12 +29,18 @@ public class OrderHistoryService {
 
     @Transactional
     public TradeOrder saveCompletedOrder(TradeOrder order) {
+        if (order.getOrderNumber() == null) {
+            order.setOrderNumber(generateUniqueOrderNumber());
+        }
         return tradeOrderRepository.save(order);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<OrderResponseDTO> getOrders(Long userId) {
-        List<OrderResponseDTO> orders = tradeOrderRepository.findByUserIdOrderByCreatedAtDesc(userId)
+        List<TradeOrder> userOrders = tradeOrderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        userOrders.forEach(this::ensureOrderNumber);
+
+        List<OrderResponseDTO> orders = userOrders
                 .stream()
                 .map(OrderMapper::toDTO)
                 .toList();
@@ -44,6 +55,24 @@ public class OrderHistoryService {
         }
 
         return orders;
+    }
+
+    private void ensureOrderNumber(TradeOrder order) {
+        if (order.getOrderNumber() != null) {
+            return;
+        }
+        order.setOrderNumber(generateUniqueOrderNumber());
+        tradeOrderRepository.save(order);
+    }
+
+    private Integer generateUniqueOrderNumber() {
+        for (int attempt = 0; attempt < ORDER_NUMBER_GENERATION_ATTEMPTS; attempt++) {
+            int candidate = ThreadLocalRandom.current().nextInt(ORDER_NUMBER_MIN, ORDER_NUMBER_MAX + 1);
+            if (!tradeOrderRepository.existsByOrderNumber(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Unable to allocate a unique 7-digit order number.");
     }
 }
 

@@ -47,7 +47,7 @@ export function OrdersPage() {
                   <article key={order.id} className="order-card">
                     <header className="order-card-header">
                       <div>
-                        <h2>Order #{order.id}</h2>
+                        <h2>Order #{order.orderNumber}</h2>
                         <p>{new Date(order.createdAtIso).toLocaleString()}</p>
                       </div>
                       <span className="order-total">${order.total.toFixed(2)}</span>

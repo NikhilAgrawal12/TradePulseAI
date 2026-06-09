@@ -50,7 +50,7 @@ export function HomePage() {
           <section className="home-hero">
             <p className="home-eyebrow">Market pulse in real time</p>
             <h1>Track stocks and trade with confidence.</h1>
-            <p className="home-subtitle">Browse available stocks and manage your portfolio.</p>
+
             <div className="home-hero-actions">
               <Link to="/login" className="home-btn-primary">Sign in</Link>
               <Link to="/registration" className="home-btn-secondary">Create account</Link>

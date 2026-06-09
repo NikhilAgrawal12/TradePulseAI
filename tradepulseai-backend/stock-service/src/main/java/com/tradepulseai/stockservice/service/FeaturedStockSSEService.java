@@ -6,6 +6,7 @@ import com.tradepulseai.stockservice.model.AllStocksLastValueCache;
 import com.tradepulseai.stockservice.repository.FeaturedStockCacheRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -28,13 +30,15 @@ public class FeaturedStockSSEService {
 
     private static final Logger log = LoggerFactory.getLogger(FeaturedStockSSEService.class);
     private static final long SSE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-    private static final int BROADCAST_INTERVAL_MS = 1000; // Broadcast every 1 second
+    private static final int SSE_RECONNECT_MS = 3000;
+    private static final int EVENT_COALESCE_MS = 150;
     private static final int SEARCH_RESULT_LIMIT = 50;
 
     private final FeaturedStockCacheRepository featuredStockCacheRepository;
     private final AllStocksLastValueCacheService allStocksLastValueCacheService;
-    private final ScheduledExecutorService broadcastExecutor;
+    private final ScheduledExecutorService eventBroadcastExecutor;
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private final AtomicBoolean broadcastQueued = new AtomicBoolean(false);
 
     // Keyed by emitter hashCode to track search terms per client
     private final Map<Integer, String> emitterSearchTerms = new ConcurrentHashMap<>();
@@ -44,14 +48,11 @@ public class FeaturedStockSSEService {
             AllStocksLastValueCacheService allStocksLastValueCacheService) {
         this.featuredStockCacheRepository = featuredStockCacheRepository;
         this.allStocksLastValueCacheService = allStocksLastValueCacheService;
-        this.broadcastExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "featured-stock-sse-broadcast");
+        this.eventBroadcastExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "featured-stock-sse-event");
             t.setDaemon(true);
             return t;
         });
-
-        // Start background broadcast loop
-        startBroadcastLoop();
     }
 
     /**
@@ -142,16 +143,28 @@ public class FeaturedStockSSEService {
                 .id(System.currentTimeMillis() + "_initial")
                 .name("stocks")
                 .data(initialData)
-                .reconnectTime(BROADCAST_INTERVAL_MS);
+                .reconnectTime(SSE_RECONNECT_MS);
 
         emitter.send(event);
     }
 
-    /**
-     * Background task that broadcasts featured stocks + search results to all connected clients.
-     */
-    private void startBroadcastLoop() {
-        broadcastExecutor.scheduleAtFixedRate(this::broadcastToAllClients, 0, BROADCAST_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    @EventListener
+    public void onStockCacheUpdated(StockCacheUpdatedEvent ignoredEvent) {
+        if (emitters.isEmpty()) {
+            return;
+        }
+
+        if (!broadcastQueued.compareAndSet(false, true)) {
+            return;
+        }
+
+        eventBroadcastExecutor.schedule(() -> {
+            try {
+                broadcastToAllClients();
+            } finally {
+                broadcastQueued.set(false);
+            }
+        }, EVENT_COALESCE_MS, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -226,7 +239,7 @@ public class FeaturedStockSSEService {
                     .id(System.currentTimeMillis() + "_" + emitterId)
                     .name("stocks")
                     .data(toSend)
-                    .reconnectTime(BROADCAST_INTERVAL_MS);
+                    .reconnectTime(SSE_RECONNECT_MS);
 
             emitter.send(event);
         } catch (IOException ex) {
@@ -241,7 +254,7 @@ public class FeaturedStockSSEService {
     }
 
     public void shutdown() {
-        broadcastExecutor.shutdownNow();
+        eventBroadcastExecutor.shutdownNow();
     }
 }
 
