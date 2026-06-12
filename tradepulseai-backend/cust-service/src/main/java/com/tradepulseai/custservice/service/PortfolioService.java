@@ -69,7 +69,7 @@ public class PortfolioService {
                 .toList();
 
         PortfolioResponseDTO response = new PortfolioResponseDTO();
-        response.setSummary(toSummary(holdingResponses));
+        response.setSummary(toSummary(holdingResponses, analytics));
         response.setHoldings(holdingResponses);
         response.setTransactions(transactionResponses);
         return response;
@@ -225,7 +225,10 @@ public class PortfolioService {
     ) {
     }
 
-    private PortfolioSummaryResponseDTO toSummary(List<PortfolioHoldingResponseDTO> holdings) {
+    private PortfolioSummaryResponseDTO toSummary(
+            List<PortfolioHoldingResponseDTO> holdings,
+            PortfolioAnalytics analytics
+    ) {
         BigDecimal totalInvested = holdings.stream()
                 .map(PortfolioHoldingResponseDTO::getInvestedValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -238,8 +241,7 @@ public class PortfolioService {
                 .map(PortfolioHoldingResponseDTO::getUnrealizedPnl)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalRealized = holdings.stream()
-                .map(PortfolioHoldingResponseDTO::getRealizedPnl)
+        BigDecimal totalRealized = analytics.realizedByStock().values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         int totalQuantity = holdings.stream()

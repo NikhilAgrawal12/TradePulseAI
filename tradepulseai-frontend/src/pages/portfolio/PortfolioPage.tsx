@@ -90,6 +90,17 @@ export function PortfolioPage() {
         });
     }, [portfolio.holdings, stockPriceMap, stockSymbolMap]);
 
+    const livePortfolioTotals = useMemo(() => {
+        const totalMarketValue = holdingsWithLivePrice.reduce((sum, item) => sum + item.marketValue, 0);
+        const totalInvestedValue = holdingsWithLivePrice.reduce((sum, item) => sum + item.investedValue, 0);
+        const totalUnrealizedPnl = totalMarketValue - totalInvestedValue;
+
+        return {
+            totalMarketValue,
+            totalUnrealizedPnl,
+        };
+    }, [holdingsWithLivePrice]);
+
     const transactionsWithSymbols = useMemo(
         () => portfolio.transactions.map((transaction) => ({
             ...transaction,
@@ -147,14 +158,14 @@ export function PortfolioPage() {
                                 <article className="portfolio-stat-card">
                                     <span>Market Value</span>
                                     <strong>{formatCurrency(
-                                        holdingsWithLivePrice.reduce((sum, item) => sum + item.marketValue, 0),
+                                        livePortfolioTotals.totalMarketValue,
                                     )}</strong>
                                 </article>
-                                <article className={`portfolio-stat-card ${portfolio.summary.totalUnrealizedPnl >= 0 ? "positive" : "negative"}`}>
+                                <article className={`portfolio-stat-card ${livePortfolioTotals.totalUnrealizedPnl >= 0 ? "positive" : "negative"}`}>
                                     <span>Unrealized PnL</span>
                                     <strong>
-                                        {portfolio.summary.totalUnrealizedPnl >= 0 ? "+" : ""}
-                                        {formatCurrency(portfolio.summary.totalUnrealizedPnl)}
+                                        {livePortfolioTotals.totalUnrealizedPnl >= 0 ? "+" : ""}
+                                        {formatCurrency(livePortfolioTotals.totalUnrealizedPnl)}
                                     </strong>
                                 </article>
                                 <article className={`portfolio-stat-card ${portfolio.summary.totalRealizedPnl >= 0 ? "positive" : "negative"}`}>

@@ -101,16 +101,12 @@ public class ForgotPasswordService {
             return new ResetResult(ResetStatus.CODE_INVALID, "Code is invalid. Please request a new code.");
         }
 
-        Instant now = Instant.now(clock);
-        if (now.isAfter(challenge.codeExpiresAt())) {
-            challengesByEmail.remove(normalizedEmail);
-            return new ResetResult(ResetStatus.CODE_EXPIRED, "Code expired. Please start again.");
-        }
-
+        // After code verification, only the reset token TTL matters — do NOT check codeExpiresAt here.
         if (!challenge.isVerified() || challenge.resetToken() == null || !challenge.resetToken().equals(resetToken)) {
             return new ResetResult(ResetStatus.CODE_INVALID, "Verification not completed. Please verify the code first.");
         }
 
+        Instant now = Instant.now(clock);
         if (challenge.resetTokenExpiresAt() == null || now.isAfter(challenge.resetTokenExpiresAt())) {
             challengesByEmail.remove(normalizedEmail);
             return new ResetResult(ResetStatus.CODE_EXPIRED, "Reset session expired. Please start again.");
@@ -163,7 +159,7 @@ public class ForgotPasswordService {
 
     private void sendCodeEmail(String email, String code) {
         String subject = "TradePulseAI password reset code";
-        String body = "Your TradePulseAI verification code is " + code + ". It expires in 2 minutes and allows 3 attempts.";
+        String body = "Your TradePulseAI verification code is " + code + ".";
 
         if (mailSender == null) {
             log.error("Mail sender is not configured. Cannot deliver forgot-password code to {}", email);
