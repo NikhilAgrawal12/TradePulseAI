@@ -124,6 +124,18 @@
   font-size: 0.82rem;
 }
 
+.forgot-password-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.validation-error {
+  font-size: 0.85rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
 .forgot-password-form input {
   width: 100%;
   box-sizing: border-box;

@@ -1,6 +1,9 @@
 package com.tradepulseai.custservice.dto.customer;
 
 import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
+import com.tradepulseai.custservice.dto.validators.ValidDateOfBirth;
+import com.tradepulseai.custservice.dto.validators.ValidName;
+import com.tradepulseai.custservice.dto.validators.ValidPhoneNumber;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,10 +16,12 @@ public class CustomerRequestDTO {
 
     @NotBlank(message = "Firstname is required")
     @Size(max = 100, message = "Firstname cannot exceed 100 characters")
+    @ValidName(message = "First name can only contain letters, spaces, hyphens, and apostrophes")
     private String firstName;
 
     @NotBlank(message = "Lastname is required")
     @Size(max = 100, message = "Lastname cannot exceed 100 characters")
+    @ValidName(message = "Last name can only contain letters, spaces, hyphens, and apostrophes")
     private String lastName;
 
     @NotBlank(message = "Email is required")
@@ -25,6 +30,7 @@ public class CustomerRequestDTO {
     private String email;
 
     @NotBlank(message = "Phone number is required")
+    @ValidPhoneNumber(message = "Phone number must be between 7-15 digits, optionally starting with +, and can contain spaces or hyphens")
     private String phoneNumber;
 
     @NotBlank(message = "Address line 1 is required")
@@ -51,6 +57,7 @@ public class CustomerRequestDTO {
     private String country;
 
     @NotBlank(message = "Date of birth is required")
+    @ValidDateOfBirth(message = "You must be at least 18 years old")
     private String dateOfBirth;
 
     @NotBlank(groups = CreateCustomerValidationGroup.class, message = "Registration date is required")

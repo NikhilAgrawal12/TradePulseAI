@@ -5,6 +5,16 @@ import { Header } from "../../components/Header.tsx";
 import { setStoredToken } from "../../utils/auth";
 import "./LoginPage.css";
 
+// Validation patterns
+const VALIDATION_PATTERNS = {
+  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?/`~]).{8,}$/,
+};
+
+// Validation messages
+const VALIDATION_MESSAGES = {
+  password: "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character",
+};
+
 export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -19,6 +29,7 @@ export function LoginPage() {
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState("");
   const [forgotPasswordError, setForgotPasswordError] = useState("");
+  const [resetPasswordValidationErrors, setResetPasswordValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     document.title = "Login | TradePulseAI";
@@ -91,9 +102,36 @@ export function LoginPage() {
     setForgotPasswordMessage("");
     setAttemptsRemaining(3);
     setSecondsLeft(0);
+    setResetPasswordValidationErrors({});
     if (message) {
       setInfoMessage(message);
     }
+  };
+
+  const validateResetPassword = (newPassword: string, confirmPassword: string): Record<string, string> => {
+    const errors: Record<string, string> = {};
+
+    if (!newPassword.trim()) {
+      errors["new-password"] = "New password is required";
+    } else if (newPassword.length < 8) {
+      errors["new-password"] = "Password must be at least 8 characters";
+    } else if (!VALIDATION_PATTERNS.password.test(newPassword)) {
+      errors["new-password"] = VALIDATION_MESSAGES.password;
+    }
+
+    if (!confirmPassword.trim()) {
+      errors["confirm-password"] = "Confirm password is required";
+    } else if (confirmPassword.length < 8) {
+      errors["confirm-password"] = "Password must be at least 8 characters";
+    } else if (!VALIDATION_PATTERNS.password.test(confirmPassword)) {
+      errors["confirm-password"] = VALIDATION_MESSAGES.password;
+    }
+
+    if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      errors["passwords-mismatch"] = "Passwords do not match";
+    }
+
+    return errors;
   };
 
   const openForgotFlow = () => {
@@ -200,11 +238,20 @@ export function LoginPage() {
     setForgotPasswordError("");
     setForgotPasswordMessage("");
     setInfoMessage("");
+    setResetPasswordValidationErrors({});
     setForgotPasswordLoading(true);
 
     const formData = new FormData(event.currentTarget);
     const newPassword = (formData.get("new-password") as string | null) ?? "";
     const confirmPassword = (formData.get("confirm-password") as string | null) ?? "";
+
+    // Validate passwords
+    const errors = validateResetPassword(newPassword, confirmPassword);
+    if (Object.keys(errors).length > 0) {
+      setResetPasswordValidationErrors(errors);
+      setForgotPasswordLoading(false);
+      return;
+    }
 
     try {
       const response = await axios.post("/auth/forgot-password/reset", {
@@ -319,38 +366,51 @@ export function LoginPage() {
                 </>
               )}
 
-              {forgotStep === "reset" && (
-                <>
-                  <p>Enter your new password and confirm it. It must be different from your old password.</p>
-                  <form className="forgot-password-form" onSubmit={handleResetPasswordSubmit}>
-                    <label htmlFor="new-password">New password</label>
-                    <input
-                      id="new-password"
-                      type="password"
-                      name="new-password"
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                      disabled={forgotPasswordLoading}
-                    />
+               {forgotStep === "reset" && (
+                 <>
+                   <p>Enter your new password and confirm it. It must be different from your old password.</p>
+                   <form className="forgot-password-form" onSubmit={handleResetPasswordSubmit}>
+                     <div className="form-group">
+                       <label htmlFor="new-password">New password</label>
+                       <input
+                         id="new-password"
+                         type="password"
+                         name="new-password"
+                         autoComplete="new-password"
+                         minLength={8}
+                         required
+                         disabled={forgotPasswordLoading}
+                       />
+                       {resetPasswordValidationErrors["new-password"] && (
+                         <span className="validation-error">{resetPasswordValidationErrors["new-password"]}</span>
+                       )}
+                     </div>
 
-                    <label htmlFor="confirm-password">Confirm password</label>
-                    <input
-                      id="confirm-password"
-                      type="password"
-                      name="confirm-password"
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                      disabled={forgotPasswordLoading}
-                    />
+                     <div className="form-group">
+                       <label htmlFor="confirm-password">Confirm password</label>
+                       <input
+                         id="confirm-password"
+                         type="password"
+                         name="confirm-password"
+                         autoComplete="new-password"
+                         minLength={8}
+                         required
+                         disabled={forgotPasswordLoading}
+                       />
+                       {resetPasswordValidationErrors["confirm-password"] && (
+                         <span className="validation-error">{resetPasswordValidationErrors["confirm-password"]}</span>
+                       )}
+                       {resetPasswordValidationErrors["passwords-mismatch"] && (
+                         <span className="validation-error">{resetPasswordValidationErrors["passwords-mismatch"]}</span>
+                       )}
+                     </div>
 
-                    <button type="submit" className="forgot-submit-btn" disabled={forgotPasswordLoading}>
-                      {forgotPasswordLoading ? "Updating..." : "Update password"}
-                    </button>
-                  </form>
-                </>
-              )}
+                     <button type="submit" className="forgot-submit-btn" disabled={forgotPasswordLoading}>
+                       {forgotPasswordLoading ? "Updating..." : "Update password"}
+                     </button>
+                   </form>
+                 </>
+               )}
 
               {forgotPasswordError && <div className="login-error forgot-feedback">{forgotPasswordError}</div>}
               {forgotPasswordMessage && <div className="forgot-success forgot-feedback">{forgotPasswordMessage}</div>}

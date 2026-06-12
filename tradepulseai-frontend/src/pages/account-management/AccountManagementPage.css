@@ -152,6 +152,12 @@
   color: #25553f;
 }
 
+.am-validation-error {
+  font-size: 0.85rem;
+  color: #dc2626;
+  font-weight: 500;
+}
+
 .am-group input,
 .am-group select {
   border: 1px solid #bbe5ca;

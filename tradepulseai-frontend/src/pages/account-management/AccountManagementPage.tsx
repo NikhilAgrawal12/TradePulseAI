@@ -5,6 +5,17 @@ import { Header } from "../../components/Header.tsx";
 import { getEmailFromToken, getStoredToken, getUserIdFromToken, setStoredToken } from "../../utils/auth";
 import "./AccountManagementPage.css";
 
+// Validation patterns
+const VALIDATION_PATTERNS = {
+  phoneNumber: /^\+?[0-9\- ]{7,15}$/,
+  name: /^[A-Za-z\s'-]{1,100}$/,
+};
+
+const VALIDATION_MESSAGES = {
+  phoneNumber: "Phone number must be 7-15 digits, optionally starting with +, and can contain spaces or hyphens",
+  name: "Name can only contain letters, spaces, hyphens, and apostrophes (1-100 characters)",
+};
+
 type CustomerProfile = {
   userId: number;
   customerId?: number;
@@ -65,6 +76,7 @@ export function AccountManagementPage() {
   const [credentialsSaving, setCredentialsSaving] = useState(false);
   const [credentialsError, setCredentialsError] = useState("");
   const [credentialsSuccess, setCredentialsSuccess] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const token = getStoredToken();
   const emailFromToken = getEmailFromToken(token);
@@ -160,6 +172,56 @@ export function AccountManagementPage() {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
+
+    const fieldError = validateField(name, value);
+    setValidationErrors((prev) => ({
+      ...prev,
+      [name]: fieldError,
+    }));
+  };
+
+  const validateField = (name: string, value: string): string => {
+    if (!value.trim()) {
+      switch (name) {
+        case "firstName":
+          return "First name is required";
+        case "lastName":
+          return "Last name is required";
+        case "phoneNumber":
+          return "Phone number is required";
+        case "dateOfBirth":
+          return "Date of birth is required";
+        default:
+          return "";
+      }
+    }
+
+    if (name === "firstName" || name === "lastName") {
+      if (!VALIDATION_PATTERNS.name.test(value)) {
+        return VALIDATION_MESSAGES.name;
+      }
+      if (value.length > 100) {
+        return "Name cannot exceed 100 characters";
+      }
+    }
+
+    if (name === "phoneNumber") {
+      if (!VALIDATION_PATTERNS.phoneNumber.test(value)) {
+        return VALIDATION_MESSAGES.phoneNumber;
+      }
+    }
+
+    if (name === "dateOfBirth") {
+      const dob = new Date(value);
+      const today = new Date();
+      const age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      if (age < 18 || (age === 18 && (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())))) {
+        return "You must be at least 18 years old";
+      }
+    }
+
+    return "";
   };
 
   const handleCredentialsChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -172,6 +234,23 @@ export function AccountManagementPage() {
 
     if (!token) {
       navigate("/login");
+      return;
+    }
+
+    // Validate critical fields on submit
+    const fieldsToValidate = ["firstName", "lastName", "phoneNumber", "dateOfBirth"];
+    const newErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const value = profile[field as keyof CustomerProfile] || "";
+      const error = validateField(field, String(value));
+      if (error) {
+        newErrors[field] = error;
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setValidationErrors(newErrors);
+      setError("Please fix validation errors before saving");
       return;
     }
 
@@ -300,34 +379,38 @@ export function AccountManagementPage() {
               {loading && <p className="am-message">Loading profile...</p>}
               {error && <p className="am-message am-error">{error}</p>}
 
-              <div className="am-row">
-                <div className="am-group">
-                  <label htmlFor="first-name">First Name</label>
-                  <input id="first-name" name="firstName" type="text" value={profile.firstName} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-                <div className="am-group">
-                  <label htmlFor="last-name">Last Name</label>
-                  <input id="last-name" name="lastName" type="text" value={profile.lastName} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-              </div>
+               <div className="am-row">
+                 <div className="am-group">
+                   <label htmlFor="first-name">First Name</label>
+                   <input id="first-name" name="firstName" type="text" value={profile.firstName} onChange={handleChange} required disabled={loading || saving} />
+                   {validationErrors.firstName && <span className="am-validation-error">{validationErrors.firstName}</span>}
+                 </div>
+                 <div className="am-group">
+                   <label htmlFor="last-name">Last Name</label>
+                   <input id="last-name" name="lastName" type="text" value={profile.lastName} onChange={handleChange} required disabled={loading || saving} />
+                   {validationErrors.lastName && <span className="am-validation-error">{validationErrors.lastName}</span>}
+                 </div>
+               </div>
 
-              <div className="am-row">
-                <div className="am-group">
-                  <label htmlFor="phone-number">Phone Number</label>
-                  <input id="phone-number" name="phoneNumber" type="tel" value={profile.phoneNumber} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-                <div className="am-group">
-                  <label htmlFor="country">Country</label>
-                  <input id="country" name="country" type="text" value={profile.country} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-              </div>
+               <div className="am-row">
+                 <div className="am-group">
+                   <label htmlFor="phone-number">Phone Number</label>
+                   <input id="phone-number" name="phoneNumber" type="tel" value={profile.phoneNumber} onChange={handleChange} required disabled={loading || saving} />
+                   {validationErrors.phoneNumber && <span className="am-validation-error">{validationErrors.phoneNumber}</span>}
+                 </div>
+                 <div className="am-group">
+                   <label htmlFor="country">Country</label>
+                   <input id="country" name="country" type="text" value={profile.country} onChange={handleChange} required disabled={loading || saving} />
+                 </div>
+               </div>
 
-              <div className="am-row">
-                <div className="am-group">
-                  <label htmlFor="date-of-birth">Date Of Birth</label>
-                  <input id="date-of-birth" name="dateOfBirth" type="date" value={profile.dateOfBirth} onChange={handleChange} required disabled={loading || saving} />
-                </div>
-              </div>
+               <div className="am-row">
+                 <div className="am-group">
+                   <label htmlFor="date-of-birth">Date Of Birth</label>
+                   <input id="date-of-birth" name="dateOfBirth" type="date" value={profile.dateOfBirth} onChange={handleChange} required disabled={loading || saving} />
+                   {validationErrors.dateOfBirth && <span className="am-validation-error">{validationErrors.dateOfBirth}</span>}
+                 </div>
+               </div>
 
               <div className="am-row">
                 <div className="am-group am-full">

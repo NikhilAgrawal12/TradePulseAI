@@ -208,10 +208,15 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  flex: 0 0 auto;
+  min-height: 64px;
 }
 
 .stock-card-header > div {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stock-card-header h3 {
@@ -224,6 +229,9 @@
   color: #4a6b5b;
   font-size: 0.88rem;
   overflow-wrap: anywhere;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
 }
 
 .recommendation-badge {
