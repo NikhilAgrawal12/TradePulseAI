@@ -6,7 +6,8 @@ import { getEmailFromToken, getStoredToken, getUserIdFromToken, setStoredToken }
 import "./AccountManagementPage.css";
 
 type CustomerProfile = {
-  customerId: number;
+  userId: number;
+  customerId?: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -36,6 +37,7 @@ type CredentialsForm = {
 };
 
 const emptyProfile: CustomerProfile = {
+  userId: 0,
   customerId: 0,
   firstName: "",
   lastName: "",
@@ -98,7 +100,13 @@ export function AccountManagementPage() {
         const response = await axios.get<CustomerProfile>(`/api/customers/user/${encodeURIComponent(userIdFromToken)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setProfile(response.data);
+        const loadedProfile = response.data;
+        // Backend returns userId as primary key for customers; keep customerId fallback for compatibility.
+        setProfile({
+          ...loadedProfile,
+          userId: loadedProfile.userId ?? loadedProfile.customerId ?? Number(userIdFromToken),
+          customerId: loadedProfile.customerId ?? loadedProfile.userId ?? Number(userIdFromToken),
+        });
       } catch (err) {
         if (axios.isAxiosError(err)) {
           if (err.response?.status === 404) {
@@ -167,7 +175,8 @@ export function AccountManagementPage() {
       return;
     }
 
-    if (!profile.customerId) {
+    const profileId = profile.userId || profile.customerId || Number(userIdFromToken || 0);
+    if (!profileId) {
       setError("Customer profile id is missing.");
       return;
     }
@@ -209,7 +218,7 @@ export function AccountManagementPage() {
       }
 
       await axios.put(
-        `/api/customers/${profile.customerId}`,
+        `/api/customers/${profileId}`,
         {
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -290,7 +299,6 @@ export function AccountManagementPage() {
 
               {loading && <p className="am-message">Loading profile...</p>}
               {error && <p className="am-message am-error">{error}</p>}
-              {success && <p className="am-message am-success">{success}</p>}
 
               <div className="am-row">
                 <div className="am-group">
@@ -355,6 +363,7 @@ export function AccountManagementPage() {
 
               <div className="am-actions">
                 <button type="submit" className="am-btn-save" disabled={loading || saving}>{saving ? "Saving..." : "Save changes"}</button>
+                {success && <p className="am-message am-success am-inline-success">{success}</p>}
               </div>
             </form>
           </section>

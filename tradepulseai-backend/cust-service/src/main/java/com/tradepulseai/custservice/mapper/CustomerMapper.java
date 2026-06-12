@@ -12,6 +12,7 @@ public class CustomerMapper {
     public static CustomerResponseDTO toDTO(Customer cust, String email){
         CustomerResponseDTO custDTO = new CustomerResponseDTO();
         custDTO.setUserId(cust.getUserId());
+        custDTO.setCustomerId(cust.getUserId());
         custDTO.setFirstName(cust.getFirstName());
         custDTO.setLastName(cust.getLastName());
         custDTO.setEmail(email);
