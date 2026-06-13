@@ -4,7 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated } from "../../utils/auth";
-import { getMarketSession, type SessionMeta } from "../../utils/marketSession";
+import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
 
@@ -28,8 +28,24 @@ export function HomePage() {
   // Update session badge every minute
   const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
   useEffect(() => {
-    const id = window.setInterval(() => setSessionMeta(getMarketSession()), 60_000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+
+    const refreshSession = async () => {
+      const next = await getMarketSessionFromBackend();
+      if (!cancelled) {
+        setSessionMeta(next);
+      }
+    };
+
+    void refreshSession();
+    const id = window.setInterval(() => {
+      void refreshSession();
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
 
   const isLoggedIn = useMemo(() => isUserAuthenticated(), []);

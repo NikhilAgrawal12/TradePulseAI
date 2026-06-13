@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Header } from "../../components/Header";
 import type { PortfolioHolding, PortfolioResponse } from "../../types/portfolio";
 import { isUserAuthenticated } from "../../utils/auth";
+import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { sellPortfolioItem, fetchPortfolio } from "../../utils/portfolioApi";
 import { useStocks } from "../../utils/useStocks";
 import "./PortfolioPage.css";
@@ -33,10 +34,39 @@ export function PortfolioPage() {
     const [error, setError] = useState<string | null>(null);
     const [sellingStockId, setSellingStockId] = useState<string | null>(null);
     const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
+    const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+    const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
+
+    const closedMarketMessage =
+        "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM - 9:30 AM ET, Regular Market: 9:30 AM - 4:00 PM ET, After-Hours: 4:00 PM - 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.";
 
     useEffect(() => {
         document.title = "Portfolio | TradePulseAI";
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const refreshSession = async () => {
+            const next = await getMarketSessionFromBackend();
+            if (!cancelled) {
+                setSessionMeta(next);
+            }
+        };
+
+        void refreshSession();
+        const id = window.setInterval(() => {
+            void refreshSession();
+        }, 60_000);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(id);
+        };
+    }, []);
+
+    const isMarketClosed = sessionMeta.session === "closed";
+    const visibleNotice = portfolioNotice ?? (isMarketClosed ? closedMarketMessage : null);
 
     useEffect(() => {
         if (!isUserAuthenticated()) {
@@ -110,6 +140,11 @@ export function PortfolioPage() {
     );
 
     const handleSell = async (holding: PortfolioHolding) => {
+        if (isMarketClosed) {
+            setPortfolioNotice(closedMarketMessage);
+            return;
+        }
+
         const quantity = sellQuantities[holding.stockId] ?? 1;
         if (quantity <= 0 || quantity > holding.quantity) {
             setError("Please provide a valid sell quantity.");
@@ -121,6 +156,7 @@ export function PortfolioPage() {
         try {
             setSellingStockId(holding.stockId);
             setError(null);
+            setPortfolioNotice(null);
             const updated = await sellPortfolioItem(holding.stockId, {
                 quantity,
                 price: currentPrice,
@@ -140,6 +176,13 @@ export function PortfolioPage() {
             <main className="portfolio-page">
                 <section className="portfolio-shell">
                     <h1>My Portfolio</h1>
+
+                    <div className="portfolio-market-status" role="status" aria-live="polite">
+                        <span>Market Status</span>
+                        <span className={`portfolio-session-badge ${sessionMeta.cssClass}`}>{sessionMeta.label}</span>
+                    </div>
+
+                    {visibleNotice && <p className="portfolio-notice">{visibleNotice}</p>}
 
                     {loading && <p>Loading portfolio...</p>}
                     {error && <p className="portfolio-error">{error}</p>}
@@ -219,7 +262,7 @@ export function PortfolioPage() {
                                                                         [holding.stockId]: Number(event.target.value),
                                                                     }));
                                                                 }}
-                                                                disabled={sellingStockId === holding.stockId}
+                                                                disabled={sellingStockId === holding.stockId || isMarketClosed}
                                                             >
                                                                 {Array.from({ length: holding.quantity }, (_, idx) => idx + 1).map((qty) => (
                                                                     <option key={`${holding.stockId}-${qty}`} value={qty}>{qty}</option>
@@ -228,7 +271,7 @@ export function PortfolioPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => void handleSell(holding)}
-                                                                disabled={sellingStockId === holding.stockId}
+                                                                disabled={sellingStockId === holding.stockId || isMarketClosed}
                                                             >
                                                                 {sellingStockId === holding.stockId ? "Selling..." : "Sell"}
                                                             </button>

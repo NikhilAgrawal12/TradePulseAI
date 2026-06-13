@@ -15,6 +15,8 @@ import com.tradepulseai.custservice.repository.PortfolioHoldingRepository;
 import com.tradepulseai.custservice.repository.PortfolioTransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -97,6 +99,14 @@ public class PortfolioService {
 
     @Transactional
     public PortfolioResponseDTO sellPosition(Long userId, String stockId, SellPortfolioItemRequestDTO request) {
+        StockCatalogClient.MarketSession marketSession = stockCatalogClient.getMarketSession();
+        if (marketSession.stale() || !marketSession.canSell()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Markets are currently closed. Sell operations are only available during live market sessions."
+            );
+        }
+
         Long parsedStockId = parseStockId(stockId);
 
         PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)

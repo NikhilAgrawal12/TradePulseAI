@@ -17,6 +17,65 @@
   color: #14532d;
 }
 
+.portfolio-market-status {
+  margin: -2px 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid #d3efdf;
+  background: #ffffff;
+  color: #25553f;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.portfolio-session-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+}
+
+.portfolio-session-badge.session-regular {
+  background: #e9f8ef;
+  color: #0c7a40;
+  border-color: #a8e6c0;
+}
+
+.portfolio-session-badge.session-pre-market {
+  background: #fff3cd;
+  color: #6b4f00;
+  border-color: #f5cc60;
+}
+
+.portfolio-session-badge.session-after-hours {
+  background: #f3e5f5;
+  color: #6a1b9a;
+  border-color: #ce93d8;
+}
+
+.portfolio-session-badge.session-closed {
+  background: #f0f0f0;
+  color: #5a5a5a;
+  border-color: #d0d0d0;
+}
+
+.portfolio-notice {
+  margin: -2px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  color: #7c2d12;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 .portfolio-error {
   color: #b91c1c;
   font-weight: 600;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
-import { getMarketSession, type SessionMeta } from "../../utils/marketSession";
+import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { useStocks } from "../../utils/useStocks";
 import "./CheckoutPage.css";
 
@@ -28,8 +28,24 @@ export function CheckoutPage() {
   // Update session badge every minute
   const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
   useEffect(() => {
-    const id = window.setInterval(() => setSessionMeta(getMarketSession()), 60_000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+
+    const refreshSession = async () => {
+      const next = await getMarketSessionFromBackend();
+      if (!cancelled) {
+        setSessionMeta(next);
+      }
+    };
+
+    void refreshSession();
+    const id = window.setInterval(() => {
+      void refreshSession();
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
   const closedMarketMessage =
     "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM – 9:30 AM ET, Regular Market: 9:30 AM – 4:00 PM ET, After-Hours: 4:00 PM – 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.";

@@ -3,6 +3,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, requireSignIn } from "../../utils/auth";
+import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
 
@@ -12,10 +13,32 @@ export function WatchlistPage() {
   const { addToCart } = useCart();
   const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
   const { stocks, loading, error } = useStocks();
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
   const [search, setSearch] = useState("");
   const [addSearch, setAddSearch] = useState("");
   const [addStock, setAddStock] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshSession = async () => {
+      const next = await getMarketSessionFromBackend();
+      if (!cancelled) {
+        setSessionMeta(next);
+      }
+    };
+
+    void refreshSession();
+    const id = window.setInterval(() => {
+      void refreshSession();
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const stockMap = useMemo(() => new Map(stocks.map((stock) => [stock.id, stock])), [stocks]);
 
@@ -97,6 +120,11 @@ export function WatchlistPage() {
           <button className="wl-add-btn" onClick={toggleAddPanel}>
             {showAdd ? "✕ Cancel" : "+ Add stock"}
           </button>
+        </div>
+
+        <div className="wl-market-status" role="status" aria-live="polite">
+          <span>Market Status</span>
+          <span className={`wl-session-badge ${sessionMeta.cssClass}`}>{sessionMeta.label}</span>
         </div>
 
         {/* ── Add stock panel ── */}

@@ -1,7 +1,56 @@
 const AUTH_CHANGED_EVENT = "tradepulseai:auth-changed";
 
-export function getStoredToken(): string | null {
+type JwtPayload = {
+  sub?: string;
+  userId?: number | string;
+  exp?: number;
+};
+
+function getRawStoredToken(): string | null {
   return localStorage.getItem("authToken") ?? sessionStorage.getItem("authToken");
+}
+
+function decodeTokenPayload(token: string): JwtPayload | null {
+  const parts = token.split(".");
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeTokenPayload(token);
+  if (!payload || typeof payload.exp !== "number") {
+    return true;
+  }
+
+  return payload.exp * 1000 <= Date.now();
+}
+
+function clearStoredTokenSilently(): void {
+  localStorage.removeItem("authToken");
+  sessionStorage.removeItem("authToken");
+}
+
+export function getStoredToken(): string | null {
+  const token = getRawStoredToken();
+  if (!token) {
+    return null;
+  }
+
+  if (isTokenExpired(token)) {
+    clearStoredTokenSilently();
+    return null;
+  }
+
+  return token;
 }
 
 export const SIGN_IN_REQUIRED_MESSAGE = "Please sign in before using cart or watchlist features.";
@@ -87,19 +136,8 @@ export function getEmailFromToken(token: string | null): string | null {
     return null;
   }
 
-  const parts = token.split(".");
-  if (parts.length < 2) {
-    return null;
-  }
-
-  try {
-    const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const payload = JSON.parse(atob(padded)) as { sub?: string };
-    return typeof payload.sub === "string" ? payload.sub : null;
-  } catch {
-    return null;
-  }
+  const payload = decodeTokenPayload(token);
+  return typeof payload?.sub === "string" ? payload.sub : null;
 }
 
 export function buildAuthHeaders(): { Authorization: string; "X-User-Id": string } {
@@ -121,21 +159,11 @@ export function getUserIdFromToken(token: string | null): string | null {
     return null;
   }
 
-  const parts = token.split(".");
-  if (parts.length < 2) {
-    return null;
+  const payload = decodeTokenPayload(token);
+  if (typeof payload?.userId === "number") {
+    return String(payload.userId);
   }
 
-  try {
-    const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const payload = JSON.parse(atob(padded)) as { userId?: number | string };
-    if (typeof payload.userId === "number") {
-      return String(payload.userId);
-    }
-    return typeof payload.userId === "string" ? payload.userId : null;
-  } catch {
-    return null;
-  }
+  return typeof payload?.userId === "string" ? payload.userId : null;
 }
 

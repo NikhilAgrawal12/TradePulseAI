@@ -1,8 +1,10 @@
 package com.tradepulseai.stockservice.controller;
 
+import com.tradepulseai.stockservice.dto.market.MarketStatusResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.service.FeaturedStockRefreshService;
 import com.tradepulseai.stockservice.service.FeaturedStockSSEService;
+import com.tradepulseai.stockservice.service.MarketStatusCacheService;
 import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,13 +29,16 @@ public class StockController {
     private final StockService stockService;
     private final FeaturedStockRefreshService featuredStockRefreshService;
     private final FeaturedStockSSEService featuredStockSSEService;
+    private final MarketStatusCacheService marketStatusCacheService;
 
     public StockController(StockService stockService,
                           FeaturedStockRefreshService featuredStockRefreshService,
-                          FeaturedStockSSEService featuredStockSSEService) {
+                          FeaturedStockSSEService featuredStockSSEService,
+                          MarketStatusCacheService marketStatusCacheService) {
         this.stockService = stockService;
         this.featuredStockRefreshService = featuredStockRefreshService;
         this.featuredStockSSEService = featuredStockSSEService;
+        this.marketStatusCacheService = marketStatusCacheService;
     }
 
     @GetMapping
@@ -107,5 +112,11 @@ public class StockController {
         status.put("connectedClients", featuredStockSSEService.getConnectedClientsCount());
         status.put("streaming", true);
         return ResponseEntity.ok(status);
+    }
+
+    @GetMapping("/market-status")
+    @Operation(summary = "Get backend-cached market session status")
+    public ResponseEntity<MarketStatusResponseDTO> getMarketStatus() {
+        return ResponseEntity.ok(marketStatusCacheService.getCurrentStatus());
     }
 }

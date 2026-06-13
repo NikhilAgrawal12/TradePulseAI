@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -49,7 +50,32 @@ public class StockCatalogClient {
         }
     }
 
+    public MarketSession getMarketSession() {
+        try {
+            MarketStatusResponse response = restClient.get()
+                    .uri("/stocks/market-status")
+                    .retrieve()
+                    .body(MarketStatusResponse.class);
+
+            if (response == null || response.session == null || response.session.isBlank()) {
+                return new MarketSession("closed", true);
+            }
+
+            return new MarketSession(response.session.trim().toLowerCase(Locale.ROOT), Boolean.TRUE.equals(response.stale));
+        } catch (Exception exception) {
+            log.warn("Unable to fetch market session from stock-service: {}", exception.getMessage());
+            // Safe fallback: treat as closed when market status cannot be resolved.
+            return new MarketSession("closed", true);
+        }
+    }
+
     public record StockQuote(Long stockId, String symbol, BigDecimal unitPrice) {
+    }
+
+    public record MarketSession(String session, boolean stale) {
+        public boolean canSell() {
+            return "regular".equals(session) || "pre-market".equals(session) || "after-hours".equals(session);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -58,6 +84,12 @@ public class StockCatalogClient {
         public String symbol;
         public double price;
         public Map<String, Object> metadata;
+    }
+
+    @SuppressWarnings("unused")
+    private static class MarketStatusResponse {
+        public String session;
+        public Boolean stale;
     }
 }
 

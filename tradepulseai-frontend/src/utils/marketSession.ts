@@ -16,6 +16,12 @@ export type SessionMeta = {
   cssClass: string;
 };
 
+type BackendMarketStatusResponse = {
+  session?: string;
+  label?: string;
+  cssClass?: string;
+};
+
 export function getMarketSession(now: Date = new Date()): SessionMeta {
   // Convert current time to US/Eastern fractional hour
   const etFormatter = new Intl.DateTimeFormat("en-US", {
@@ -49,5 +55,35 @@ export function getMarketSession(now: Date = new Date()): SessionMeta {
     return { session: "after-hours",  label: "After-Hours",  cssClass: "session-after-hours"   };
   }
   return   { session: "closed",       label: "Market Closed", cssClass: "session-closed"       };
+}
+
+function asMarketSession(value: string | undefined): MarketSession | null {
+  if (value === "pre-market" || value === "regular" || value === "after-hours" || value === "closed") {
+    return value;
+  }
+  return null;
+}
+
+export async function getMarketSessionFromBackend(): Promise<SessionMeta> {
+  try {
+    const response = await fetch("/api/stocks/market-status");
+    if (!response.ok) {
+      return getMarketSession();
+    }
+
+    const payload = (await response.json()) as BackendMarketStatusResponse;
+    const session = asMarketSession(payload.session);
+    if (!session) {
+      return getMarketSession();
+    }
+
+    return {
+      session,
+      label: typeof payload.label === "string" && payload.label.trim().length > 0 ? payload.label : getMarketSession().label,
+      cssClass: typeof payload.cssClass === "string" && payload.cssClass.trim().length > 0 ? payload.cssClass : "session-closed",
+    };
+  } catch {
+    return getMarketSession();
+  }
 }
 
