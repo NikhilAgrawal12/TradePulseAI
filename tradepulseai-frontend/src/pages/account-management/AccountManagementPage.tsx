@@ -172,6 +172,8 @@ export function AccountManagementPage() {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setProfile((prev) => ({ ...prev, [name]: value }));
+    setSuccess("");
+    setCredentialsSuccess("");
 
     const fieldError = validateField(name, value);
     setValidationErrors((prev) => ({
@@ -227,10 +229,18 @@ export function AccountManagementPage() {
   const handleCredentialsChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setCredentials((prev) => ({ ...prev, [name]: value }));
+    setSuccess("");
+    setCredentialsSuccess("");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Every save attempt starts with a clean feedback state to avoid stale banners.
+    setError("");
+    setSuccess("");
+    setCredentialsError("");
+    setCredentialsSuccess("");
 
     if (!token) {
       navigate("/login");
@@ -250,7 +260,7 @@ export function AccountManagementPage() {
 
     if (Object.keys(newErrors).length > 0) {
       setValidationErrors(newErrors);
-      setError("Please fix validation errors before saving");
+      setError("We found issues in your input. Please correct them to proceed.");
       return;
     }
 
@@ -262,10 +272,6 @@ export function AccountManagementPage() {
 
     setSaving(true);
     setCredentialsSaving(true);
-    setError("");
-    setSuccess("");
-    setCredentialsError("");
-    setCredentialsSuccess("");
 
     try {
       const trimmedEmail = credentials.email.trim().toLowerCase();

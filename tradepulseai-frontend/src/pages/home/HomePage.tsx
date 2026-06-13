@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
-import { isUserAuthenticated } from "../../utils/auth";
+import { isUserAuthenticated, subscribeToAuthChanges } from "../../utils/auth";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
@@ -20,6 +20,7 @@ export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
   const { stocks: streamedStocks, error, searchTerm, setSearchTerm } = useStreamedStocks();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => isUserAuthenticated());
 
   useEffect(() => {
     document.title = "Home | TradePulseAI";
@@ -48,7 +49,12 @@ export function HomePage() {
     };
   }, []);
 
-  const isLoggedIn = useMemo(() => isUserAuthenticated(), []);
+  useEffect(() => {
+    setIsLoggedIn(isUserAuthenticated());
+    return subscribeToAuthChanges(() => {
+      setIsLoggedIn(isUserAuthenticated());
+    });
+  }, []);
 
   // The streamed stocks are already filtered server-side:
   // - If no search: featured stocks (top 50)
@@ -96,7 +102,7 @@ export function HomePage() {
               searchTerm.trim() ? <p className="error-message">No stocks matched your search.</p> : null
             ) : (
               <div className="stocks-grid">
-                {filteredStocks.map((stock) => {
+                {filteredStocks.map((stock: (typeof filteredStocks)[number]) => {
                     const symbol = stock.symbol.trim().toUpperCase();
                     const stickerPrice = stock.price ?? 0;
                     const change = stock.changePercent ?? 0;

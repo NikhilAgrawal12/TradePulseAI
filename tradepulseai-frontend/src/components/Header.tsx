@@ -77,7 +77,7 @@ export function Header() {
     const handleLogout = () => {
         clearStoredToken();
         setMenuOpen(false);
-        navigate('/login');
+        navigate('/');
     };
 
     const handleProtectedNavigation = (event: ReactMouseEvent<HTMLAnchorElement>) => {
@@ -96,6 +96,7 @@ export function Header() {
                     <Link to="/" className="header-link logo-link" aria-label="TradePulseAI home">
                         <img className="logo" src="/images/logo.png" alt="TradePulseAI" />
                     </Link>
+                    <Link className="nav-link header-link about-link" to="/about">About Us</Link>
                 </div>
 
                 <nav className="center-section" aria-label="Main actions">
@@ -111,9 +112,8 @@ export function Header() {
                 </nav>
 
                 <nav className="right-section" aria-label="Secondary navigation">
-                    {isLoggedIn && <Link className="nav-link header-link" to="/portfolio" onClick={handleProtectedNavigation}>Portfolio</Link>}
+                    <Link className="nav-link header-link" to="/portfolio" onClick={handleProtectedNavigation}>Portfolio</Link>
                     <Link className="nav-link header-link" to="/orders" onClick={handleProtectedNavigation}>Orders</Link>
-                    {!isLoggedIn && <Link className="nav-link header-link about-link" to="/about">About Us</Link>}
                     {isLoggedIn && (
                         <div className="avatar-menu" ref={menuRef}>
                             <button

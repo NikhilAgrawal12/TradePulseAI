@@ -80,9 +80,6 @@ export function AboutPage() {
 							<Link to="/registration" className="about-btn-primary">
 								Get started free
 							</Link>
-							<Link to="/analytics" className="about-btn-secondary">
-								Explore analytics
-							</Link>
 						</div>
 					</div>
 					<div className="about-hero-graphic" aria-hidden="true">
@@ -91,21 +88,6 @@ export function AboutPage() {
 						<div className="hero-ring hero-ring-3" />
 						<span className="hero-centre-icon">📡</span>
 					</div>
-				</section>
-
-				{/* ── Stats strip ── */}
-				<section className="about-stats">
-					{[
-						{ value: "10K+", label: "Active traders" },
-						{ value: "50K+", label: "Stocks tracked" },
-						{ value: "94%", label: "Prediction accuracy" },
-						{ value: "24 / 7", label: "Market monitoring" },
-					].map((s) => (
-						<div className="about-stat" key={s.label}>
-							<strong>{s.value}</strong>
-							<span>{s.label}</span>
-						</div>
-					))}
 				</section>
 
 				{/* ── Mission ── */}

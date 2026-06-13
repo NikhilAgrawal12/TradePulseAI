@@ -82,25 +82,6 @@
   box-shadow: 0 14px 28px rgba(34, 197, 94, 0.45);
 }
 
-.about-btn-secondary {
-  display: inline-block;
-  padding: 12px 26px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  text-decoration: none;
-  color: #86efac;
-  border: 1.5px solid rgba(132, 204, 22, 0.4);
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(4px);
-  transition: background 0.18s, border-color 0.18s;
-}
-
-.about-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(132, 204, 22, 0.7);
-}
-
 /* Decorative rings */
 .about-hero-graphic {
   position: relative;
@@ -131,45 +112,6 @@
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.1); }
-}
-
-/* ── Stats strip ── */
-.about-stats {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0;
-  background: #ffffff;
-  border-bottom: 1px solid #dff3e7;
-  box-shadow: 0 4px 20px rgba(21, 128, 61, 0.08);
-}
-
-.about-stat {
-  flex: 1;
-  min-width: 160px;
-  padding: 32px 24px;
-  text-align: center;
-  border-right: 1px solid #dff3e7;
-}
-
-.about-stat:last-child { border-right: none; }
-
-.about-stat strong {
-  display: block;
-  font-size: 2rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #15803d, #22c55e);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.about-stat span {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.88rem;
-  color: #4d735f;
-  font-weight: 500;
 }
 
 /* ── Mission ── */
@@ -394,8 +336,3 @@
   .about-roadmap   { padding: 60px 28px; }
 }
 
-@media (max-width: 560px) {
-  .about-stats { flex-direction: column; }
-  .about-stat  { border-right: none; border-bottom: 1px solid #dff3e7; }
-  .about-stat:last-child { border-bottom: none; }
-}

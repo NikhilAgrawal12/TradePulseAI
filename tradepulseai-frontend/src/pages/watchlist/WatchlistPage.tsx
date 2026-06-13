@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
-import { isUserAuthenticated, requireSignIn } from "../../utils/auth";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
@@ -11,13 +10,10 @@ export function WatchlistPage() {
   useEffect(() => { document.title = "Watchlist | TradePulseAI"; }, []);
 
   const { addToCart } = useCart();
-  const { watchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
-  const { stocks, loading, error } = useStocks();
+  const { watchlist, removeFromWatchlist } = useWatchlist();
+  const { stocks, error } = useStocks();
   const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
   const [search, setSearch] = useState("");
-  const [addSearch, setAddSearch] = useState("");
-  const [addStock, setAddStock] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,33 +59,6 @@ export function WatchlistPage() {
     );
   }, [search, watchlistStocks]);
 
-  const addCandidates = useMemo(() => {
-    const inList = new Set(watchlist.map((e) => e.stockId));
-    const q = addSearch.trim().toLowerCase();
-    return stocks.filter((s) => {
-      const notIn = !inList.has(s.id);
-      if (!q) return notIn;
-      return notIn && [s.symbol, s.name, s.exchange, s.market].join(" ").toLowerCase().includes(q);
-    });
-  }, [addSearch, watchlist, stocks]);
-
-  const handleAdd = () => {
-    if (!addStock) return;
-    void addToWatchlist(addStock);
-    setAddStock("");
-    setAddSearch("");
-    setShowAdd(false);
-  };
-
-  const toggleAddPanel = () => {
-    if (!isUserAuthenticated()) {
-      requireSignIn();
-      return;
-    }
-
-    setShowAdd((v) => !v);
-  };
-
   const handleRemove = (stockId: string) => void removeFromWatchlist(stockId);
 
   return (
@@ -117,9 +86,6 @@ export function WatchlistPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className="wl-add-btn" onClick={toggleAddPanel}>
-            {showAdd ? "✕ Cancel" : "+ Add stock"}
-          </button>
         </div>
 
         <div className="wl-market-status" role="status" aria-live="polite">
@@ -127,60 +93,11 @@ export function WatchlistPage() {
           <span className={`wl-session-badge ${sessionMeta.cssClass}`}>{sessionMeta.label}</span>
         </div>
 
-        {/* ── Add stock panel ── */}
-        {showAdd && (
-          <div className="wl-add-panel">
-            <h3>Add a stock to watchlist</h3>
-            <div className="wl-add-form">
-              <div className="wl-add-search">
-                <input
-                  type="search"
-                  placeholder="Search symbol or company…"
-                  value={addSearch}
-                  onChange={(e) => setAddSearch(e.target.value)}
-                />
-                <div className="wl-add-dropdown">
-                  {loading ? (
-                    <p>Loading stocks...</p>
-                  ) : addCandidates.length === 0 ? (
-                    <p>No stocks available to add.</p>
-                  ) : (
-                    addCandidates.slice(0, 6).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className={`wl-add-option ${addStock === s.id ? "selected" : ""}`}
-                        onClick={() => { setAddStock(s.id); setAddSearch(s.symbol); }}
-                      >
-                        <strong>{s.symbol}</strong> - {s.name ?? "N/A"}
-                        <span className={(s.changePercent ?? 0) >= 0 ? "price-up" : "price-down"}>
-                          ${(s.price ?? 0).toFixed(2)} ({(s.changePercent ?? 0) >= 0 ? "+" : ""}{(s.changePercent ?? 0).toFixed(2)}%)
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="wl-add-fields">
-                <button
-                  type="button"
-                  className="wl-confirm-add"
-                  disabled={!addStock}
-                  onClick={handleAdd}
-                >
-                  Add to watchlist
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ── Watchlist table ── */}
         {filtered.length === 0 ? (
           <div className="wl-empty">
             {watchlist.length === 0
-              ? <p>Your watchlist is empty. Add stocks using the button above.</p>
+              ? <p>Your watchlist is empty.</p>
               : <p>No stocks matched your search.</p>}
           </div>
         ) : (
