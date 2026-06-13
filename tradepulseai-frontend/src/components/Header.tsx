@@ -101,7 +101,8 @@ export function Header() {
 
                 <nav className="center-section" aria-label="Main actions">
                     <Link className="watchlist-link nav-link header-link" to="/watchlist" onClick={handleProtectedNavigation}>
-                        Watchlist
+                        <img className="watchlist-icon" src="images/icons/watchlist-icon.svg" alt="Watchlist" />
+                        <span className="watchlist-text">Watchlist</span>
                         {totalWatchlistItems > 0 && <span className="watchlist-quantity">{totalWatchlistItems}</span>}
                     </Link>
                     <Link className="cart-link header-link" to="/checkout" aria-label="Go to cart" onClick={handleProtectedNavigation}>
