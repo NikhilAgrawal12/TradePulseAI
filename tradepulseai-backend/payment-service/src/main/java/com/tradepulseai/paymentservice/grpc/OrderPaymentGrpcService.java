@@ -54,6 +54,13 @@ public class OrderPaymentGrpcService extends OrderPaymentServiceGrpc.OrderPaymen
             responseObserver.onNext(response);
             responseObserver.onCompleted();
             log.info("CompletePayment response sent: accountId={}, status={}", accountId, status);
+        } catch (IllegalStateException e) {
+            log.warn("Wallet insufficient for orderId={}: {}", request.getOrderId(), e.getMessage());
+            responseObserver.onError(
+                    Status.FAILED_PRECONDITION
+                            .withDescription(e.getMessage())
+                            .asRuntimeException()
+            );
         } catch (Exception e) {
             log.error("Error processing payment for orderId={}: {}", request.getOrderId(), e.getMessage(), e);
             responseObserver.onError(

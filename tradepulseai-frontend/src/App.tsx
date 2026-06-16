@@ -10,6 +10,7 @@ import {CheckoutPage} from "./pages/checkout/CheckoutPage";
 import {PaymentPage} from "./pages/payment/PaymentPage";
 import {OrdersPage} from "./pages/orders/OrdersPage";
 import {AccountManagementPage} from "./pages/account-management/AccountManagementPage";
+import {WalletPage} from "./pages/wallet/WalletPage";
 import './App.css'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="payment" element={<PaymentPage />} />
         <Route path="orders" element={<OrdersPage />} />
         <Route path="account-management" element={<AccountManagementPage />} />
+        <Route path="wallet" element={<WalletPage />} />
       </Routes>
   );
 

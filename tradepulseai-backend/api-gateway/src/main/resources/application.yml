@@ -54,6 +54,14 @@ spring:
             - JwtValidation
 
 
+        - id: wallet-service-route
+          uri: http://payment-service:4001
+          predicates:
+            - Path=/api/wallet,/api/wallet/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+
         - id: api-docs-customer-route
           uri: http://cust-service:4000
           predicates:

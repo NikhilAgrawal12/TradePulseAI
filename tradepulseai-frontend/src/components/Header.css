@@ -414,6 +414,35 @@
   }
 }
 
+.header .wallet-link {
+  gap: 5px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.header .wallet-link-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.header .wallet-link-text {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .header .wallet-link-text {
+    display: none;
+  }
+
+  .header .wallet-link {
+    padding: 5px 7px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .header .header-link {
     transition: none;

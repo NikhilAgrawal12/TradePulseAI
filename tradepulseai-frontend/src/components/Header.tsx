@@ -113,6 +113,10 @@ export function Header() {
                 </nav>
 
                 <nav className="right-section" aria-label="Secondary navigation">
+                    <Link className="nav-link header-link wallet-link" to="/wallet" onClick={handleProtectedNavigation}>
+                        <span className="wallet-link-icon">💰</span>
+                        <span className="wallet-link-text">Wallet</span>
+                    </Link>
                     <Link className="nav-link header-link" to="/portfolio" onClick={handleProtectedNavigation}>Portfolio</Link>
                     <Link className="nav-link header-link" to="/orders" onClick={handleProtectedNavigation}>Orders</Link>
                     {isLoggedIn && (

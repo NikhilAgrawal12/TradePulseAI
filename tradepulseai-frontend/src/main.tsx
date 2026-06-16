@@ -6,6 +6,7 @@ import { fas } from '@fortawesome/free-solid-svg-icons'
 import { CartProvider } from './context/CartContext'
 import { OrdersProvider } from './context/OrdersContext'
 import { WatchlistProvider } from './context/WatchlistContext'
+import { WalletProvider } from './context/WalletContext'
 import './index.css'
 import App from './App.tsx'
 
@@ -17,7 +18,9 @@ createRoot(document.getElementById('root')!).render(
       <CartProvider>
         <OrdersProvider>
           <WatchlistProvider>
-            <App />
+            <WalletProvider>
+              <App />
+            </WalletProvider>
           </WatchlistProvider>
         </OrdersProvider>
       </CartProvider>

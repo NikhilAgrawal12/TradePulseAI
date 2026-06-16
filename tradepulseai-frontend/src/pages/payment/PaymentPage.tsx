@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useOrders } from "../../context/OrdersContext";
+import { useWallet } from "../../context/WalletContext";
 import type { CartItem } from "../../types/cart";
 import { completeOrder } from "../../utils/cartApi";
 import { fetchOrderHistory } from "../../utils/ordersApi";
 import "./PaymentPage.css";
 
-const PRICE_LOCK_SECONDS = 30;
+const PRICE_LOCK_SECONDS = 15;
 
 export function PaymentPage() {
   useEffect(() => {
@@ -19,6 +20,8 @@ export function PaymentPage() {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
   const { refreshOrders } = useOrders();
+  const { balance, refreshWallet, isLoading: isWalletLoading } = useWallet();
+
   const [showSuccess, setShowSuccess] = useState(false);
   const [paidTotal, setPaidTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +43,10 @@ export function PaymentPage() {
   const tax = useMemo(() => state?.tax ?? subtotal * 0.08, [state?.tax, subtotal]);
   const total = useMemo(() => state?.total ?? subtotal + tax, [state?.total, subtotal, tax]);
 
+  const hasSufficientBalance = !isWalletLoading && balance >= total;
+
   useEffect(() => {
-    if (showSuccess || processing) {
-      return;
-    }
+    if (showSuccess || processing) return;
 
     if (secondsLeft <= 0) {
       navigate("/checkout", {
@@ -68,8 +71,7 @@ export function PaymentPage() {
     };
   }, [navigate, processing, secondsLeft, showSuccess]);
 
-  const handlePayNow = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handlePayWithWallet = async () => {
     setError(null);
     setProcessing(true);
 
@@ -82,6 +84,7 @@ export function PaymentPage() {
 
       await clearCart();
       await refreshOrders();
+      await refreshWallet();
 
       const orders = await fetchOrderHistory();
       const completedOrder = response.orderId
@@ -90,8 +93,8 @@ export function PaymentPage() {
 
       setPaidTotal(completedOrder?.total ?? total);
       setShowSuccess(true);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unable to complete payment right now. Please try again.";
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unable to complete payment right now. Please try again.";
       console.error("Payment error:", errorMessage);
       setError(errorMessage);
     } finally {
@@ -119,60 +122,70 @@ export function PaymentPage() {
       <Header />
       <main className="payment-page">
         <div className="payment-container">
-          <>
-            <section className="payment-form-card">
-              <h1>Complete Payment</h1>
-              <p className="payment-price-lock" role="status" aria-live="polite">
-                Price lock expires in <strong>{secondsLeft}s</strong>
-              </p>
-              <form onSubmit={handlePayNow} className="payment-form">
-                <label htmlFor="card-name">Cardholder Name</label>
-                <input id="card-name" type="text" placeholder="Name on card" required />
+          <section className="payment-form-card">
+            <h1>Pay with Wallet</h1>
+            <p className="payment-price-lock" role="status" aria-live="polite">
+              Price lock expires in <strong>{secondsLeft}s</strong>
+            </p>
 
-                <label htmlFor="card-number">Card Number</label>
-                <input id="card-number" type="text" inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000" required />
+            <div className="wallet-pay-balance">
+              <span className="wallet-pay-balance-label">Wallet Balance</span>
+              <span className="wallet-pay-balance-amount">{isWalletLoading ? "Loading..." : `$${balance.toFixed(2)}`}</span>
+            </div>
 
-                <div className="payment-row">
-                  <div>
-                    <label htmlFor="expiry">Expiry</label>
-                    <input id="expiry" type="text" placeholder="MM/YY" maxLength={5} required />
-                  </div>
-                  <div>
-                    <label htmlFor="cvv">CVV</label>
-                    <input id="cvv" type="password" inputMode="numeric" maxLength={4} placeholder="000" required />
-                  </div>
+            {!showSuccess && (
+              isWalletLoading ? (
+                <p className="wallet-pay-sufficient-text">Checking wallet balance...</p>
+              ) : hasSufficientBalance ? (
+                <div className="wallet-pay-sufficient">
+                  <p className="wallet-pay-sufficient-text">Sufficient balance to complete this purchase</p>
+                  <button
+                    type="button"
+                    className="payment-primary-btn wallet-pay-btn"
+                    disabled={processing || secondsLeft <= 0}
+                    onClick={handlePayWithWallet}
+                  >
+                    {processing ? "Processing..." : `Pay $${total.toFixed(2)} from Wallet`}
+                  </button>
                 </div>
-
-                <button type="submit" className="payment-primary-btn" disabled={processing || secondsLeft <= 0}>
-                  {processing ? "Processing..." : `Pay $${total.toFixed(2)}`}
-                </button>
-                {error && <p style={{ color: "#b91c1c", marginTop: "0.75rem" }}>{error}</p>}
-              </form>
-            </section>
-
-            <aside className="payment-summary-card">
-              <h2>Order Summary</h2>
-              <div className="payment-items">
-                {items.map((item) => (
-                  <p key={item.stockId}>
-                    <span>{item.symbol} x {item.quantity}</span>
-                    <strong>${(item.price * item.quantity).toFixed(2)}</strong>
+              ) : (
+                <div className="wallet-pay-insufficient">
+                  <p className="wallet-pay-insufficient-text">
+                    Insufficient balance. You need <strong>${(total - balance).toFixed(2)}</strong> more.
                   </p>
-                ))}
-              </div>
-              <div className="payment-summary-row"><span>Order Total</span><strong>${subtotal.toFixed(2)}</strong></div>
-              <div className="payment-summary-row"><span>Tax</span><strong>${tax.toFixed(2)}</strong></div>
-              <div className="payment-summary-row total"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
-            </aside>
-          </>
+                  <Link to="/wallet" className="payment-link-btn wallet-topup-btn">
+                    Add Funds to Wallet
+                  </Link>
+                </div>
+              )
+            )}
+
+            {!showSuccess && error && <p className="payment-error-msg">{error}</p>}
+          </section>
+
+          <aside className="payment-summary-card">
+            <h2>Order Summary</h2>
+            <div className="payment-items">
+              {items.map((item) => (
+                <p key={item.stockId}>
+                  <span>{item.symbol} x {item.quantity}</span>
+                  <strong>${(item.price * item.quantity).toFixed(2)}</strong>
+                </p>
+              ))}
+            </div>
+            <div className="payment-summary-row"><span>Order Total</span><strong>${subtotal.toFixed(2)}</strong></div>
+            <div className="payment-summary-row"><span>Tax</span><strong>${tax.toFixed(2)}</strong></div>
+            <div className="payment-summary-row total"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
+          </aside>
         </div>
 
         {showSuccess && (
           <div className="payment-success-overlay" role="dialog" aria-modal="true" aria-labelledby="payment-success-title">
             <div className="payment-success-card">
-              <h2 id="payment-success-title">Payment successful</h2>
+              <h2 id="payment-success-title">Payment Successful! 🎉</h2>
               <p>Your order of <strong>${paidTotal.toFixed(2)}</strong> has been placed.</p>
-              <button type="button" className="payment-primary-btn" onClick={() => navigate("/orders")}>OK</button>
+              <p className="payment-success-wallet">Wallet balance updated.</p>
+              <button type="button" className="payment-primary-btn" onClick={() => navigate("/orders")}>View Orders</button>
             </div>
           </div>
         )}

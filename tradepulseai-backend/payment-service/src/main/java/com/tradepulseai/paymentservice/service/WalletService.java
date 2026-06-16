@@ -1,0 +1,125 @@
+package com.tradepulseai.paymentservice.service;
+
+import com.tradepulseai.paymentservice.model.Wallet;
+import com.tradepulseai.paymentservice.model.WalletTransaction;
+import com.tradepulseai.paymentservice.repository.WalletRepository;
+import com.tradepulseai.paymentservice.repository.WalletTransactionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+
+@Service
+public class WalletService {
+
+    private static final Logger log = LoggerFactory.getLogger(WalletService.class);
+
+    private static final String TYPE_DEPOSIT    = "DEPOSIT";
+    private static final String TYPE_WITHDRAWAL = "WITHDRAWAL";
+    private static final String TYPE_PURCHASE   = "PURCHASE";
+
+    private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+
+    public WalletService(WalletRepository walletRepository,
+                         WalletTransactionRepository walletTransactionRepository) {
+        this.walletRepository = walletRepository;
+        this.walletTransactionRepository = walletTransactionRepository;
+    }
+
+    @Transactional
+    public Wallet getOrCreateWallet(Long userId) {
+        return walletRepository.findByUserId(userId).orElseGet(() -> {
+            Wallet wallet = new Wallet();
+            wallet.setUserId(userId);
+            wallet.setBalance(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+            Wallet saved = walletRepository.save(wallet);
+            log.info("Created new wallet for userId={}", userId);
+            return saved;
+        });
+    }
+
+    @Transactional
+    public Wallet deposit(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Deposit amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newBalance = wallet.getBalance().add(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
+        log.info("Deposited {} to walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet withdraw(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Withdrawal amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+
+        if (wallet.getBalance().compareTo(scaled) < 0) {
+            throw new IllegalStateException("Insufficient wallet balance for withdrawal.");
+        }
+
+        BigDecimal newBalance = wallet.getBalance().subtract(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
+        log.info("Withdrew {} from walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet deductForPurchase(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Purchase amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+
+        if (wallet.getBalance().compareTo(scaled) < 0) {
+            throw new IllegalStateException(
+                    "Insufficient wallet balance. Available: $" + wallet.getBalance().toPlainString()
+                    + ", Required: $" + scaled.toPlainString());
+        }
+
+        BigDecimal newBalance = wallet.getBalance().subtract(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_PURCHASE, scaled, newBalance);
+        log.info("Purchase deduction of {} from walletId={}, newBalance={}",
+                scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional(readOnly = true)
+    public List<WalletTransaction> getTransactions(Long userId) {
+        Wallet wallet = getOrCreateWallet(userId);
+        return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId());
+    }
+
+    private void recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
+        WalletTransaction tx = new WalletTransaction();
+        tx.setWalletId(walletId);
+        tx.setTransactionType(type);
+        tx.setAmount(amount);
+        tx.setBalanceAfter(balanceAfter);
+        walletTransactionRepository.save(tx);
+    }
+}
+

@@ -17,9 +17,11 @@ public class PaymentProcessingService {
     private static final Logger log = LoggerFactory.getLogger(PaymentProcessingService.class);
 
     private final PaymentRepository paymentRepository;
+    private final WalletService walletService;
 
-    public PaymentProcessingService(PaymentRepository paymentRepository) {
+    public PaymentProcessingService(PaymentRepository paymentRepository, WalletService walletService) {
         this.paymentRepository = paymentRepository;
+        this.walletService = walletService;
     }
 
     @Transactional
@@ -32,6 +34,10 @@ public class PaymentProcessingService {
             log.warn("Payment already exists for orderId={}, returning existing record", orderId);
             return paymentRepository.findByOrderId(orderId).get(0);
         }
+
+        // Deduct from wallet — throws IllegalStateException if insufficient balance
+        Long userIdLong = Long.parseLong(userId);
+        walletService.deductForPurchase(userIdLong, BigDecimal.valueOf(totalAmount));
 
         Payment payment = PaymentMapper.toModel(orderId, BigDecimal.valueOf(totalAmount));
         Payment savedPayment = paymentRepository.save(payment);
