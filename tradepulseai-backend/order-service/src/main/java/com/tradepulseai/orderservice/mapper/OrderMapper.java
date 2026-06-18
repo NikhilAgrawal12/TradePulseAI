@@ -25,13 +25,10 @@ public class OrderMapper {
                 .map(item -> resolveQuote(stockQuotes, item.getStockId()).unitPrice().multiply(item.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal scaledSubtotal = OrderItemMapper.scaleMoney(subtotal);
-        BigDecimal tax = OrderItemMapper.scaleMoney(scaledSubtotal.multiply(BigDecimal.valueOf(0.08)));
-        BigDecimal total = OrderItemMapper.scaleMoney(scaledSubtotal.add(tax));
+        BigDecimal scaledTotal = OrderItemMapper.scaleMoney(subtotal);
 
-        order.setSubtotal(scaledSubtotal);
-        order.setTax(tax);
-        order.setTotal(total);
+        order.setSubtotal(scaledTotal);
+        order.setTotal(scaledTotal);
         order.setItems(
                 cartItems.stream()
                         .map(item -> OrderItemMapper.toModel(order, item, resolveQuote(stockQuotes, item.getStockId())))
@@ -46,13 +43,10 @@ public class OrderMapper {
         order.setUserId(userId);
         order.setStatus(status);
 
-        BigDecimal scaledSubtotal = OrderItemMapper.scaleMoney(request.getSubtotal());
-        BigDecimal tax = OrderItemMapper.scaleMoney(request.getTax());
-        BigDecimal total = OrderItemMapper.scaleMoney(request.getTotal());
+        BigDecimal scaledTotal = OrderItemMapper.scaleMoney(request.getTotal());
 
-        order.setSubtotal(scaledSubtotal);
-        order.setTax(tax);
-        order.setTotal(total);
+        order.setSubtotal(scaledTotal);
+        order.setTotal(scaledTotal);
         order.setItems(
                 request.getItems().stream()
                         .map(item -> toModel(order, item))
@@ -71,7 +65,6 @@ public class OrderMapper {
         dto.setStatus(order.getStatus());
         dto.setCreatedAtIso(order.getCreatedAt());
         dto.setSubtotal(OrderItemMapper.scaleMoney(order.getSubtotal()));
-        dto.setTax(OrderItemMapper.scaleMoney(order.getTax()));
         dto.setTotal(OrderItemMapper.scaleMoney(order.getTotal()));
         dto.setItems(order.getItems().stream().map(OrderItemMapper::toDTO).toList());
         return dto;
@@ -94,4 +87,3 @@ public class OrderMapper {
         return item;
     }
 }
-

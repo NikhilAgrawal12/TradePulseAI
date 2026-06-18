@@ -119,6 +119,17 @@
   color: #14532d;
 }
 
+.payment-price-refresh-msg {
+  margin-top: 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #7c2d12;
+  background: #fff7ed;
+  border: 1px solid rgba(180, 83, 9, 0.2);
+  border-radius: 10px;
+  padding: 9px 11px;
+}
+
 .payment-success,
 .payment-empty {
   grid-column: 1 / -1;
@@ -154,6 +165,29 @@
 .payment-success-card p {
   margin: 0;
   color: #3c6a54;
+}
+
+.payment-success-details {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e6f4ec;
+  border-radius: 10px;
+  background: #f8fffa;
+}
+
+.payment-success-details p {
+  margin: 6px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.payment-success-details span {
+  color: #3c6a54;
+}
+
+.payment-success-details strong {
+  color: #14532d;
 }
 
 .payment-success-card .payment-primary-btn {

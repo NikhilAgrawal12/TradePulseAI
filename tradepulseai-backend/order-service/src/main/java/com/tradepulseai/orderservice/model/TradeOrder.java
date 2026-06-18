@@ -37,9 +37,6 @@ public class TradeOrder {
     @Column(name = "subtotal", nullable = false, precision = 18, scale = 2)
     private BigDecimal subtotal;
 
-    @Column(name = "tax", nullable = false, precision = 18, scale = 2)
-    private BigDecimal tax;
-
     @Column(name = "total", nullable = false, precision = 18, scale = 2)
     private BigDecimal total;
 
@@ -94,14 +91,6 @@ public class TradeOrder {
         this.subtotal = subtotal;
     }
 
-    public BigDecimal getTax() {
-        return tax;
-    }
-
-    public void setTax(BigDecimal tax) {
-        this.tax = tax;
-    }
-
     public BigDecimal getTotal() {
         return total;
     }
@@ -122,4 +111,3 @@ public class TradeOrder {
         this.items = items;
     }
 }
-

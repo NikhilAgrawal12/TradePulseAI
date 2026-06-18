@@ -63,8 +63,6 @@ export function OrdersPage() {
                     </div>
 
                     <footer className="order-summary">
-                      <p><span>Order Total</span><strong>${order.subtotal.toFixed(2)}</strong></p>
-                      <p><span>Tax</span><strong>${order.tax.toFixed(2)}</strong></p>
                       <p className="grand-total"><span>Total</span><strong>${order.total.toFixed(2)}</strong></p>
                     </footer>
                   </article>

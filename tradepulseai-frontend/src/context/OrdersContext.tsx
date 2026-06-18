@@ -7,7 +7,7 @@ type OrdersContextType = {
   orders: OrderHistoryEntry[];
   loading: boolean;
   error: string | null;
-  refreshOrders: () => Promise<void>;
+  refreshOrders: () => Promise<OrderHistoryEntry[]>;
 };
 
 const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
@@ -21,7 +21,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     if (!isUserAuthenticated()) {
       setOrders([]);
       setError(null);
-      return;
+      return [];
     }
 
     try {
@@ -29,10 +29,12 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       setError(null);
       const response = await fetchOrderHistory();
       setOrders(response);
+      return response;
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Failed to fetch order history.";
       setError(message);
       setOrders([]);
+      return [];
     } finally {
       setLoading(false);
     }

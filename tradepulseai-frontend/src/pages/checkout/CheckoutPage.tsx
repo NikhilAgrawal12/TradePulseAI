@@ -108,7 +108,6 @@ export function CheckoutPage() {
 
     setCheckoutNotice(null);
 
-    const tax = roundMoney(totalPrice * 0.08);
     const pricedItems = enrichedItems.map((item) => ({
       stockId: item.stockId,
       symbol: item.symbol,
@@ -119,8 +118,7 @@ export function CheckoutPage() {
     navigate("/payment", {
       state: {
         subtotal: totalPrice,
-        tax,
-        total: roundMoney(totalPrice + tax),
+        total: roundMoney(totalPrice),
         items: pricedItems,
       },
     });
@@ -205,18 +203,9 @@ export function CheckoutPage() {
               </div>
 
               <div className="checkout-summary">
-                <div className="summary-row">
-                  <span>Order Total</span>
-                  <strong>${totalPrice.toFixed(2)}</strong>
-                </div>
-                <div className="summary-row">
-                  <span>Tax (8%)</span>
-                  <strong>${(totalPrice * 0.08).toFixed(2)}</strong>
-                </div>
-                <div className="summary-divider" />
                 <div className="summary-row total-row">
                   <span>Total</span>
-                  <strong>${(totalPrice * 1.08).toFixed(2)}</strong>
+                  <strong>${totalPrice.toFixed(2)}</strong>
                 </div>
 
                 <div className="checkout-actions">

@@ -7,7 +7,6 @@ public class CompleteOrderRequestDTO {
 
     private List<CompleteOrderItemRequestDTO> items;
     private BigDecimal subtotal;
-    private BigDecimal tax;
     private BigDecimal total;
 
     public List<CompleteOrderItemRequestDTO> getItems() {
@@ -26,14 +25,6 @@ public class CompleteOrderRequestDTO {
         this.subtotal = subtotal;
     }
 
-    public BigDecimal getTax() {
-        return tax;
-    }
-
-    public void setTax(BigDecimal tax) {
-        this.tax = tax;
-    }
-
     public BigDecimal getTotal() {
         return total;
     }
@@ -42,4 +33,3 @@ public class CompleteOrderRequestDTO {
         this.total = total;
     }
 }
-

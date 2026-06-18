@@ -53,7 +53,7 @@ export async function clearCartItems(): Promise<CartItem[]> {
   return response.data;
 }
 
-export async function completeOrder(payload: { items: CartItem[]; subtotal: number; tax: number; total: number }): Promise<CompleteOrderResponse> {
+export async function completeOrder(payload: { items: CartItem[]; subtotal: number; total: number }): Promise<CompleteOrderResponse> {
   try {
     const response = await axios.post<CompleteOrderResponse>(
       "/api/cart/complete-order",

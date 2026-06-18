@@ -12,7 +12,6 @@ public class OrderResponseDTO {
     private String status;
     private Instant createdAtIso;
     private BigDecimal subtotal;
-    private BigDecimal tax;
     private BigDecimal total;
     private List<OrderItemResponseDTO> items;
 
@@ -64,14 +63,6 @@ public class OrderResponseDTO {
         this.subtotal = subtotal;
     }
 
-    public BigDecimal getTax() {
-        return tax;
-    }
-
-    public void setTax(BigDecimal tax) {
-        this.tax = tax;
-    }
-
     public BigDecimal getTotal() {
         return total;
     }
@@ -88,4 +79,3 @@ public class OrderResponseDTO {
         this.items = items;
     }
 }
-

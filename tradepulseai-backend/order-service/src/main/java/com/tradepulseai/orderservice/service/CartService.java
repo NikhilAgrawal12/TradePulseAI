@@ -107,7 +107,7 @@ public class CartService {
                 OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, request)
         );
 
-        // Send ONE payment record for the entire order total (subtotal + tax)
+        // Send payment record for the entire order total
         OrderPaymentResponse response;
         try {
             response = orderPaymentGrpcClient.completeOrderPayment(
