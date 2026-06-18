@@ -160,6 +160,7 @@
   letter-spacing: 0.01em;
   padding: 7px 13px;
   border-radius: 999px;
+  gap: 5px;
 }
 
 .header .nav-link:hover {
@@ -168,6 +169,14 @@
 
 .header .about-link {
   margin-right: 65px;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.header .portfolio-link,
+.header .orders-link {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .header .cart-link {
@@ -412,6 +421,11 @@
   .header-notice span {
     font-size: 0.84rem;
   }
+}
+
+.header .nav-link-icon {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .header .wallet-link {

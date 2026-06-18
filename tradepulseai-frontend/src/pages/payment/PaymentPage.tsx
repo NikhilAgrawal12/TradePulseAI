@@ -133,12 +133,11 @@ export function PaymentPage() {
               <span className="wallet-pay-balance-amount">{isWalletLoading ? "Loading..." : `$${balance.toFixed(2)}`}</span>
             </div>
 
-            {!showSuccess && (
+            {!showSuccess && !processing && (
               isWalletLoading ? (
                 <p className="wallet-pay-sufficient-text">Checking wallet balance...</p>
               ) : hasSufficientBalance ? (
                 <div className="wallet-pay-sufficient">
-                  <p className="wallet-pay-sufficient-text">Sufficient balance to complete this purchase</p>
                   <button
                     type="button"
                     className="payment-primary-btn wallet-pay-btn"
@@ -160,7 +159,7 @@ export function PaymentPage() {
               )
             )}
 
-            {!showSuccess && error && <p className="payment-error-msg">{error}</p>}
+            {!showSuccess && !processing && error && <p className="payment-error-msg">{error}</p>}
           </section>
 
           <aside className="payment-summary-card">

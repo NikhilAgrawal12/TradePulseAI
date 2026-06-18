@@ -96,7 +96,10 @@ export function Header() {
                     <Link to="/" className="header-link logo-link" aria-label="TradePulseAI home">
                         <img className="logo" src="/images/logo.png" alt="TradePulseAI" />
                     </Link>
-                    <Link className="nav-link header-link about-link" to="/about">About Us</Link>
+                    <Link className="nav-link header-link about-link" to="/about">
+                        <span className="nav-link-icon">ℹ️</span>
+                        <span>About Us</span>
+                    </Link>
                 </div>
 
                 <nav className="center-section" aria-label="Main actions">
@@ -114,11 +117,17 @@ export function Header() {
 
                 <nav className="right-section" aria-label="Secondary navigation">
                     <Link className="nav-link header-link wallet-link" to="/wallet" onClick={handleProtectedNavigation}>
-                        <span className="wallet-link-icon">💰</span>
+                        <span className="wallet-link-icon">💵</span>
                         <span className="wallet-link-text">Wallet</span>
                     </Link>
-                    <Link className="nav-link header-link" to="/portfolio" onClick={handleProtectedNavigation}>Portfolio</Link>
-                    <Link className="nav-link header-link" to="/orders" onClick={handleProtectedNavigation}>Orders</Link>
+                    <Link className="nav-link header-link portfolio-link" to="/portfolio" onClick={handleProtectedNavigation}>
+                        <span className="nav-link-icon">📊</span>
+                        <span>Portfolio</span>
+                    </Link>
+                    <Link className="nav-link header-link orders-link" to="/orders" onClick={handleProtectedNavigation}>
+                        <span className="nav-link-icon">🧾</span>
+                        <span>Orders</span>
+                    </Link>
                     {isLoggedIn && (
                         <div className="avatar-menu" ref={menuRef}>
                             <button
