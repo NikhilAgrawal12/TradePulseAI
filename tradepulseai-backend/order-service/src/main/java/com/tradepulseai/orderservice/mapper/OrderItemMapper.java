@@ -34,7 +34,7 @@ public class OrderItemMapper {
     }
 
     public static BigDecimal scaleMoney(BigDecimal value) {
-        return value.setScale(4, RoundingMode.HALF_UP);
+        return value.setScale(2, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal scaleQuantity(BigDecimal quantity) {

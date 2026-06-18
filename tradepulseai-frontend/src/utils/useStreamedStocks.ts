@@ -35,9 +35,9 @@ function writeCachedStocks(stocks: Stock[]): void {
  */
 export function useStreamedStocks() {
   const [stocks, setStocks] = useState<Stock[]>(() => readCachedStocks());
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const stocksCount = stocks.length;
 
   useEffect(() => {
     let mounted = true;
@@ -84,7 +84,6 @@ export function useStreamedStocks() {
           writeCachedStocks(nextStocks);
         }
         setError(null);
-        setLoading(false);
       } catch (parseError) {
         console.error("Failed to parse stocks data:", parseError);
       }
@@ -110,9 +109,8 @@ export function useStreamedStocks() {
 
 
         eventSource.onerror = () => {
-          if (mounted && stocks.length === 0) {
+          if (mounted && stocksCount === 0) {
             setError("Unable to load stock data right now.");
-            setLoading(false);
           }
           if (eventSource) {
             eventSource.close();
@@ -125,10 +123,9 @@ export function useStreamedStocks() {
             }
           }, 3000);
         };
-      } catch (err) {
-        if (mounted && stocks.length === 0) {
+      } catch {
+        if (mounted && stocksCount === 0) {
           setError("Unable to load stock data right now.");
-          setLoading(false);
         }
       }
     };
@@ -141,14 +138,9 @@ export function useStreamedStocks() {
         eventSource.close();
       }
     };
-  }, [searchTerm]);
+  }, [searchTerm, stocksCount]);
 
-  useEffect(() => {
-    setLoading(false);
-    setError(null);
-  }, [searchTerm]);
-
-  return { stocks, loading, error, searchTerm, setSearchTerm };
+  return { stocks, error, searchTerm, setSearchTerm };
 }
 
 

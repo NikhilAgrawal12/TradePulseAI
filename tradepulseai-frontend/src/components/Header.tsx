@@ -18,12 +18,15 @@ export function Header() {
     const location = useLocation();
 
     const [menuOpen, setMenuOpen] = useState(false);
-    const [authNotice, setAuthNotice] = useState('');
+    const [menuRoute, setMenuRoute] = useState(location.pathname);
+    const [authNotice, setAuthNotice] = useState<{ message: string; route: string } | null>(null);
     const [token, setToken] = useState<string | null>(() => getStoredToken());
     const menuRef = useRef<HTMLDivElement | null>(null);
 
     const isLoggedIn = Boolean(token);
     const email = getEmailFromToken(token);
+    const visibleMenuOpen = menuOpen && menuRoute === location.pathname;
+    const visibleAuthNotice = authNotice?.route === location.pathname ? authNotice.message : '';
 
     const avatarLabel = useMemo(() => {
         const value = email ?? '';
@@ -31,16 +34,11 @@ export function Header() {
     }, [email]);
 
     useEffect(() => {
-        setMenuOpen(false);
-        setAuthNotice('');
-    }, [location.pathname]);
-
-    useEffect(() => {
         const handleAuthRequired = (event: Event) => {
             const customEvent = event as CustomEvent<{ message?: string; redirectToLogin?: boolean }>;
             const message = customEvent.detail?.message;
             if (typeof message === 'string' && message.trim().length > 0) {
-                setAuthNotice(message);
+                setAuthNotice({ message, route: location.pathname });
             }
 
             if (customEvent.detail?.redirectToLogin && location.pathname !== '/login') {
@@ -58,8 +56,9 @@ export function Header() {
         return subscribeToAuthChanges(() => {
             setToken(getStoredToken());
             setMenuOpen(false);
+            setMenuRoute(location.pathname);
         });
-    }, []);
+    }, [location.pathname]);
 
     useEffect(() => {
         const handleClickOutside: EventListener = (event) => {
@@ -77,6 +76,7 @@ export function Header() {
     const handleLogout = () => {
         clearStoredToken();
         setMenuOpen(false);
+        setMenuRoute(location.pathname);
         navigate('/');
     };
 
@@ -133,15 +133,18 @@ export function Header() {
                             <button
                                 type="button"
                                 className="avatar-btn"
-                                onClick={() => setMenuOpen((prev) => !prev)}
+                                onClick={() => {
+                                    setMenuRoute(location.pathname);
+                                    setMenuOpen((prev) => !prev);
+                                }}
                                 aria-haspopup="menu"
-                                aria-expanded={menuOpen}
+                                aria-expanded={visibleMenuOpen}
                                 aria-label="Account menu"
                             >
                                 {avatarLabel}
                             </button>
 
-                            {menuOpen && (
+                            {visibleMenuOpen && (
                                 <div className="avatar-dropdown" role="menu">
                                     <button
                                         type="button"
@@ -169,10 +172,10 @@ export function Header() {
                 </nav>
             </div>
 
-            {authNotice && (
+            {visibleAuthNotice && (
                 <div className="header-notice" role="alert" aria-live="polite">
-                    <span>{authNotice}</span>
-                    <button type="button" className="header-notice-close" onClick={() => setAuthNotice('')} aria-label="Dismiss message">
+                    <span>{visibleAuthNotice}</span>
+                    <button type="button" className="header-notice-close" onClick={() => setAuthNotice(null)} aria-label="Dismiss message">
                         ×
                     </button>
                 </div>

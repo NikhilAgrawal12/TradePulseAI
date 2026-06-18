@@ -36,7 +36,6 @@ public class PortfolioSyncClient {
                             request.getItems().stream()
                                     .map(item -> PortfolioOrderItem.newBuilder()
                                             .setStockId(item.getStockId())
-                                            .setSymbol(item.getSymbol())
                                             .setPrice(item.getPrice().doubleValue())
                                             .setQuantity(item.getQuantity())
                                             .build())

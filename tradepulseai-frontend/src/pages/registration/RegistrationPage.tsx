@@ -6,7 +6,7 @@ import "./RegistrationPage.css";
 
 // Validation patterns
 const VALIDATION_PATTERNS = {
-  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?/`~]).{8,}$/,
+  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/,
   phoneNumber: /^\+?[0-9\- ]{7,15}$/,
   name: /^[A-Za-z\s'-]{1,100}$/,
 };

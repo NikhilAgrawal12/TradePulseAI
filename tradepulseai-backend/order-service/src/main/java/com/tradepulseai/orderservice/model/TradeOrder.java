@@ -34,13 +34,13 @@ public class TradeOrder {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "subtotal", nullable = false, precision = 18, scale = 4)
+    @Column(name = "subtotal", nullable = false, precision = 18, scale = 2)
     private BigDecimal subtotal;
 
-    @Column(name = "tax", nullable = false, precision = 18, scale = 4)
+    @Column(name = "tax", nullable = false, precision = 18, scale = 2)
     private BigDecimal tax;
 
-    @Column(name = "total", nullable = false, precision = 18, scale = 4)
+    @Column(name = "total", nullable = false, precision = 18, scale = 2)
     private BigDecimal total;
 
     @Column(name = "created_at", nullable = false, updatable = false)

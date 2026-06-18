@@ -50,7 +50,6 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    setIsLoggedIn(isUserAuthenticated());
     return subscribeToAuthChanges(() => {
       setIsLoggedIn(isUserAuthenticated());
     });

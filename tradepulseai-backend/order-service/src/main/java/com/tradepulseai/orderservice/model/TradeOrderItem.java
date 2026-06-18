@@ -26,7 +26,7 @@ public class TradeOrderItem {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private TradeOrder order;
 
-    @Column(name = "price", nullable = false, precision = 18, scale = 4)
+    @Column(name = "price", nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
 
     @Column(name = "quantity", nullable = false, precision = 18, scale = 8)

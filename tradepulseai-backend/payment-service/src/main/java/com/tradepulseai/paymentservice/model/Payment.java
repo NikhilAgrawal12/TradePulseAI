@@ -23,7 +23,7 @@ public class Payment {
     @Column(name = "order_id", nullable = false, length = 64)
     private String orderId;
 
-    @Column(name = "total_amount", nullable = false, precision = 18, scale = 4)
+    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal totalAmount;
 
     @Column(name = "status", nullable = false, length = 20)

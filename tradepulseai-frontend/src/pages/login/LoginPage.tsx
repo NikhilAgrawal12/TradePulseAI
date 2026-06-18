@@ -7,7 +7,7 @@ import "./LoginPage.css";
 
 // Validation patterns
 const VALIDATION_PATTERNS = {
-  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?/`~]).{8,}$/,
+  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/,
 };
 
 // Validation messages

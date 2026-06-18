@@ -1,6 +1,8 @@
 package com.tradepulseai.orderservice.mapper;
 
 import com.tradepulseai.orderservice.dto.order.OrderResponseDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderItemRequestDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.model.TradeOrder;
 import com.tradepulseai.orderservice.service.StockQuote;
@@ -39,6 +41,27 @@ public class OrderMapper {
         return order;
     }
 
+    public static TradeOrder toModel(Long userId, String status, CompleteOrderRequestDTO request) {
+        TradeOrder order = new TradeOrder();
+        order.setUserId(userId);
+        order.setStatus(status);
+
+        BigDecimal scaledSubtotal = OrderItemMapper.scaleMoney(request.getSubtotal());
+        BigDecimal tax = OrderItemMapper.scaleMoney(request.getTax());
+        BigDecimal total = OrderItemMapper.scaleMoney(request.getTotal());
+
+        order.setSubtotal(scaledSubtotal);
+        order.setTax(tax);
+        order.setTotal(total);
+        order.setItems(
+                request.getItems().stream()
+                        .map(item -> toModel(order, item))
+                        .toList()
+        );
+
+        return order;
+    }
+
 
     public static OrderResponseDTO toDTO(TradeOrder order) {
         OrderResponseDTO dto = new OrderResponseDTO();
@@ -60,6 +83,15 @@ public class OrderMapper {
             throw new IllegalArgumentException("Missing stock quote for stockId: " + stockId);
         }
         return quote;
+    }
+
+    private static com.tradepulseai.orderservice.model.TradeOrderItem toModel(TradeOrder order, CompleteOrderItemRequestDTO itemRequest) {
+        com.tradepulseai.orderservice.model.TradeOrderItem item = new com.tradepulseai.orderservice.model.TradeOrderItem();
+        item.setOrder(order);
+        item.setStockId(itemRequest.getStockId());
+        item.setPrice(OrderItemMapper.scaleMoney(itemRequest.getPrice()));
+        item.setQuantity(itemRequest.getQuantity().setScale(8, java.math.RoundingMode.HALF_UP));
+        return item;
     }
 }
 

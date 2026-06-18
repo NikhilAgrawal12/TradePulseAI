@@ -1,12 +1,13 @@
-package com.tradepulseai.orderservice.dto.portfolio;
+package com.tradepulseai.orderservice.dto.order;
 
 import java.math.BigDecimal;
 
-public class PortfolioOrderItemDTO {
+public class CompleteOrderItemRequestDTO {
 
     private String stockId;
+    private String symbol;
     private BigDecimal price;
-    private int quantity;
+    private BigDecimal quantity;
 
     public String getStockId() {
         return stockId;
@@ -16,6 +17,13 @@ public class PortfolioOrderItemDTO {
         this.stockId = stockId;
     }
 
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public void setSymbol(String symbol) {
+        this.symbol = symbol;
+    }
 
     public BigDecimal getPrice() {
         return price;
@@ -25,11 +33,11 @@ public class PortfolioOrderItemDTO {
         this.price = price;
     }
 
-    public int getQuantity() {
+    public BigDecimal getQuantity() {
         return quantity;
     }
 
-    public void setQuantity(int quantity) {
+    public void setQuantity(BigDecimal quantity) {
         this.quantity = quantity;
     }
 }

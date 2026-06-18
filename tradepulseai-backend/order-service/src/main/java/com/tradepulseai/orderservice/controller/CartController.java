@@ -3,6 +3,7 @@ package com.tradepulseai.orderservice.controller;
 import com.tradepulseai.orderservice.dto.cart.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.cart.UpdateCartItemRequestDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -77,10 +78,11 @@ public class CartController {
     @PostMapping("/complete-order")
     @Operation(summary = "Complete order by processing payment for all cart items")
     public ResponseEntity<CompleteOrderResponseDTO> completeOrder(
-            @RequestHeader(USER_ID_HEADER) String userId
+            @RequestHeader(USER_ID_HEADER) String userId,
+            @Valid @RequestBody CompleteOrderRequestDTO request
     ) {
         Long normalizedUserId = normalizeUserId(userId);
-        return ResponseEntity.ok(cartService.completeOrder(normalizedUserId));
+        return ResponseEntity.ok(cartService.completeOrder(normalizedUserId, request));
     }
 
     private Long normalizeUserId(String userId) {

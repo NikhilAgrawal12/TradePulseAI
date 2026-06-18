@@ -12,9 +12,6 @@ public class PortfolioFillItemRequestDTO {
     @NotBlank(message = "stockId is required")
     private String stockId;
 
-    @NotBlank(message = "symbol is required")
-    private String symbol;
-
     @NotNull(message = "price is required")
     @DecimalMin(value = "0.0001", message = "price must be greater than 0")
     private BigDecimal price;
@@ -30,13 +27,6 @@ public class PortfolioFillItemRequestDTO {
         this.stockId = stockId;
     }
 
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
-    }
 
     public BigDecimal getPrice() {
         return price;

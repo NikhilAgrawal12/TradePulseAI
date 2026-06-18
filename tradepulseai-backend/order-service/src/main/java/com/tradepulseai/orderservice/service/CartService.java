@@ -3,6 +3,7 @@ package com.tradepulseai.orderservice.service;
 import com.tradepulseai.orderservice.dto.cart.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
 import com.tradepulseai.orderservice.mapper.OrderItemMapper;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
@@ -97,17 +98,13 @@ public class CartService {
     }
 
     @Transactional
-    public CompleteOrderResponseDTO completeOrder(Long userId) {
-        List<CartItem> cartItems = cartItemRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
-        if (cartItems.isEmpty()) {
+    public CompleteOrderResponseDTO completeOrder(Long userId, CompleteOrderRequestDTO request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
             throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
         }
 
-        Map<Long, StockQuote> stockQuotes = loadStockQuotes(cartItems);
-        validateQuotesForCheckout(stockQuotes);
-
         TradeOrder savedOrder = orderHistoryService.saveCompletedOrder(
-                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, cartItems, stockQuotes)
+                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, request)
         );
 
         // Send ONE payment record for the entire order total (subtotal + tax)
@@ -124,21 +121,18 @@ public class CartService {
 
         validateCompletedPaymentResponse(response, savedOrder.getId());
 
-        portfolioSyncClient.syncCompletedOrder(userId, PortfolioOrderMapper.toSyncRequest(cartItems, stockQuotes));
+        portfolioSyncClient.syncCompletedOrder(userId, PortfolioOrderMapper.toSyncRequestFromPayment(request.getItems()));
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
 
-    private void validateQuotesForCheckout(Map<Long, StockQuote> stockQuotes) {
-        boolean hasInvalidQuote = stockQuotes.values().stream()
-                .anyMatch(quote -> quote == null
-                        || quote.unitPrice() == null
-                        || quote.unitPrice().compareTo(BigDecimal.ZERO) <= 0);
-
-        if (hasInvalidQuote) {
-            throw new IllegalStateException("Live price unavailable for one or more cart items. Please refresh your cart and try again.");
+    private Map<Long, StockQuote> loadStockQuotes(List<CartItem> cartItems) {
+        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
+        for (CartItem cartItem : cartItems) {
+            quotes.computeIfAbsent(cartItem.getStockId(), stockCatalogClient::getStockQuote);
         }
+        return quotes;
     }
 
     private CartItemResponseDTO toCartResponse(CartItem cartItem, StockQuote stockQuote) {
@@ -153,13 +147,6 @@ public class CartService {
         return response;
     }
 
-    private Map<Long, StockQuote> loadStockQuotes(List<CartItem> cartItems) {
-        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
-        for (CartItem cartItem : cartItems) {
-            quotes.computeIfAbsent(cartItem.getStockId(), stockCatalogClient::getStockQuote);
-        }
-        return quotes;
-    }
 
     private CartItem newCartItem(Long userId, Long stockId, AddCartItemRequestDTO request) {
         CartItem cartItem = new CartItem();

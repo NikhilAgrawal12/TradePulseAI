@@ -11,7 +11,6 @@ import {PaymentPage} from "./pages/payment/PaymentPage";
 import {OrdersPage} from "./pages/orders/OrdersPage";
 import {AccountManagementPage} from "./pages/account-management/AccountManagementPage";
 import {WalletPage} from "./pages/wallet/WalletPage";
-import './App.css'
 
 function App() {
 

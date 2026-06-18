@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { roundMoney } from "../../utils/money";
 import { useStocks } from "../../utils/useStocks";
 import "./CheckoutPage.css";
 
@@ -70,7 +71,7 @@ export function CheckoutPage() {
           symbol: stock?.symbol ?? item.symbol,
           name: stock?.name ?? null,
           // prefer backend cached aggregate close; gRPC fallback gives 0
-          basePrice: stock?.price ?? item.price ?? 0,
+          basePrice: roundMoney(stock?.price ?? item.price ?? 0),
           changePercent: stock?.changePercent ?? null,
           source: stock?.source ?? null,
           quantity: Number(item.quantity),
@@ -81,11 +82,11 @@ export function CheckoutPage() {
 
   // Price chain: backend all-stocks cache close → cart fallback price → 0
   function livePrice(item: EnrichedItem): number {
-    return item.basePrice;
+    return roundMoney(item.basePrice);
   }
 
   const totalPrice = useMemo(
-    () => enrichedItems.reduce((sum, item) => sum + livePrice(item) * item.quantity, 0),
+    () => roundMoney(enrichedItems.reduce((sum, item) => sum + livePrice(item) * item.quantity, 0)),
     [enrichedItems],
   );
 
@@ -107,11 +108,11 @@ export function CheckoutPage() {
 
     setCheckoutNotice(null);
 
-    const tax = totalPrice * 0.08;
+    const tax = roundMoney(totalPrice * 0.08);
     const pricedItems = enrichedItems.map((item) => ({
       stockId: item.stockId,
       symbol: item.symbol,
-      price: livePrice(item),
+      price: roundMoney(livePrice(item)),
       quantity: item.quantity,
     }));
 
@@ -119,7 +120,7 @@ export function CheckoutPage() {
       state: {
         subtotal: totalPrice,
         tax,
-        total: totalPrice + tax,
+        total: roundMoney(totalPrice + tax),
         items: pricedItems,
       },
     });

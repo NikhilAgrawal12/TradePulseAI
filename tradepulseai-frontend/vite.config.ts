@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react({
-    // @ts-ignore
+    // @ts-expect-error Vite's React plugin types do not expose the Babel option used by the React compiler plugin.
     babel: {
       plugins: [['babel-plugin-react-compiler', { target: '19' }]],
     },

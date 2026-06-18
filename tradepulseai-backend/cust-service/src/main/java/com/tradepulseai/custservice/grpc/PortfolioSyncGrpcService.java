@@ -72,7 +72,6 @@ public class PortfolioSyncGrpcService extends PortfolioSyncServiceGrpc.Portfolio
                 .map(item -> {
                     PortfolioFillItemRequestDTO dto = new PortfolioFillItemRequestDTO();
                     dto.setStockId(item.getStockId());
-                    dto.setSymbol(item.getSymbol());
                     dto.setPrice(BigDecimal.valueOf(item.getPrice()));
                     dto.setQuantity(item.getQuantity());
                     return dto;

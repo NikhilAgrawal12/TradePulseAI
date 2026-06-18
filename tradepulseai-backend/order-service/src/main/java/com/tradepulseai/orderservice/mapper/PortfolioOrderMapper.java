@@ -2,6 +2,7 @@ package com.tradepulseai.orderservice.mapper;
 
 import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderItemDTO;
 import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderSyncRequestDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderItemRequestDTO;
 import com.tradepulseai.orderservice.model.CartItem;
 import com.tradepulseai.orderservice.service.StockQuote;
 
@@ -24,11 +25,26 @@ public class PortfolioOrderMapper {
         return request;
     }
 
+    public static PortfolioOrderSyncRequestDTO toSyncRequestFromPayment(List<CompleteOrderItemRequestDTO> items) {
+        PortfolioOrderSyncRequestDTO request = new PortfolioOrderSyncRequestDTO();
+        request.setItems(
+                items.stream()
+                        .map(item -> {
+                            PortfolioOrderItemDTO dto = new PortfolioOrderItemDTO();
+                            dto.setStockId(item.getStockId());
+                            dto.setPrice(item.getPrice() == null ? null : item.getPrice().setScale(2, java.math.RoundingMode.HALF_UP));
+                            dto.setQuantity(item.getQuantity().intValueExact());
+                            return dto;
+                        })
+                        .toList()
+        );
+        return request;
+    }
+
 
     private static PortfolioOrderItemDTO toItem(CartItem cartItem, StockQuote stockQuote) {
         PortfolioOrderItemDTO item = new PortfolioOrderItemDTO();
         item.setStockId(String.valueOf(cartItem.getStockId()));
-        item.setSymbol(stockQuote.symbol());
         item.setPrice(stockQuote.unitPrice());
         item.setQuantity(toWholeNumberQuantity(cartItem.getQuantity(), cartItem.getStockId()));
         return item;

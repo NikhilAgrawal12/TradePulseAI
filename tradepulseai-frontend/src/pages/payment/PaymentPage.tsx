@@ -6,7 +6,8 @@ import { useOrders } from "../../context/OrdersContext";
 import { useWallet } from "../../context/WalletContext";
 import type { CartItem } from "../../types/cart";
 import { completeOrder } from "../../utils/cartApi";
-import { fetchOrderHistory } from "../../utils/ordersApi";
+import { roundMoney } from "../../utils/money";
+import { useStocks } from "../../utils/useStocks";
 import "./PaymentPage.css";
 
 const PRICE_LOCK_SECONDS = 15;
@@ -21,9 +22,9 @@ export function PaymentPage() {
   const { cart, clearCart } = useCart();
   const { refreshOrders } = useOrders();
   const { balance, refreshWallet, isLoading: isWalletLoading } = useWallet();
+  const { stocks, loading: stocksLoading, error: stocksError } = useStocks();
 
   const [showSuccess, setShowSuccess] = useState(false);
-  const [paidTotal, setPaidTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(PRICE_LOCK_SECONDS);
@@ -36,12 +37,48 @@ export function PaymentPage() {
   } | null;
 
   const items = state?.items?.length ? state.items : cart;
-  const subtotal = useMemo(
-    () => state?.subtotal ?? items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items, state?.subtotal],
+  const [lockedItems, setLockedItems] = useState<CartItem[] | null>(null);
+
+  const stockById = useMemo(
+    () => new Map(stocks.map((stock) => [stock.id, stock])),
+    [stocks],
   );
-  const tax = useMemo(() => state?.tax ?? subtotal * 0.08, [state?.tax, subtotal]);
-  const total = useMemo(() => state?.total ?? subtotal + tax, [state?.total, subtotal, tax]);
+
+  useEffect(() => {
+    if (lockedItems) {
+      return;
+    }
+
+    if (stocks.length > 0) {
+      setLockedItems(
+        items.map((item) => {
+          const stock = stockById.get(item.stockId);
+
+          return {
+            ...item,
+            symbol: stock?.symbol ?? item.symbol,
+            price: roundMoney(stock?.price ?? item.price),
+          };
+        }),
+      );
+      return;
+    }
+
+    if (!stocksLoading && stocksError) {
+      setLockedItems(items);
+    }
+  }, [items, lockedItems, stocks, stocksError, stocksLoading, stockById]);
+
+  const displayItems = lockedItems ?? [];
+
+  const subtotal = useMemo(
+    () => roundMoney(displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)),
+    [displayItems],
+  );
+  const tax = useMemo(() => roundMoney(subtotal * 0.08), [subtotal]);
+  const total = useMemo(() => roundMoney(subtotal + tax), [subtotal, tax]);
+  const initialTotal = state?.total ?? total;
+  const priceUpdated = lockedItems !== null && Math.abs(initialTotal - total) >= 0.01;
 
   const hasSufficientBalance = !isWalletLoading && balance >= total;
 
@@ -76,7 +113,12 @@ export function PaymentPage() {
     setProcessing(true);
 
     try {
-      const response = await completeOrder();
+      const response = await completeOrder({
+        items: displayItems,
+        subtotal,
+        tax,
+        total,
+      });
       if (!response.status || response.status.toUpperCase() !== "COMPLETED") {
         setError("Payment was not completed. Please try again.");
         return;
@@ -85,13 +127,6 @@ export function PaymentPage() {
       await clearCart();
       await refreshOrders();
       await refreshWallet();
-
-      const orders = await fetchOrderHistory();
-      const completedOrder = response.orderId
-        ? orders.find((order) => order.id === response.orderId)
-        : orders[0];
-
-      setPaidTotal(completedOrder?.total ?? total);
       setShowSuccess(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unable to complete payment right now. Please try again.";
@@ -117,6 +152,20 @@ export function PaymentPage() {
     );
   }
 
+  if (!lockedItems && !stocksError) {
+    return (
+      <>
+        <Header />
+        <main className="payment-page">
+          <div className="payment-container payment-empty">
+            <h1>Locking latest prices...</h1>
+            <p>Please wait while we fetch and freeze the current quote values for this payment.</p>
+          </div>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <Header />
@@ -128,13 +177,19 @@ export function PaymentPage() {
               Price lock expires in <strong>{secondsLeft}s</strong>
             </p>
 
+              {priceUpdated && (
+              <p className="payment-error-msg" role="status" aria-live="polite">
+                Prices were refreshed using the latest stock quote values.
+              </p>
+            )}
+
             <div className="wallet-pay-balance">
               <span className="wallet-pay-balance-label">Wallet Balance</span>
               <span className="wallet-pay-balance-amount">{isWalletLoading ? "Loading..." : `$${balance.toFixed(2)}`}</span>
             </div>
 
             {!showSuccess && !processing && (
-              isWalletLoading ? (
+                isWalletLoading ? (
                 <p className="wallet-pay-sufficient-text">Checking wallet balance...</p>
               ) : hasSufficientBalance ? (
                 <div className="wallet-pay-sufficient">
@@ -165,10 +220,10 @@ export function PaymentPage() {
           <aside className="payment-summary-card">
             <h2>Order Summary</h2>
             <div className="payment-items">
-              {items.map((item) => (
+              {displayItems.map((item) => (
                 <p key={item.stockId}>
                   <span>{item.symbol} x {item.quantity}</span>
-                  <strong>${(item.price * item.quantity).toFixed(2)}</strong>
+                  <strong>${roundMoney(item.price * item.quantity).toFixed(2)}</strong>
                 </p>
               ))}
             </div>
@@ -182,8 +237,6 @@ export function PaymentPage() {
           <div className="payment-success-overlay" role="dialog" aria-modal="true" aria-labelledby="payment-success-title">
             <div className="payment-success-card">
               <h2 id="payment-success-title">Payment Successful! 🎉</h2>
-              <p>Your order of <strong>${paidTotal.toFixed(2)}</strong> has been placed.</p>
-              <p className="payment-success-wallet">Wallet balance updated.</p>
               <button type="button" className="payment-primary-btn" onClick={() => navigate("/orders")}>View Orders</button>
             </div>
           </div>
