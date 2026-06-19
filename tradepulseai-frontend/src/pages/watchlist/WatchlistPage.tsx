@@ -3,6 +3,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { formatMoney, formatPercent } from "../../utils/money";
 import { useStocks } from "../../utils/useStocks";
 import "./WatchlistPage.css";
 
@@ -122,9 +123,9 @@ export function WatchlistPage() {
                     <tr key={stock.id}>
                       <td><strong>{stock.symbol}</strong></td>
                       <td><span className="wl-name">{stock.name ?? "N/A"}</span><span className="wl-sector">{stock.exchange ?? "N/A"}</span></td>
-                      <td>${livePrice.toFixed(2)}</td>
+                      <td>${formatMoney(livePrice)}</td>
                       <td className={liveChange >= 0 ? "price-up" : "price-down"}>
-                        {liveChange >= 0 ? "+" : ""}{liveChange.toFixed(2)}%
+                        {formatPercent(liveChange)}%
                       </td>
                       <td>
                         <button

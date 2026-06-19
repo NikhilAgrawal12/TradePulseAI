@@ -167,30 +167,15 @@ export function RegistrationPage() {
     }
 
     try {
-      // Step 1: Register user in auth-service
-      const registerResponse = await axios.post<{ userId: number }>("/auth/register", {
-        email,
-        password,
-      });
-      const userId = registerResponse.data?.userId;
-      if (!userId) {
-        setError("Registration failed: user id missing from auth-service response");
-        setLoading(false);
-        return;
-      }
-
-      // Step 2: Create customer in cust-service
       const registrationDate = new Date().toISOString();
 
-      await axios.post("/api/customers", {
-        userId,
+      await axios.post("/api/customers/register", {
         firstName,
         lastName,
         email,
+        password,
         phoneNumber,
         dateOfBirth,
-        // Keep temporary backward compatibility with older cust-service expecting `address`.
-        address: addressLine1,
         addressLine1,
         addressLine2,
         city,
@@ -198,7 +183,6 @@ export function RegistrationPage() {
         postalCode,
         country,
         registrationDate,
-        registeredDate: registrationDate,
       });
 
       // Success - redirect to login

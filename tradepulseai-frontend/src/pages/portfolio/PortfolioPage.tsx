@@ -4,6 +4,7 @@ import { Header } from "../../components/Header";
 import type { PortfolioHolding, PortfolioResponse } from "../../types/portfolio";
 import { isUserAuthenticated } from "../../utils/auth";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { formatMoney, formatPercent, formatSignedCurrency, toMoney } from "../../utils/money";
 import { sellPortfolioItem, fetchPortfolio } from "../../utils/portfolioApi";
 import { useStocks } from "../../utils/useStocks";
 import "./PortfolioPage.css";
@@ -23,7 +24,7 @@ const EMPTY_PORTFOLIO: PortfolioResponse = {
 };
 
 function formatCurrency(value: number) {
-    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$${formatMoney(value)}`;
 }
 
 export function PortfolioPage() {
@@ -38,7 +39,7 @@ export function PortfolioPage() {
     const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
 
     const closedMarketMessage =
-        "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM - 9:30 AM ET, Regular Market: 9:30 AM - 4:00 PM ET, After-Hours: 4:00 PM - 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.";
+        "Markets are currently closed. Trading is available Monday through Friday, excluding market holidays, during the following hours (ET): Pre-Market: 4:00 AM – 9:30 AM, Regular Market: 9:30 AM – 4:00 PM, and After-Hours: 4:00 PM – 8:00 PM. Please try again when trading resumes at 4:00 AM ET on the next trading day.";
 
     useEffect(() => {
         document.title = "Portfolio | TradePulseAI";
@@ -104,15 +105,15 @@ export function PortfolioPage() {
         return portfolio.holdings.map((holding) => {
             const livePrice = stockPriceMap.get(holding.stockId) ?? holding.currentPrice;
             const symbol = stockSymbolMap.get(holding.stockId) ?? holding.symbol ?? holding.stockId;
-            const marketValue = livePrice * holding.quantity;
-            const unrealizedPnl = marketValue - holding.investedValue;
+            const marketValue = toMoney(livePrice * holding.quantity);
+            const unrealizedPnl = toMoney(marketValue - holding.investedValue);
             const unrealizedPnlPercent =
-                holding.investedValue > 0 ? (unrealizedPnl / holding.investedValue) * 100 : 0;
+                holding.investedValue > 0 ? toMoney((unrealizedPnl / holding.investedValue) * 100) : 0;
 
             return {
                 ...holding,
                 symbol,
-                currentPrice: livePrice,
+                currentPrice: toMoney(livePrice),
                 marketValue,
                 unrealizedPnl,
                 unrealizedPnlPercent,
@@ -123,10 +124,10 @@ export function PortfolioPage() {
     const livePortfolioTotals = useMemo(() => {
         const totalMarketValue = holdingsWithLivePrice.reduce((sum, item) => sum + item.marketValue, 0);
         const totalInvestedValue = holdingsWithLivePrice.reduce((sum, item) => sum + item.investedValue, 0);
-        const totalUnrealizedPnl = totalMarketValue - totalInvestedValue;
+        const totalUnrealizedPnl = toMoney(totalMarketValue - totalInvestedValue);
 
         return {
-            totalMarketValue,
+            totalMarketValue: toMoney(totalMarketValue),
             totalUnrealizedPnl,
         };
     }, [holdingsWithLivePrice]);
@@ -159,7 +160,7 @@ export function PortfolioPage() {
             setPortfolioNotice(null);
             const updated = await sellPortfolioItem(holding.stockId, {
                 quantity,
-                price: currentPrice,
+                price: toMoney(currentPrice),
             });
             setPortfolio(updated);
         } catch (sellError) {
@@ -206,17 +207,11 @@ export function PortfolioPage() {
                                 </article>
                                 <article className={`portfolio-stat-card ${livePortfolioTotals.totalUnrealizedPnl >= 0 ? "positive" : "negative"}`}>
                                     <span>Unrealized PnL</span>
-                                    <strong>
-                                        {livePortfolioTotals.totalUnrealizedPnl >= 0 ? "+" : ""}
-                                        {formatCurrency(livePortfolioTotals.totalUnrealizedPnl)}
-                                    </strong>
+                                    <strong>{formatSignedCurrency(livePortfolioTotals.totalUnrealizedPnl)}</strong>
                                 </article>
                                 <article className={`portfolio-stat-card ${portfolio.summary.totalRealizedPnl >= 0 ? "positive" : "negative"}`}>
                                     <span>Realized PnL</span>
-                                    <strong>
-                                        {portfolio.summary.totalRealizedPnl >= 0 ? "+" : ""}
-                                        {formatCurrency(portfolio.summary.totalRealizedPnl)}
-                                    </strong>
+                                    <strong>{formatSignedCurrency(portfolio.summary.totalRealizedPnl)}</strong>
                                 </article>
                             </section>
 
@@ -248,8 +243,7 @@ export function PortfolioPage() {
                                                     <td>{formatCurrency(holding.investedValue)}</td>
                                                     <td>{formatCurrency(holding.marketValue)}</td>
                                                     <td className={holding.unrealizedPnl >= 0 ? "positive" : "negative"}>
-                                                        {holding.unrealizedPnl >= 0 ? "+" : ""}
-                                                        {formatCurrency(holding.unrealizedPnl)} ({holding.unrealizedPnlPercent.toFixed(2)}%)
+                                                        {formatSignedCurrency(holding.unrealizedPnl)} ({formatPercent(holding.unrealizedPnlPercent, false)}%)
                                                     </td>
                                                     <td>
                                                         <div className="portfolio-sell-action">
@@ -320,7 +314,7 @@ export function PortfolioPage() {
                                                         <td>{formatCurrency(transaction.grossAmount)}</td>
                                                         <td className={isSell ? (transaction.realizedPnl >= 0 ? "positive" : "negative") : ""}>
                                                             {isSell
-                                                                ? `${transaction.realizedPnl >= 0 ? "+" : ""}${formatCurrency(transaction.realizedPnl)}`
+                                                                ? formatSignedCurrency(transaction.realizedPnl)
                                                                 : "-"}
                                                         </td>
                                                         <td>{new Date(transaction.executedAt).toLocaleString()}</td>

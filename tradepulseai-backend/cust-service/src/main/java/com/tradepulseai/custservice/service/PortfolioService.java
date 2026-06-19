@@ -222,9 +222,9 @@ public class PortfolioService {
 
         private BigDecimal averageCost() {
             if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-                return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+                return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             }
-            return totalCost.divide(quantity, 4, RoundingMode.HALF_UP);
+            return totalCost.divide(quantity, 2, RoundingMode.HALF_UP);
         }
     }
 

@@ -29,7 +29,7 @@ public class TradeOrderItem {
     @Column(name = "price", nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false, precision = 18, scale = 8)
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 2)
     private BigDecimal quantity;
 
     public TradeOrderItemId getId() {

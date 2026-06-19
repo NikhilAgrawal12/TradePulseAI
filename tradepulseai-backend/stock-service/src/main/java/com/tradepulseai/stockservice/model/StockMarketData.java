@@ -38,22 +38,22 @@ public class StockMarketData {
     @Column(name = "trading_date", nullable = false)
     private LocalDate tradingDate;
 
-    @Column(name = "open_price", nullable = false, precision = 12, scale = 4)
+    @Column(name = "open_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal openPrice;
 
-    @Column(name = "high_price", nullable = false, precision = 12, scale = 4)
+    @Column(name = "high_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal highPrice;
 
-    @Column(name = "low_price", nullable = false, precision = 12, scale = 4)
+    @Column(name = "low_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal lowPrice;
 
-    @Column(name = "close_price", nullable = false, precision = 12, scale = 4)
+    @Column(name = "close_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal closePrice;
 
     @Column(name = "volume", nullable = false)
     private Long volume;
 
-    @Column(name = "vwap", precision = 12, scale = 4)
+    @Column(name = "vwap", precision = 12, scale = 2)
     private BigDecimal vwap;
 
     @Column(name = "is_otc", nullable = false)

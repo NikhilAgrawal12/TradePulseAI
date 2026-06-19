@@ -6,7 +6,7 @@ import { useOrders } from "../../context/OrdersContext";
 import { useWallet } from "../../context/WalletContext";
 import type { CartItem } from "../../types/cart";
 import { completeOrder } from "../../utils/cartApi";
-import { roundMoney } from "../../utils/money";
+import { formatMoney, roundMoney, toMoney } from "../../utils/money";
 import { useStocks } from "../../utils/useStocks";
 import "./PaymentPage.css";
 
@@ -201,7 +201,7 @@ export function PaymentPage() {
 
             <div className="wallet-pay-balance">
               <span className="wallet-pay-balance-label">Wallet Balance</span>
-              <span className="wallet-pay-balance-amount">{isWalletLoading ? "Loading..." : `$${balance.toFixed(2)}`}</span>
+              <span className="wallet-pay-balance-amount">{isWalletLoading ? "Loading..." : `$${formatMoney(balance)}`}</span>
             </div>
 
             {!showSuccess && !processing && (
@@ -215,13 +215,13 @@ export function PaymentPage() {
                     disabled={processing || secondsLeft <= 0}
                     onClick={handlePayWithWallet}
                   >
-                    {processing ? "Processing..." : `Pay $${total.toFixed(2)} from Wallet`}
+                    {processing ? "Processing..." : `Pay $${formatMoney(total)} from Wallet`}
                   </button>
                 </div>
               ) : (
                 <div className="wallet-pay-insufficient">
                   <p className="wallet-pay-insufficient-text">
-                    Insufficient balance. You need <strong>${(total - balance).toFixed(2)}</strong> more.
+                    Insufficient balance. You need <strong>${formatMoney(toMoney(total - balance))}</strong> more.
                   </p>
                   <Link to="/wallet" className="payment-link-btn wallet-topup-btn">
                     Add Funds to Wallet
@@ -239,11 +239,11 @@ export function PaymentPage() {
               {displayItems.map((item) => (
                 <p key={item.stockId}>
                   <span>{item.symbol} x {item.quantity}</span>
-                  <strong>${roundMoney(item.price * item.quantity).toFixed(2)}</strong>
+                  <strong>${formatMoney(roundMoney(item.price * item.quantity))}</strong>
                 </p>
               ))}
             </div>
-            <div className="payment-summary-row total"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
+            <div className="payment-summary-row total"><span>Total</span><strong>${formatMoney(total)}</strong></div>
             {priceUpdated && (
               <p className="payment-price-refresh-msg" role="status" aria-live="polite">
                 Prices were refreshed using the latest stock quote values.
@@ -258,7 +258,7 @@ export function PaymentPage() {
               <h2 id="payment-success-title">Payment Successful! 🎉</h2>
               <p>Your wallet payment is complete and your order was placed.</p>
               <div className="payment-success-details">
-                <p><span>Amount Paid</span><strong>${(receipt?.total ?? total).toFixed(2)}</strong></p>
+                <p><span>Amount Paid</span><strong>${formatMoney(receipt?.total ?? total)}</strong></p>
                 <p><span>Items</span><strong>{receipt?.itemCount ?? displayItems.length}</strong></p>
                 <p><span>Date</span><strong>{new Date(receipt?.paidAtIso ?? new Date().toISOString()).toLocaleString()}</strong></p>
                 <p><span>Order #</span><strong>{receipt?.orderNumber ?? "Pending"}</strong></p>

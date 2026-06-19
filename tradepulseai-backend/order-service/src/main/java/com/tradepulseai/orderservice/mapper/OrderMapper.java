@@ -83,7 +83,7 @@ public class OrderMapper {
         item.setOrder(order);
         item.setStockId(itemRequest.getStockId());
         item.setPrice(OrderItemMapper.scaleMoney(itemRequest.getPrice()));
-        item.setQuantity(itemRequest.getQuantity().setScale(8, java.math.RoundingMode.HALF_UP));
+        item.setQuantity(itemRequest.getQuantity().setScale(2, java.math.RoundingMode.HALF_UP));
         return item;
     }
 }

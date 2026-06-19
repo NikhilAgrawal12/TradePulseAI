@@ -19,6 +19,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -41,6 +42,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
 
     private final StockRepository stockRepository;
     private final StockMarketDataRepository stockMarketDataRepository;
+    private final StockMetricsRefreshService stockMetricsRefreshService;
     private final RestClient restClient;
     private final String apiKey;
     private final boolean syncOnStartup;
@@ -58,6 +60,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
     public StockOhlcSyncService(
             StockRepository stockRepository,
             StockMarketDataRepository stockMarketDataRepository,
+            StockMetricsRefreshService stockMetricsRefreshService,
             @Value("${massive.api.base-url}") String apiBaseUrl,
             @Value("${massive.api.key:}") String apiKey,
             @Value("${massive.ohlc.sync-on-startup:true}") boolean syncOnStartup,
@@ -70,6 +73,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
             @Value("${massive.ohlc.sync-zone:UTC}") String syncZone) {
         this.stockRepository = stockRepository;
         this.stockMarketDataRepository = stockMarketDataRepository;
+        this.stockMetricsRefreshService = stockMetricsRefreshService;
         this.apiKey = apiKey;
         this.syncOnStartup = syncOnStartup;
         this.dailySyncEnabled = dailySyncEnabled;
@@ -141,6 +145,9 @@ public class StockOhlcSyncService implements ApplicationRunner {
 
             if (startDate.isAfter(endDate)) {
                 log.info("No missing OHLC dates to sync for trigger {}.", trigger);
+                if ("startup".equalsIgnoreCase(trigger)) {
+                    stockMetricsRefreshService.refreshAllForLatestOhlc(trigger);
+                }
                 return;
             }
 
@@ -150,6 +157,10 @@ public class StockOhlcSyncService implements ApplicationRunner {
                     continue;
                 }
                 totalInserted += syncSingleDate(date, stockByTicker);
+            }
+
+            if (totalInserted > 0 || "startup".equalsIgnoreCase(trigger)) {
+                stockMetricsRefreshService.refreshAllForLatestOhlc(trigger);
             }
 
             log.info("OHLC sync ({}) completed. Inserted {} rows from {} to {}.", trigger, totalInserted, startDate, endDate);
@@ -273,7 +284,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
         if (node == null || node.isNull()) {
             return null;
         }
-        return BigDecimal.valueOf(node.asDouble());
+        return BigDecimal.valueOf(node.asDouble()).setScale(2, RoundingMode.HALF_UP);
     }
 
     private long longOrZero(JsonNode node) {

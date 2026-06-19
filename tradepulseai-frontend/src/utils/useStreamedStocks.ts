@@ -1,8 +1,21 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import type { Stock } from "../types/stock";
+import { toMoney } from "./money";
 
 const LAST_STOCKS_CACHE_KEY = "tradepulseai:last-streamed-stocks";
+
+function normalizeStocks(rawStocks: Stock[]): Stock[] {
+  return rawStocks.map((stock) => ({
+    ...stock,
+    price: stock.price == null ? null : toMoney(stock.price),
+    changePercent: stock.changePercent == null ? null : toMoney(stock.changePercent),
+    open: stock.open == null ? null : toMoney(stock.open),
+    high: stock.high == null ? null : toMoney(stock.high),
+    low: stock.low == null ? null : toMoney(stock.low),
+    vwap: stock.vwap == null ? null : toMoney(stock.vwap),
+  }));
+}
 
 function readCachedStocks(): Stock[] {
   try {
@@ -11,7 +24,7 @@ function readCachedStocks(): Stock[] {
       return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? normalizeStocks(parsed as Stock[]) : [];
   } catch {
     return [];
   }
@@ -19,7 +32,7 @@ function readCachedStocks(): Stock[] {
 
 function writeCachedStocks(stocks: Stock[]): void {
   try {
-    window.localStorage.setItem(LAST_STOCKS_CACHE_KEY, JSON.stringify(stocks));
+    window.localStorage.setItem(LAST_STOCKS_CACHE_KEY, JSON.stringify(normalizeStocks(stocks)));
   } catch {
     // Ignore localStorage failures silently.
   }
@@ -51,7 +64,7 @@ export function useStreamedStocks() {
         const response = await axios.get<Stock[]>("/api/stocks/featured");
         if (!mounted) return;
 
-        const data = Array.isArray(response.data) ? response.data : [];
+        const data = Array.isArray(response.data) ? normalizeStocks(response.data) : [];
         if (data.length > 0) {
           setStocks(data);
           writeCachedStocks(data);
@@ -77,7 +90,7 @@ export function useStreamedStocks() {
       if (!mounted) return;
       try {
         const data = JSON.parse(rawData);
-        const nextStocks = Array.isArray(data) ? data : [];
+        const nextStocks = Array.isArray(data) ? normalizeStocks(data as Stock[]) : [];
 
         setStocks(nextStocks);
         if (!searchTerm.trim()) {

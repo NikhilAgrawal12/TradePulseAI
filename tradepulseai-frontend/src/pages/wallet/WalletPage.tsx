@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Header } from "../../components/Header.tsx";
 import { useWallet } from "../../context/WalletContext";
+import { formatMoney, formatSignedCurrency, toMoney } from "../../utils/money";
 import { depositToWallet, fetchWalletTransactions, withdrawFromWallet } from "../../utils/walletApi";
 import type { WalletTransactionItem } from "../../utils/walletApi";
 import "./WalletPage.css";
@@ -42,7 +43,7 @@ export function WalletPage() {
 
   const handleDeposit = async (e: FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(depositAmount);
+    const amount = toMoney(parseFloat(depositAmount));
     if (!depositAmount || isNaN(amount) || amount <= 0) {
       setDepositMsg({ type: "error", text: "Please enter a valid amount." });
       return;
@@ -54,7 +55,7 @@ export function WalletPage() {
       await refreshWallet();
       await loadTransactions();
       setDepositAmount("");
-      setDepositMsg({ type: "success", text: `$${amount.toFixed(2)} added to your wallet!` });
+      setDepositMsg({ type: "success", text: `$${formatMoney(amount)} added to your wallet!` });
     } catch {
       setDepositMsg({ type: "error", text: "Deposit failed. Please try again." });
     } finally {
@@ -64,7 +65,7 @@ export function WalletPage() {
 
   const handleWithdraw = async (e: FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(withdrawAmount);
+    const amount = toMoney(parseFloat(withdrawAmount));
     if (!withdrawAmount || isNaN(amount) || amount <= 0) {
       setWithdrawMsg({ type: "error", text: "Please enter a valid amount." });
       return;
@@ -80,7 +81,7 @@ export function WalletPage() {
       await refreshWallet();
       await loadTransactions();
       setWithdrawAmount("");
-      setWithdrawMsg({ type: "success", text: `$${amount.toFixed(2)} withdrawn successfully!` });
+      setWithdrawMsg({ type: "success", text: `$${formatMoney(amount)} withdrawn successfully!` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Withdrawal failed. Please try again.";
       setWithdrawMsg({ type: "error", text: msg });
@@ -114,7 +115,7 @@ export function WalletPage() {
           <div>
             <p className="wallet-balance-label">Available Balance</p>
             <p className="wallet-balance-amount">
-              {isLoading ? "—" : `$${balance.toFixed(2)}`}
+              {isLoading ? "—" : `$${formatMoney(balance)}`}
             </p>
           </div>
           <div className="wallet-balance-icon">💰</div>
@@ -199,9 +200,9 @@ export function WalletPage() {
                         <td>{formatDate(tx.createdAt)}</td>
                         <td><span className={typeBadgeClass(tx.transactionType)}>{tx.transactionType}</span></td>
                         <td className={isCredit ? "wallet-amount-positive" : "wallet-amount-negative"}>
-                          {isCredit ? "+" : "-"}${Number(tx.amount).toFixed(2)}
+                          {formatSignedCurrency(isCredit ? tx.amount : -tx.amount)}
                         </td>
-                        <td>${Number(tx.balanceAfter).toFixed(2)}</td>
+                        <td>${formatMoney(tx.balanceAfter)}</td>
                       </tr>
                     );
                   })}

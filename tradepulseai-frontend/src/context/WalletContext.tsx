@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../utils/auth";
 import { fetchWallet } from "../utils/walletApi";
+import { toMoney } from "../utils/money";
 
 type WalletContextType = {
   balance: number;
@@ -29,7 +30,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const wallet = await fetchWallet();
-      setBalance(Number(wallet.balance));
+      setBalance(toMoney(wallet.balance));
     } catch {
       setBalance(0);
     } finally {

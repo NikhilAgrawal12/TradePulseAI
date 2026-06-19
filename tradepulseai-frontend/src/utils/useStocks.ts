@@ -1,7 +1,20 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import type { Stock } from "../types/stock";
+import { toMoney } from "./money";
 const STOCKS_REFRESH_MS = 2000;
+
+function normalizeStocks(rawStocks: Stock[]): Stock[] {
+  return rawStocks.map((stock) => ({
+    ...stock,
+    price: stock.price == null ? null : toMoney(stock.price),
+    changePercent: stock.changePercent == null ? null : toMoney(stock.changePercent),
+    open: stock.open == null ? null : toMoney(stock.open),
+    high: stock.high == null ? null : toMoney(stock.high),
+    low: stock.low == null ? null : toMoney(stock.low),
+    vwap: stock.vwap == null ? null : toMoney(stock.vwap),
+  }));
+}
 
 export function useStocks() {
   const [stocks, setStocks] = useState<Stock[]>([]);
@@ -18,7 +31,7 @@ export function useStocks() {
         if (!mounted) {
           return;
         }
-        const data = Array.isArray(response.data) ? response.data : [];
+        const data = Array.isArray(response.data) ? normalizeStocks(response.data) : [];
         setStocks(data);
         setError(null);
       } catch {

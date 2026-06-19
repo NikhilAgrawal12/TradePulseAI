@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useOrders } from "../../context/OrdersContext";
 import { isUserAuthenticated } from "../../utils/auth";
+import { formatMoney } from "../../utils/money";
 import "./OrdersPage.css";
 
 export function OrdersPage() {
@@ -50,20 +51,20 @@ export function OrdersPage() {
                         <h2>Order #{order.orderNumber}</h2>
                         <p>{new Date(order.createdAtIso).toLocaleString()}</p>
                       </div>
-                      <span className="order-total">${order.total.toFixed(2)}</span>
+                      <span className="order-total">${formatMoney(order.total)}</span>
                     </header>
 
                     <div className="order-items">
                       {order.items.map((item) => (
                         <p key={`${order.id}-${item.stockId}`}>
                           <span>{item.symbol} x {item.quantity}</span>
-                          <strong>${item.lineTotal.toFixed(2)}</strong>
+                          <strong>${formatMoney(item.lineTotal)}</strong>
                         </p>
                       ))}
                     </div>
 
                     <footer className="order-summary">
-                      <p className="grand-total"><span>Total</span><strong>${order.total.toFixed(2)}</strong></p>
+                      <p className="grand-total"><span>Total</span><strong>${formatMoney(order.total)}</strong></p>
                     </footer>
                   </article>
                 ))}

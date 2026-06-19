@@ -1,10 +1,12 @@
 package com.tradepulseai.stockservice.controller;
 
 import com.tradepulseai.stockservice.dto.market.MarketStatusResponseDTO;
+import com.tradepulseai.stockservice.dto.stock.StockInsightsResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.service.FeaturedStockRefreshService;
 import com.tradepulseai.stockservice.service.FeaturedStockSSEService;
 import com.tradepulseai.stockservice.service.MarketStatusCacheService;
+import com.tradepulseai.stockservice.service.StockInsightsService;
 import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,15 +32,18 @@ public class StockController {
     private final FeaturedStockRefreshService featuredStockRefreshService;
     private final FeaturedStockSSEService featuredStockSSEService;
     private final MarketStatusCacheService marketStatusCacheService;
+    private final StockInsightsService stockInsightsService;
 
     public StockController(StockService stockService,
                           FeaturedStockRefreshService featuredStockRefreshService,
                           FeaturedStockSSEService featuredStockSSEService,
-                          MarketStatusCacheService marketStatusCacheService) {
+                          MarketStatusCacheService marketStatusCacheService,
+                          StockInsightsService stockInsightsService) {
         this.stockService = stockService;
         this.featuredStockRefreshService = featuredStockRefreshService;
         this.featuredStockSSEService = featuredStockSSEService;
         this.marketStatusCacheService = marketStatusCacheService;
+        this.stockInsightsService = stockInsightsService;
     }
 
     @GetMapping
@@ -74,6 +79,12 @@ public class StockController {
     @Operation(summary = "Get stock by id")
     public ResponseEntity<StockResponseDTO> getStockById(@PathVariable Long id) {
         return ResponseEntity.ok(stockService.getStockById(id));
+    }
+
+    @GetMapping("/{id}/insights")
+    @Operation(summary = "Get detailed analytics and chart-ready insights for a stock")
+    public ResponseEntity<StockInsightsResponseDTO> getStockInsights(@PathVariable Long id) {
+        return ResponseEntity.ok(stockInsightsService.getInsights(id));
     }
 
     @GetMapping("/symbol/{symbol}")

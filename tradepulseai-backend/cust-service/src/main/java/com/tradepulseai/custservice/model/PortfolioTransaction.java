@@ -29,10 +29,10 @@ public class PortfolioTransaction {
     @Column(name = "transaction_type", nullable = false, length = 20)
     private String transactionType;
 
-    @Column(name = "price", nullable = false, precision = 18, scale = 4)
+    @Column(name = "price", nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
 
-    @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 2)
     private BigDecimal quantity;
 
     @Column(name = "executed_at", nullable = false)

@@ -5,6 +5,7 @@ import com.tradepulseai.stockservice.model.StockMarketData;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -25,6 +26,14 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
 
     @Query("SELECT smd.stock.stockId FROM StockMarketData smd WHERE smd.tradingDate = :tradingDate")
     List<Long> findStockIdsByTradingDate(@Param("tradingDate") LocalDate tradingDate);
+
+    @Query("""
+            SELECT smd
+            FROM StockMarketData smd
+            WHERE smd.stock.stockId = :stockId
+            ORDER BY smd.tradingDate DESC
+            """)
+    List<StockMarketData> findRecentByStockId(@Param("stockId") Long stockId, Pageable pageable);
 
     @Query("""
             SELECT smd

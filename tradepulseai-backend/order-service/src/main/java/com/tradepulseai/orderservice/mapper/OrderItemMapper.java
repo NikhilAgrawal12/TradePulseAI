@@ -38,6 +38,6 @@ public class OrderItemMapper {
     }
 
     private static BigDecimal scaleQuantity(BigDecimal quantity) {
-        return quantity.setScale(8, RoundingMode.HALF_UP);
+        return quantity.setScale(2, RoundingMode.HALF_UP);
     }
 }

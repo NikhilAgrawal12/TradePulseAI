@@ -17,10 +17,10 @@ public class PortfolioHolding {
     @EmbeddedId
     private PortfolioHoldingId id;
 
-    @Column(name = "total_quantity", nullable = false, precision = 18, scale = 4)
+    @Column(name = "total_quantity", nullable = false, precision = 18, scale = 2)
     private BigDecimal totalQuantity;
 
-    @Column(name = "avg_buy_price", precision = 18, scale = 4)
+    @Column(name = "avg_buy_price", precision = 18, scale = 2)
     private BigDecimal avgBuyPrice;
 
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -5,6 +5,7 @@ import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../../utils/auth";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { formatMoney, formatPercent } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
 
@@ -118,18 +119,18 @@ export function HomePage() {
                         </div>
 
                         <div className="quote-price-row">
-                          <strong>${stickerPrice.toFixed(2)}</strong>
-                          <span className={isPositive ? "price-up" : "price-down"}>{isPositive ? "+" : ""}{change.toFixed(2)}%</span>
+                          <strong>${formatMoney(stickerPrice)}</strong>
+                          <span className={isPositive ? "price-up" : "price-down"}>{formatPercent(change)}%</span>
                         </div>
 
                         <div className="aggregate-block">
                           <p className="block-title">Live Snapshot</p>
                           <div className="aggregate-grid">
-                            <p className="metric-item"><span>Open</span><strong className="metric-value">{typeof stock.open === "number" ? `$${stock.open.toFixed(2)}` : "--"}</strong></p>
-                            <p className="metric-item"><span>High</span><strong className="metric-value">{typeof stock.high === "number" ? `$${stock.high.toFixed(2)}` : "--"}</strong></p>
-                            <p className="metric-item"><span>Low</span><strong className="metric-value">{typeof stock.low === "number" ? `$${stock.low.toFixed(2)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>Open</span><strong className="metric-value">{typeof stock.open === "number" ? `$${formatMoney(stock.open)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>High</span><strong className="metric-value">{typeof stock.high === "number" ? `$${formatMoney(stock.high)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>Low</span><strong className="metric-value">{typeof stock.low === "number" ? `$${formatMoney(stock.low)}` : "--"}</strong></p>
                             <p className="metric-item"><span>Volume</span><strong className="metric-value">{typeof stock.volume === "number" ? stock.volume.toLocaleString() : "--"}</strong></p>
-                            <p className="metric-item"><span>VWAP</span><strong className="metric-value">{typeof stock.vwap === "number" ? `$${stock.vwap.toFixed(2)}` : "--"}</strong></p>
+                            <p className="metric-item"><span>VWAP</span><strong className="metric-value">{typeof stock.vwap === "number" ? `$${formatMoney(stock.vwap)}` : "--"}</strong></p>
                             <p className="metric-item metric-item-full"><span>Updated</span><strong className="metric-value">{formatRealtimeTime(stock.lastUpdated)}</strong></p>
                           </div>
                         </div>
@@ -149,6 +150,9 @@ export function HomePage() {
                             ⭐ Add to watchlist
                           </button>
                         </div>
+                        <Link className="stock-insights-btn" to={`/stocks/${stock.id}/insights`}>
+                          ✨ Insights
+                        </Link>
                       </article>
                     );
                   })}

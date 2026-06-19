@@ -282,7 +282,9 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     }
 
     private BigDecimal number(JsonNode node) {
-        return node != null && node.isNumber() ? BigDecimal.valueOf(node.asDouble()) : null;
+        return node != null && node.isNumber()
+                ? BigDecimal.valueOf(node.asDouble()).setScale(2, RoundingMode.HALF_UP)
+                : null;
     }
 
     private String normalizeSymbol(String value) {
@@ -300,7 +302,8 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         return closePrice
                 .subtract(openPrice)
                 .divide(openPrice, 6, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100));
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     private String escapeJson(String value) {

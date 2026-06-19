@@ -11,6 +11,7 @@ import {PaymentPage} from "./pages/payment/PaymentPage";
 import {OrdersPage} from "./pages/orders/OrdersPage";
 import {AccountManagementPage} from "./pages/account-management/AccountManagementPage";
 import {WalletPage} from "./pages/wallet/WalletPage";
+import {StockInsightsPage} from "./pages/stock-insights/StockInsightsPage";
 
 function App() {
 
@@ -28,6 +29,7 @@ function App() {
         <Route path="orders" element={<OrdersPage />} />
         <Route path="account-management" element={<AccountManagementPage />} />
         <Route path="wallet" element={<WalletPage />} />
+        <Route path="stocks/:stockId/insights" element={<StockInsightsPage />} />
       </Routes>
   );
 

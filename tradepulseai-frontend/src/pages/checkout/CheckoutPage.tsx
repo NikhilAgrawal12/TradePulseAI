@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
-import { roundMoney } from "../../utils/money";
+import { formatMoney, formatPercent, roundMoney } from "../../utils/money";
 import { useStocks } from "../../utils/useStocks";
 import "./CheckoutPage.css";
 
@@ -49,7 +49,7 @@ export function CheckoutPage() {
     };
   }, []);
   const closedMarketMessage =
-    "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM – 9:30 AM ET, Regular Market: 9:30 AM – 4:00 PM ET, After-Hours: 4:00 PM – 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.";
+    "Markets are currently closed. Trading is available Monday through Friday, excluding market holidays, during the following hours (ET): Pre-Market: 4:00 AM – 9:30 AM, Regular Market: 9:30 AM – 4:00 PM, and After-Hours: 4:00 PM – 8:00 PM. Please try again when trading resumes at 4:00 AM ET on the next trading day.";
   const paymentCancelledMessage = (location.state as { reason?: string; paymentCancelled?: boolean } | null)?.paymentCancelled
     ? (location.state as { reason?: string }).reason ?? "Payment was cancelled."
     : null;
@@ -100,9 +100,7 @@ export function CheckoutPage() {
 
   const handleCheckout = () => {
     if (isMarketClosed) {
-      setCheckoutNotice(
-        "Markets are currently closed. Trading is available from 4:00 AM to 8:00 PM ET as follows: Pre-Market: 4:00 AM – 9:30 AM ET, Regular Market: 9:30 AM – 4:00 PM ET, After-Hours: 4:00 PM – 8:00 PM ET. Please try again when the market reopens at 4:00 AM ET.",
-      );
+      setCheckoutNotice(closedMarketMessage);
       return;
     }
 
@@ -166,13 +164,13 @@ export function CheckoutPage() {
                             )}
                           </td>
                           <td>
-                            <span className="cart-price">${price.toFixed(2)}</span>
+                            <span className="cart-price">${formatMoney(price)}</span>
                             {isLive && <span className={`cart-session-badge ${sessionMeta.cssClass}`}>{sessionMeta.label}</span>}
                           </td>
                           <td>
                             {change !== null ? (
                               <span className={change >= 0 ? "price-up" : "price-down"}>
-                                {change >= 0 ? "+" : ""}{change.toFixed(2)}%
+                                {formatPercent(change)}%
                               </span>
                             ) : (
                               <span className="cart-no-data">--</span>
@@ -187,7 +185,7 @@ export function CheckoutPage() {
                               className="quantity-input"
                             />
                           </td>
-                          <td className="cart-total">${(price * item.quantity).toFixed(2)}</td>
+                          <td className="cart-total">${formatMoney(price * item.quantity)}</td>
                           <td>
                             <button
                               className="remove-btn"
@@ -205,7 +203,7 @@ export function CheckoutPage() {
               <div className="checkout-summary">
                 <div className="summary-row total-row">
                   <span>Total</span>
-                  <strong>${totalPrice.toFixed(2)}</strong>
+                  <strong>${formatMoney(totalPrice)}</strong>
                 </div>
 
                 <div className="checkout-actions">

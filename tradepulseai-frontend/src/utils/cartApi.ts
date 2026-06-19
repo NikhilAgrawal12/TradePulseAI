@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { AddCartItemRequest, CartItem, CompleteOrderResponse, UpdateCartItemRequest } from "../types/cart";
 import { getEmailFromToken, getStoredToken, getUserIdFromToken } from "./auth";
+import { toMoney } from "./money";
 
 function buildAuthHeaders() {
   const token = getStoredToken();
@@ -18,46 +19,60 @@ function buildAuthHeaders() {
   };
 }
 
+function normalizeCartItems(items: CartItem[]): CartItem[] {
+  return items.map((item) => ({
+    ...item,
+    price: toMoney(item.price),
+    lineTotal: item.lineTotal == null ? undefined : toMoney(item.lineTotal),
+  }));
+}
+
 export async function fetchCartItems(): Promise<CartItem[]> {
   const response = await axios.get<CartItem[]>("/api/cart", {
     headers: buildAuthHeaders(),
   });
-  return response.data;
+  return normalizeCartItems(response.data);
 }
 
 export async function addCartItem(payload: AddCartItemRequest): Promise<CartItem[]> {
   const response = await axios.post<CartItem[]>("/api/cart/items", payload, {
     headers: buildAuthHeaders(),
   });
-  return response.data;
+  return normalizeCartItems(response.data);
 }
 
 export async function updateCartItemQuantity(stockId: string, payload: UpdateCartItemRequest): Promise<CartItem[]> {
   const response = await axios.put<CartItem[]>(`/api/cart/items/${stockId}`, payload, {
     headers: buildAuthHeaders(),
   });
-  return response.data;
+  return normalizeCartItems(response.data);
 }
 
 export async function removeCartItem(stockId: string): Promise<CartItem[]> {
   const response = await axios.delete<CartItem[]>(`/api/cart/items/${stockId}`, {
     headers: buildAuthHeaders(),
   });
-  return response.data;
+  return normalizeCartItems(response.data);
 }
 
 export async function clearCartItems(): Promise<CartItem[]> {
   const response = await axios.delete<CartItem[]>("/api/cart", {
     headers: buildAuthHeaders(),
   });
-  return response.data;
+  return normalizeCartItems(response.data);
 }
 
 export async function completeOrder(payload: { items: CartItem[]; subtotal: number; total: number }): Promise<CompleteOrderResponse> {
   try {
+    const normalizedPayload = {
+      ...payload,
+      items: normalizeCartItems(payload.items),
+      subtotal: toMoney(payload.subtotal),
+      total: toMoney(payload.total),
+    };
     const response = await axios.post<CompleteOrderResponse>(
       "/api/cart/complete-order",
-      payload,
+      normalizedPayload,
       {
         headers: buildAuthHeaders(),
       }

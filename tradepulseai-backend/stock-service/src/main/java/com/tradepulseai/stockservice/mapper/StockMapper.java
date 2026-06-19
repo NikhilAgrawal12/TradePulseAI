@@ -17,11 +17,11 @@ public class StockMapper {
         StockResponseDTO dto = baseDTO(stock);
 
         if (latestMarketData != null) {
-            dto.setOpen(latestMarketData.getOpenPrice() == null ? null : latestMarketData.getOpenPrice().doubleValue());
-            dto.setHigh(latestMarketData.getHighPrice() == null ? null : latestMarketData.getHighPrice().doubleValue());
-            dto.setLow(latestMarketData.getLowPrice() == null ? null : latestMarketData.getLowPrice().doubleValue());
-            dto.setPrice(latestMarketData.getClosePrice() == null ? null : latestMarketData.getClosePrice().doubleValue());
-            dto.setVwap(latestMarketData.getVwap() == null ? null : latestMarketData.getVwap().doubleValue());
+            dto.setOpen(toTwoDecimals(latestMarketData.getOpenPrice()));
+            dto.setHigh(toTwoDecimals(latestMarketData.getHighPrice()));
+            dto.setLow(toTwoDecimals(latestMarketData.getLowPrice()));
+            dto.setPrice(toTwoDecimals(latestMarketData.getClosePrice()));
+            dto.setVwap(toTwoDecimals(latestMarketData.getVwap()));
             dto.setChangePercent(calculateChangePercent(latestMarketData.getOpenPrice(), latestMarketData.getClosePrice()));
             dto.setVolume(latestMarketData.getVolume());
             dto.setLastUpdated(latestMarketData.getUpdatedAt() == null ? null : latestMarketData.getUpdatedAt().toString());
@@ -32,12 +32,12 @@ public class StockMapper {
 
     public static StockResponseDTO toDTO(AllStocksLastValueCache cacheEntry) {
         StockResponseDTO dto = baseDTO(cacheEntry.getStock());
-        dto.setOpen(cacheEntry.getCachedOpen() == null ? null : cacheEntry.getCachedOpen().doubleValue());
-        dto.setHigh(cacheEntry.getCachedHigh() == null ? null : cacheEntry.getCachedHigh().doubleValue());
-        dto.setLow(cacheEntry.getCachedLow() == null ? null : cacheEntry.getCachedLow().doubleValue());
-        dto.setPrice(cacheEntry.getCachedClose() == null ? null : cacheEntry.getCachedClose().doubleValue());
-        dto.setVwap(cacheEntry.getCachedVwap() == null ? null : cacheEntry.getCachedVwap().doubleValue());
-        dto.setChangePercent(cacheEntry.getCachedChangePercent() == null ? null : cacheEntry.getCachedChangePercent().doubleValue());
+        dto.setOpen(toTwoDecimals(cacheEntry.getCachedOpen()));
+        dto.setHigh(toTwoDecimals(cacheEntry.getCachedHigh()));
+        dto.setLow(toTwoDecimals(cacheEntry.getCachedLow()));
+        dto.setPrice(toTwoDecimals(cacheEntry.getCachedClose()));
+        dto.setVwap(toTwoDecimals(cacheEntry.getCachedVwap()));
+        dto.setChangePercent(toTwoDecimals(cacheEntry.getCachedChangePercent()));
         dto.setVolume(cacheEntry.getCachedVolume());
         dto.setLastUpdated(cacheEntry.getAggregateUpdatedAt() == null ? null : cacheEntry.getAggregateUpdatedAt().toString());
         dto.setSource("all-stocks-cache");
@@ -73,6 +73,11 @@ public class StockMapper {
                 .subtract(openPrice)
                 .divide(openPrice, 6, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
+                .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
+    }
+
+    private static Double toTwoDecimals(BigDecimal value) {
+        return value == null ? null : value.setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 }

@@ -212,6 +212,17 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Delete user by id")
+    @DeleteMapping("/users/{userId}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long userId) {
+        if (userService.findById(userId).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found"));
+        }
+
+        userService.deleteById(userId);
+        return ResponseEntity.noContent().build();
+    }
+
     private void authorizeUserId(String authHeader, Long pathUserId) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new JwtException("Missing or invalid Authorization header");

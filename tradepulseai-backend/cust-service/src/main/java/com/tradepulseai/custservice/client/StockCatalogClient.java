@@ -38,14 +38,14 @@ public class StockCatalogClient {
             return new StockQuote(
                     stockId,
                     response.symbol,
-                    BigDecimal.valueOf(response.price).setScale(4, RoundingMode.HALF_UP)
+                    BigDecimal.valueOf(response.price).setScale(2, RoundingMode.HALF_UP)
             );
         } catch (Exception exception) {
             log.warn("Falling back to default quote for stockId={}: {}", stockId, exception.getMessage());
             return new StockQuote(
                     stockId,
                     String.valueOf(stockId),
-                    BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP)
+                    BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
             );
         }
     }

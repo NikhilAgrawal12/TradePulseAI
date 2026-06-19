@@ -114,7 +114,7 @@ public class PortfolioMapper {
 
     public static BigDecimal scaleMoney(BigDecimal value) {
         return Objects.requireNonNullElse(value, BigDecimal.ZERO)
-                .setScale(4, RoundingMode.HALF_UP);
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     public static BigDecimal scaleQuantity(BigDecimal value) {

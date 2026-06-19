@@ -42,25 +42,25 @@ public class AllStocksLastValueCache {
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;
 
-    @Column(name = "cached_open", nullable = false)
+    @Column(name = "cached_open", nullable = false, precision = 14, scale = 2)
     private BigDecimal cachedOpen;
 
-    @Column(name = "cached_close", nullable = false)
+    @Column(name = "cached_close", nullable = false, precision = 14, scale = 2)
     private BigDecimal cachedClose;
 
-    @Column(name = "cached_high", nullable = false)
+    @Column(name = "cached_high", nullable = false, precision = 14, scale = 2)
     private BigDecimal cachedHigh;
 
-    @Column(name = "cached_low", nullable = false)
+    @Column(name = "cached_low", nullable = false, precision = 14, scale = 2)
     private BigDecimal cachedLow;
 
     @Column(name = "cached_volume", nullable = false)
     private Long cachedVolume;
 
-    @Column(name = "cached_vwap", nullable = false)
+    @Column(name = "cached_vwap", nullable = false, precision = 14, scale = 2)
     private BigDecimal cachedVwap;
 
-    @Column(name = "cached_change_percent")
+    @Column(name = "cached_change_percent", precision = 12, scale = 2)
     private BigDecimal cachedChangePercent;
 
     @Column(name = "aggregate_updated_at")

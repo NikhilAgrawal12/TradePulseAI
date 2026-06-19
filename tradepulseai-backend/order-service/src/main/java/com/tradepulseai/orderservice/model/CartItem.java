@@ -17,7 +17,7 @@ public class CartItem {
     @EmbeddedId
     private CartItemId id;
 
-    @Column(name = "quantity", nullable = false, precision = 18, scale = 4)
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 2)
     private BigDecimal quantity;
 
     @Column(name = "created_at", nullable = false, updatable = false)

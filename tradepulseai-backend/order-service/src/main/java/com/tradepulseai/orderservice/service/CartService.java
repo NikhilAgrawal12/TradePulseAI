@@ -168,7 +168,7 @@ public class CartService {
 
     private BigDecimal scaleQuantity(BigDecimal quantity) {
         return Objects.requireNonNullElse(quantity, BigDecimal.ZERO)
-                .setScale(4, RoundingMode.HALF_UP);
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     private void validateCompletedPaymentResponse(OrderPaymentResponse response, String orderId) {

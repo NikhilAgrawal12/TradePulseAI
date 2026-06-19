@@ -1,6 +1,7 @@
 package com.tradepulseai.custservice.controller;
 
 import com.tradepulseai.custservice.dto.customer.CustomerRequestDTO;
+import com.tradepulseai.custservice.dto.customer.CustomerRegistrationRequestDTO;
 import com.tradepulseai.custservice.dto.customer.CustomerResponseDTO;
 import com.tradepulseai.custservice.dto.validators.CreateCustomerValidationGroup;
 import com.tradepulseai.custservice.service.CustomerService;
@@ -36,6 +37,15 @@ public class CustomerController {
     ) {
         CustomerResponseDTO custResponseDTO = customerService.createCustomer(customerRequestDTO);
         return ResponseEntity.ok().body(custResponseDTO);
+    }
+
+    @PostMapping("/register")
+    @Operation(summary = "Register auth user and customer profile in one saga")
+    public ResponseEntity<CustomerResponseDTO> registerCustomer(
+            @Validated({Default.class}) @RequestBody CustomerRegistrationRequestDTO requestDTO
+    ) {
+        CustomerResponseDTO responseDTO = customerService.registerCustomer(requestDTO);
+        return ResponseEntity.ok().body(responseDTO);
     }
 
     @PutMapping("/{userId}")
