@@ -116,7 +116,6 @@ public class StockMetricsRefreshService {
                 : BigDecimal.valueOf(latestTradingDayVolume).divide(average30DayVolume, MATH_CONTEXT);
         BigDecimal volatility30d = computeAnnualizedVolatility(closes, 30);
         BigDecimal volatility90d = computeAnnualizedVolatility(closes, 90);
-        BigDecimal volatility1y = computeAnnualizedVolatility(closes, ONE_YEAR_PERIODS);
 
         StockMetrics row = new StockMetrics();
         row.setStockId(stockId);
@@ -136,7 +135,6 @@ public class StockMetricsRefreshService {
         row.setRelativeVolume(scaleNullable(relativeVolume));
         row.setVolatility30d(scaleNullable(volatility30d));
         row.setVolatility90d(scaleNullable(volatility90d));
-        row.setVolatility1y(scaleNullable(volatility1y));
         return row;
     }
 

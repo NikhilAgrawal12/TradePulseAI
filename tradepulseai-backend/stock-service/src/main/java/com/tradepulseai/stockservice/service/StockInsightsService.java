@@ -138,15 +138,9 @@ public class StockInsightsService {
         BigDecimal volatility90Day = metrics != null && metrics.getVolatility90d() != null
                 ? metrics.getVolatility90d()
                 : computeAnnualizedVolatility(closes, 90);
-        BigDecimal volatility1Year = metrics != null && metrics.getVolatility1y() != null
-                ? metrics.getVolatility1y()
-                : computeAnnualizedVolatility(closes, ONE_YEAR_PERIODS);
 
         BigDecimal sma20 = simpleMovingAverage(closes, 20);
         BigDecimal sma50 = simpleMovingAverage(closes, 50);
-        BigDecimal sma200 = simpleMovingAverage(closes, 200);
-        Boolean goldenCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) >= 0 : null;
-        Boolean deathCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) < 0 : null;
 
         BigDecimal rsi14 = computeRsi(closes, 14);
         MacdResult macdResult = computeMacd(closes);
@@ -194,8 +188,7 @@ public class StockInsightsService {
                 ),
                 new StockInsightsResponseDTO.VolatilityMetricsDTO(
                         toDouble(volatility30Day),
-                        toDouble(volatility90Day),
-                        toDouble(volatility1Year)
+                        toDouble(volatility90Day)
                 ),
                 new StockInsightsResponseDTO.TrendMetricsDTO(
                         toDouble(sma20),
@@ -302,7 +295,6 @@ public class StockInsightsService {
             BigDecimal sma200 = simpleMovingAverageAt(closes, index, 200);
             BigDecimal volatility30 = computeAnnualizedVolatilityAt(closes, index, 30);
             BigDecimal volatility90 = computeAnnualizedVolatilityAt(closes, index, 90);
-            BigDecimal volatility1Year = computeAnnualizedVolatilityAt(closes, index, ONE_YEAR_PERIODS);
             BigDecimal dailyReturn = index == 0 ? null : percentChange(closes.get(index - 1), closes.get(index));
 
             points.add(new StockInsightsResponseDTO.StockHistoryPointDTO(
@@ -317,7 +309,6 @@ public class StockInsightsService {
                     toDouble(sma200),
                     toDouble(volatility30),
                     toDouble(volatility90),
-                    toDouble(volatility1Year),
                     toDouble(dailyReturn)
             ));
         }

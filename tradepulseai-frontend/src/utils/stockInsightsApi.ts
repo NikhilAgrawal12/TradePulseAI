@@ -14,7 +14,6 @@ function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {
     sma200: point.sma200 == null ? null : toMoney(point.sma200),
     volatility30Day: point.volatility30Day == null ? null : toMoney(point.volatility30Day),
     volatility90Day: point.volatility90Day == null ? null : toMoney(point.volatility90Day),
-    volatility1Year: point.volatility1Year == null ? null : toMoney(point.volatility1Year),
     dailyReturnPercent: point.dailyReturnPercent == null ? null : toMoney(point.dailyReturnPercent),
   };
 }
@@ -53,7 +52,6 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
     volatilityMetrics: {
       volatility30Day: data.volatilityMetrics.volatility30Day == null ? null : toMoney(data.volatilityMetrics.volatility30Day),
       volatility90Day: data.volatilityMetrics.volatility90Day == null ? null : toMoney(data.volatilityMetrics.volatility90Day),
-      volatility1Year: data.volatilityMetrics.volatility1Year == null ? null : toMoney(data.volatilityMetrics.volatility1Year),
     },
     trendMetrics: {
       ...data.trendMetrics,
@@ -93,4 +91,3 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
     history: data.history.map(normalizePoint),
   };
 }
-

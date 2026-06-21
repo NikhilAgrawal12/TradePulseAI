@@ -60,8 +60,7 @@ public record StockInsightsResponseDTO(
 
     public record VolatilityMetricsDTO(
             Double volatility30Day,
-            Double volatility90Day,
-            Double volatility1Year
+            Double volatility90Day
     ) {
     }
 
@@ -138,9 +137,7 @@ public record StockInsightsResponseDTO(
             Double sma200,
             Double volatility30Day,
             Double volatility90Day,
-            Double volatility1Year,
             Double dailyReturnPercent
     ) {
     }
 }
-

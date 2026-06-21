@@ -67,9 +67,6 @@ public class StockMetrics {
     @Column(name = "volatility_90d", precision = 12, scale = 2)
     private BigDecimal volatility90d;
 
-    @Column(name = "volatility_1y", precision = 12, scale = 2)
-    private BigDecimal volatility1y;
-
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
@@ -213,14 +210,6 @@ public class StockMetrics {
 
     public void setVolatility90d(BigDecimal volatility90d) {
         this.volatility90d = volatility90d;
-    }
-
-    public BigDecimal getVolatility1y() {
-        return volatility1y;
-    }
-
-    public void setVolatility1y(BigDecimal volatility1y) {
-        this.volatility1y = volatility1y;
     }
 
 

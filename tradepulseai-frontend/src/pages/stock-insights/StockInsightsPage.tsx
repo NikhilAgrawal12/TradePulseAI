@@ -756,7 +756,6 @@ export function StockInsightsPage() {
                   items={[
                     { label: "30-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility30Day) },
                     { label: "90-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility90Day) },
-                    { label: "1-Year Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility1Year) },
                   ]}
                 />
               </MetricSection>
@@ -796,9 +795,9 @@ export function StockInsightsPage() {
                  <VolumeLegend />
                </ChartCard>
 
-              <ChartCard title="Moving Averages" subtitle="Price with 20, 50, and 200 day SMAs">
+              <ChartCard title="Moving Averages" subtitle="20, 50, and 200 day SMAs">
                 <section className="insights-range-row" aria-label="Moving averages range selector">
-                  {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                  {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${movingAverageRange === range ? "active" : ""}`} onClick={() => setMovingAverageRange(range)}>
                       {range}
                     </button>
@@ -807,7 +806,6 @@ export function StockInsightsPage() {
                 <MultiLineChart
                   data={movingAverageHistory}
                   lines={[
-                    { key: "close", label: "Price", color: "#7c3aed" },
                     { key: "sma20", label: "20 SMA", color: "#2563eb" },
                     { key: "sma50", label: "50 SMA", color: "#f97316" },
                     { key: "sma200", label: "200 SMA", color: "#16a34a" },
@@ -816,9 +814,9 @@ export function StockInsightsPage() {
                 />
               </ChartCard>
 
-              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 30-day, 90-day, and 1-year windows">
+              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 30-day and 90-day windows">
                 <section className="insights-range-row" aria-label="Rolling volatility range selector">
-                  {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                  {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
                       {range}
                     </button>
@@ -829,7 +827,6 @@ export function StockInsightsPage() {
                   lines={[
                     { key: "volatility30Day", label: "30D Volatility", color: "#dc2626" },
                     { key: "volatility90Day", label: "90D Volatility", color: "#0f766e" },
-                    { key: "volatility1Year", label: "1Y Volatility", color: "#7c2d12" },
                   ]}
                   valueFormatter={(value) => `${formatMoney(value)}%`}
                 />

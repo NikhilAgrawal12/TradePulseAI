@@ -51,7 +51,6 @@ ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_trading_date DATE;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS relative_volume NUMERIC(12, 4);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_30d NUMERIC(12, 2);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12, 2);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_1y NUMERIC(12, 2);
 
 -- Drop unused stock_metrics columns now computed directly from OHLC/realtime paths
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS current_price;
@@ -59,4 +58,5 @@ ALTER TABLE stock_metrics DROP COLUMN IF EXISTS rsi_14;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_20;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_1y;
 

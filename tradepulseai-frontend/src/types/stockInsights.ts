@@ -10,7 +10,6 @@ export type StockHistoryPoint = {
   sma200: number | null;
   volatility30Day: number | null;
   volatility90Day: number | null;
-  volatility1Year: number | null;
   dailyReturnPercent: number | null;
 };
 
@@ -56,7 +55,6 @@ export type StockInsights = {
   volatilityMetrics: {
     volatility30Day: number | null;
     volatility90Day: number | null;
-    volatility1Year: number | null;
   };
   trendMetrics: {
     sma20: number | null;
@@ -101,4 +99,3 @@ export type StockInsights = {
   monthlyReturnsHeatmap: MonthlyReturnHeatmapCell[];
   history: StockHistoryPoint[];
 };
-
