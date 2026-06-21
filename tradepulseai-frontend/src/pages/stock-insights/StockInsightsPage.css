@@ -140,9 +140,10 @@
 }
 
 .insights-range-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+   display: flex;
+   gap: 10px;
+   flex-wrap: wrap;
+   margin-bottom: 20px;
 }
 
 .range-pill {
@@ -172,6 +173,7 @@
   border-radius: 16px;
   background: linear-gradient(180deg, #faf7ff 0%, #ffffff 100%);
   border: 1px solid rgba(167, 139, 250, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
 .chart-grid-line {
@@ -182,6 +184,79 @@
 .chart-axis-label {
   fill: #7c6a96;
   font-size: 12px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.chart-axis-label-x {
+  font-size: 10px;
+  fill: #5b4b7b;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
+
+.chart-axis-line {
+  stroke: rgba(91, 75, 123, 0.5);
+  stroke-width: 1;
+}
+
+
+.insights-chart-note {
+   margin: 0;
+   color: #675a86;
+   font-size: 0.88rem;
+}
+
+.chart-legend-grid {
+   display: flex;
+   gap: 50px;
+   margin-top: 16px;
+   align-items: flex-start;
+   flex-wrap: wrap;
+   justify-content: center;
+}
+
+.legend-item {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+}
+
+.legend-candle,
+.legend-bars {
+   width: 80px;
+   height: 100px;
+   margin-bottom: 8px;
+}
+
+.legend-label {
+   font-size: 12px;
+   fill: #5b4b7b;
+   font-weight: 500;
+}
+
+.legend-note {
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+   padding: 12px 16px;
+   background: rgba(124, 58, 237, 0.06);
+   border-radius: 10px;
+   border-left: 3px solid #7c3aed;
+}
+
+.legend-note p {
+   margin: 0;
+   font-size: 0.85rem;
+   color: #5b4b7b;
+   line-height: 1.4;
+}
+
+.legend-note strong {
+   color: #7c3aed;
+   font-weight: 600;
 }
 
 .insights-chart-legend {
@@ -268,20 +343,20 @@
 
 .histogram-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  gap: 14px;
   align-items: end;
 }
 
 .histogram-item {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   justify-items: center;
 }
 
 .histogram-bar-shell {
   width: 100%;
-  height: 160px;
+  height: 180px;
   border-radius: 14px;
   background: #f5f3ff;
   border: 1px solid rgba(124, 58, 237, 0.12);
@@ -289,22 +364,28 @@
   align-items: flex-end;
   padding: 8px;
   box-sizing: border-box;
+  transition: background-color 0.2s ease;
 }
 
 .histogram-bar {
   width: 100%;
   border-radius: 10px 10px 6px 6px;
   background: linear-gradient(180deg, #a855f7 0%, #7c3aed 100%);
+  transition: all 0.2s ease;
 }
 
 .histogram-item strong {
   color: #2e1065;
+  font-size: 0.9rem;
 }
 
 .histogram-item span {
   color: #6d5f8a;
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .insights-table-wrap {

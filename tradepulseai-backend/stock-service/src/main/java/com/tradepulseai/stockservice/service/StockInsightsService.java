@@ -23,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
 @Service
 public class StockInsightsService {
 
@@ -69,51 +68,87 @@ public class StockInsightsService {
 
         StockMarketData latestHistorical = historyAsc.get(historyAsc.size() - 1);
         StockMarketData priorHistorical = historyAsc.size() > 1 ? historyAsc.get(historyAsc.size() - 2) : null;
-        Optional<StockMetrics> metricsOptional = stockMetricsRepository.findById(stockId);
-        StockMetrics metrics = metricsOptional.orElse(null);
         AllStocksLastValueCache realtime = allStocksLastValueCacheService.getCacheEntryByStockId(stockId);
+        StockMetrics metrics = stockMetricsRepository.findById(stockId).orElse(null);
 
         List<BigDecimal> closes = historyAsc.stream().map(StockMarketData::getClosePrice).toList();
         List<Long> volumes = historyAsc.stream().map(StockMarketData::getVolume).toList();
-        BigDecimal currentPrice = resolveCurrentPrice(realtime, latestHistorical, metrics);
-        BigDecimal previousClose = resolvePreviousClose(currentPrice, latestHistorical, priorHistorical);
-        BigDecimal dailyChange = currentPrice != null && previousClose != null ? currentPrice.subtract(previousClose) : null;
-        BigDecimal dailyChangePercent = percentChange(previousClose, currentPrice);
 
+        // Current Performance — driven by realtime cache; falls back to latest daily OHLC when market is closed
+        BigDecimal currentPrice = resolveCurrentPrice(realtime, latestHistorical);
+        BigDecimal previousClose = resolvePreviousClose(realtime, latestHistorical, priorHistorical);
+        BigDecimal dailyChange = currentPrice != null && previousClose != null ? currentPrice.subtract(previousClose) : null;
+        BigDecimal dailyChangePercent = resolveDailyChangePercent(realtime, previousClose, currentPrice);
+
+        // 52-week high/low: prefer pre-computed stock_metrics (refreshed daily after OHLC sync),
+        // fall back to scanning OHLC rows in case metrics haven't been populated yet
         BigDecimal high52Week = coalesce(metrics == null ? null : metrics.getHigh52w(), maxHigh(historyAsc, ONE_YEAR_PERIODS));
         BigDecimal low52Week = coalesce(metrics == null ? null : metrics.getLow52w(), minLow(historyAsc, ONE_YEAR_PERIODS));
 
-        BigDecimal distanceFromHighPercent = high52Week == null || high52Week.compareTo(BigDecimal.ZERO) == 0 || currentPrice == null
-                ? null
-                : currentPrice.subtract(high52Week).divide(high52Week, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
-        BigDecimal distanceFromLowPercent = low52Week == null || low52Week.compareTo(BigDecimal.ZERO) == 0 || currentPrice == null
-                ? null
-                : currentPrice.subtract(low52Week).divide(low52Week, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
+        BigDecimal distanceFromHighPercent = metrics != null && metrics.getDistanceFromHighPercent() != null
+                ? metrics.getDistanceFromHighPercent()
+                : high52Week == null || high52Week.compareTo(BigDecimal.ZERO) == 0 || currentPrice == null
+                    ? null
+                    : currentPrice.subtract(high52Week).divide(high52Week, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
+        BigDecimal distanceFromLowPercent = metrics != null && metrics.getDistanceFromLowPercent() != null
+                ? metrics.getDistanceFromLowPercent()
+                : low52Week == null || low52Week.compareTo(BigDecimal.ZERO) == 0 || currentPrice == null
+                    ? null
+                    : currentPrice.subtract(low52Week).divide(low52Week, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
 
-        BigDecimal oneWeekReturn = coalesce(metrics == null ? null : metrics.getWeekReturn(), computeReturnFromCurrent(currentPrice, closes, ONE_WEEK_PERIODS));
-        BigDecimal oneMonthReturn = coalesce(metrics == null ? null : metrics.getMonthReturn(), computeReturnFromCurrent(currentPrice, closes, ONE_MONTH_PERIODS));
-        BigDecimal threeMonthReturn = computeReturnFromCurrent(currentPrice, closes, THREE_MONTH_PERIODS);
-        BigDecimal sixMonthReturn = computeReturnFromCurrent(currentPrice, closes, SIX_MONTH_PERIODS);
-        BigDecimal oneYearReturn = coalesce(metrics == null ? null : metrics.getYearReturn(), computeReturnFromCurrent(currentPrice, closes, ONE_YEAR_PERIODS));
-        BigDecimal threeYearReturn = computeReturnFromCurrent(currentPrice, closes, THREE_YEAR_PERIODS);
+        // Returns tab uses pre-computed EOD values from stock_metrics (not realtime price).
+        BigDecimal eodPrice = latestHistorical.getClosePrice();
+        BigDecimal oneWeekReturn = metrics != null && metrics.getWeekReturn() != null
+                ? metrics.getWeekReturn()
+                : computeReturnFromCurrent(eodPrice, closes, ONE_WEEK_PERIODS);
+        BigDecimal oneMonthReturn = metrics != null && metrics.getMonthReturn() != null
+                ? metrics.getMonthReturn()
+                : computeReturnFromCurrent(eodPrice, closes, ONE_MONTH_PERIODS);
+        BigDecimal threeMonthReturn = metrics != null && metrics.getThreeMonthReturn() != null
+                ? metrics.getThreeMonthReturn()
+                : computeReturnFromCurrent(eodPrice, closes, THREE_MONTH_PERIODS);
+        BigDecimal sixMonthReturn = metrics != null && metrics.getSixMonthReturn() != null
+                ? metrics.getSixMonthReturn()
+                : computeReturnFromCurrent(eodPrice, closes, SIX_MONTH_PERIODS);
+        BigDecimal oneYearReturn = metrics != null && metrics.getYearReturn() != null
+                ? metrics.getYearReturn()
+                : computeReturnFromCurrent(eodPrice, closes, ONE_YEAR_PERIODS);
+        BigDecimal threeYearReturn = metrics != null && metrics.getThreeYearReturn() != null
+                ? metrics.getThreeYearReturn()
+                : computeReturnFromCurrent(eodPrice, closes, THREE_YEAR_PERIODS);
 
-        long todaysVolume = resolveTodayVolume(latestHistorical);
-        BigDecimal average30DayVolume = coalesce(metrics == null ? null : metrics.getAvgVolume30d(), averageVolume(volumes, 30));
-        BigDecimal relativeVolume = average30DayVolume == null || average30DayVolume.compareTo(BigDecimal.ZERO) == 0
-                ? null
-                : BigDecimal.valueOf(todaysVolume).divide(average30DayVolume, MATH_CONTEXT);
+        long latestTradingDayVolume = metrics != null && metrics.getLatestTradingDayVolume() != null
+                ? metrics.getLatestTradingDayVolume()
+                : resolveLatestTradingDayVolume(latestHistorical);
+        String latestTradingDate = metrics != null && metrics.getLatestTradingDate() != null
+                ? metrics.getLatestTradingDate().toString()
+                : latestHistorical.getTradingDate() == null ? null : latestHistorical.getTradingDate().toString();
+        BigDecimal average30DayVolume = metrics != null && metrics.getAvgVolume30d() != null
+                ? metrics.getAvgVolume30d()
+                : averageVolume(volumes, 30);
+        BigDecimal relativeVolume = metrics != null && metrics.getRelativeVolume() != null
+                ? metrics.getRelativeVolume()
+                : average30DayVolume == null || average30DayVolume.compareTo(BigDecimal.ZERO) == 0
+                    ? null
+                    : BigDecimal.valueOf(latestTradingDayVolume).divide(average30DayVolume, MATH_CONTEXT);
 
-        BigDecimal volatility30Day = coalesce(metrics == null ? null : metrics.getVolatility30d(), computeAnnualizedVolatility(closes, 30));
-        BigDecimal volatility90Day = coalesce(metrics == null ? null : metrics.getVolatility90d(), computeAnnualizedVolatility(closes, 90));
-        BigDecimal volatility1Year = computeAnnualizedVolatility(closes, ONE_YEAR_PERIODS);
+        BigDecimal volatility30Day = metrics != null && metrics.getVolatility30d() != null
+                ? metrics.getVolatility30d()
+                : computeAnnualizedVolatility(closes, 30);
+        BigDecimal volatility90Day = metrics != null && metrics.getVolatility90d() != null
+                ? metrics.getVolatility90d()
+                : computeAnnualizedVolatility(closes, 90);
+        BigDecimal volatility1Year = metrics != null && metrics.getVolatility1y() != null
+                ? metrics.getVolatility1y()
+                : computeAnnualizedVolatility(closes, ONE_YEAR_PERIODS);
 
-        BigDecimal sma20 = coalesce(metrics == null ? null : metrics.getSma20(), simpleMovingAverage(closes, 20));
-        BigDecimal sma50 = coalesce(metrics == null ? null : metrics.getSma50(), simpleMovingAverage(closes, 50));
-        BigDecimal sma200 = coalesce(metrics == null ? null : metrics.getSma200(), simpleMovingAverage(closes, 200));
+        BigDecimal sma20 = simpleMovingAverage(closes, 20);
+        BigDecimal sma50 = simpleMovingAverage(closes, 50);
+        BigDecimal sma200 = simpleMovingAverage(closes, 200);
         Boolean goldenCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) >= 0 : null;
         Boolean deathCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) < 0 : null;
 
-        BigDecimal rsi14 = coalesce(metrics == null ? null : metrics.getRsi14(), computeRsi(closes, 14));
+        BigDecimal rsi14 = computeRsi(closes, 14);
         MacdResult macdResult = computeMacd(closes);
         BigDecimal momentum30Day = computeReturnFromCurrent(currentPrice, closes, 30);
         RiskSummary riskSummary = computeRiskSummary(closes);
@@ -152,7 +187,8 @@ public class StockInsightsService {
                         toDouble(threeYearReturn)
                 ),
                 new StockInsightsResponseDTO.VolumeMetricsDTO(
-                        todaysVolume,
+                        latestTradingDayVolume,
+                        latestTradingDate,
                         toDouble(average30DayVolume),
                         toDouble(relativeVolume)
                 ),
@@ -223,31 +259,36 @@ public class StockInsightsService {
         return latestHistorical.getUpdatedAt() == null ? null : latestHistorical.getUpdatedAt().toString();
     }
 
-    private BigDecimal resolveCurrentPrice(AllStocksLastValueCache realtime, StockMarketData latestHistorical, StockMetrics metrics) {
+    // Current price: realtime cache when market is open, latest daily close otherwise
+    private BigDecimal resolveCurrentPrice(AllStocksLastValueCache realtime, StockMarketData latestHistorical) {
         if (realtime != null && realtime.getCachedClose() != null) {
             return realtime.getCachedClose();
         }
-        if (latestHistorical.getClosePrice() != null) {
+        return latestHistorical.getClosePrice();
+    }
+
+    // Previous close: latest daily OHLC close when realtime is available (intraday vs yesterday),
+    // or second-to-last daily OHLC close when market is closed (both current and latest are the same row).
+    private BigDecimal resolvePreviousClose(AllStocksLastValueCache realtime, StockMarketData latestHistorical, StockMarketData priorHistorical) {
+        boolean hasRealtime = realtime != null && realtime.getCachedClose() != null;
+        if (hasRealtime) {
+            // Realtime price is intraday — previous close is yesterday's daily close
             return latestHistorical.getClosePrice();
         }
-        return metrics == null ? null : metrics.getCurrentPrice();
+        // No realtime — current price IS the latest daily close, so previous close is the one before it
+        return priorHistorical == null ? null : priorHistorical.getClosePrice();
     }
 
-    private BigDecimal resolvePreviousClose(BigDecimal currentPrice, StockMarketData latestHistorical, StockMarketData priorHistorical) {
-        BigDecimal latestHistoricalClose = latestHistorical.getClosePrice();
-        if (currentPrice == null) {
-            return latestHistoricalClose;
+    // Daily change %: prefer the pre-computed change percent from realtime cache (accurate intraday),
+    // fall back to computing from current vs previous close.
+    private BigDecimal resolveDailyChangePercent(AllStocksLastValueCache realtime, BigDecimal previousClose, BigDecimal currentPrice) {
+        if (realtime != null && realtime.getCachedChangePercent() != null) {
+            return realtime.getCachedChangePercent();
         }
-        if (latestHistoricalClose == null) {
-            return priorHistorical == null ? null : priorHistorical.getClosePrice();
-        }
-        if (currentPrice.compareTo(latestHistoricalClose) == 0) {
-            return priorHistorical == null ? latestHistoricalClose : priorHistorical.getClosePrice();
-        }
-        return latestHistoricalClose;
+        return percentChange(previousClose, currentPrice);
     }
 
-    private long resolveTodayVolume(StockMarketData latestHistorical) {
+    private long resolveLatestTradingDayVolume(StockMarketData latestHistorical) {
         return latestHistorical.getVolume() == null ? 0L : latestHistorical.getVolume();
     }
 
@@ -708,8 +749,9 @@ public class StockInsightsService {
         return current.subtract(baseline).divide(baseline, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
     }
 
+    /** Returns primary if non-null and non-zero, otherwise returns fallback. */
     private BigDecimal coalesce(BigDecimal primary, BigDecimal fallback) {
-        return primary != null ? primary : fallback;
+        return (primary != null && primary.compareTo(BigDecimal.ZERO) != 0) ? primary : fallback;
     }
 
     private Double toDouble(BigDecimal value) {

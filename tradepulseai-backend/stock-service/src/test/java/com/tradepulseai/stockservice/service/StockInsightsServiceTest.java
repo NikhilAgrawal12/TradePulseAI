@@ -4,7 +4,6 @@ import com.tradepulseai.stockservice.dto.stock.StockInsightsResponseDTO;
 import com.tradepulseai.stockservice.model.AllStocksLastValueCache;
 import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.model.StockMarketData;
-import com.tradepulseai.stockservice.model.StockMetrics;
 import com.tradepulseai.stockservice.repository.StockMarketDataRepository;
 import com.tradepulseai.stockservice.repository.StockMetricsRepository;
 import com.tradepulseai.stockservice.repository.StockRepository;
@@ -45,32 +44,37 @@ class StockInsightsServiceTest {
     private StockInsightsService stockInsightsService;
 
     @Test
-    void usesDailyOhlcVolumeForVolumeMetricsInsteadOfRealtimeAggregateVolume() {
+    void currentPerformanceUsesRealtimeCacheWhenAvailable() {
         Long stockId = 1L;
         Stock stock = stock(stockId);
-        StockMetrics metrics = new StockMetrics();
-        metrics.setAvgVolume30d(BigDecimal.valueOf(2_000_000L));
 
         StockMarketData previousDay = marketData(LocalDate.of(2026, 6, 17), "100.00", 900_000L);
         StockMarketData latestDay = marketData(LocalDate.of(2026, 6, 18), "102.00", 1_000_000L);
 
+        // Realtime cache has live intraday price
         AllStocksLastValueCache realtime = new AllStocksLastValueCache();
         realtime.setCachedClose(BigDecimal.valueOf(103.50));
-        realtime.setCachedVolume(250L);
+        realtime.setCachedChangePercent(BigDecimal.valueOf(1.47));
         realtime.setAggregateUpdatedAt(Instant.parse("2026-06-19T14:30:00Z"));
 
         when(stockRepository.findById(stockId)).thenReturn(Optional.of(stock));
         when(stockRepository.findBySymbol("SPY")).thenReturn(Optional.empty());
+        when(stockMetricsRepository.findById(stockId)).thenReturn(Optional.empty());
         when(stockMarketDataRepository.findRecentByStockId(eq(stockId), any(Pageable.class)))
                 .thenReturn(List.of(latestDay, previousDay));
-        when(stockMetricsRepository.findById(stockId)).thenReturn(Optional.of(metrics));
         when(allStocksLastValueCacheService.getCacheEntryByStockId(stockId)).thenReturn(realtime);
 
         StockInsightsResponseDTO response = stockInsightsService.getInsights(stockId);
 
-        assertThat(response.volumeMetrics().todaysVolume()).isEqualTo(1_000_000L);
-        assertThat(response.volumeMetrics().average30DayVolume()).isEqualTo(2_000_000.0d);
-        assertThat(response.volumeMetrics().relativeVolume()).isEqualTo(0.5d);
+        // Current price comes from realtime cache
+        assertThat(response.currentPerformance().currentPrice()).isEqualTo(103.5d);
+        // Previous close is latest daily OHLC close (yesterday's close relative to intraday price)
+        assertThat(response.currentPerformance().previousClose()).isEqualTo(102.0d);
+        // Daily change % comes from realtime cache
+        assertThat(response.currentPerformance().dailyChangePercent()).isEqualTo(1.47d);
+        // Volume uses daily OHLC — not realtime aggregate
+        assertThat(response.volumeMetrics().latestTradingDayVolume()).isEqualTo(1_000_000L);
+        assertThat(response.volumeMetrics().latestTradingDate()).isEqualTo("2026-06-18");
     }
 
     private static Stock stock(Long id) {

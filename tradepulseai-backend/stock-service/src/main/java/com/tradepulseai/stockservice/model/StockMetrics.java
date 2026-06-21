@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "stock_metrics")
@@ -17,9 +18,6 @@ public class StockMetrics {
     @Id
     @Column(name = "stock_id", nullable = false)
     private Long stockId;
-
-    @Column(name = "current_price", precision = 14, scale = 2)
-    private BigDecimal currentPrice;
 
     @Column(name = "week_return", precision = 12, scale = 2)
     private BigDecimal weekReturn;
@@ -30,14 +28,14 @@ public class StockMetrics {
     @Column(name = "year_return", precision = 12, scale = 2)
     private BigDecimal yearReturn;
 
-    @Column(name = "volatility_30d", precision = 12, scale = 2)
-    private BigDecimal volatility30d;
+    @Column(name = "three_month_return", precision = 12, scale = 2)
+    private BigDecimal threeMonthReturn;
 
-    @Column(name = "volatility_90d", precision = 12, scale = 2)
-    private BigDecimal volatility90d;
+    @Column(name = "six_month_return", precision = 12, scale = 2)
+    private BigDecimal sixMonthReturn;
 
-    @Column(name = "avg_volume_30d", precision = 20, scale = 2)
-    private BigDecimal avgVolume30d;
+    @Column(name = "three_year_return", precision = 12, scale = 2)
+    private BigDecimal threeYearReturn;
 
     @Column(name = "high_52w", precision = 14, scale = 2)
     private BigDecimal high52w;
@@ -45,17 +43,32 @@ public class StockMetrics {
     @Column(name = "low_52w", precision = 14, scale = 2)
     private BigDecimal low52w;
 
-    @Column(name = "rsi_14", precision = 12, scale = 2)
-    private BigDecimal rsi14;
+    @Column(name = "distance_from_high_percent", precision = 12, scale = 2)
+    private BigDecimal distanceFromHighPercent;
 
-    @Column(name = "sma_20", precision = 14, scale = 2)
-    private BigDecimal sma20;
+    @Column(name = "distance_from_low_percent", precision = 12, scale = 2)
+    private BigDecimal distanceFromLowPercent;
 
-    @Column(name = "sma_50", precision = 14, scale = 2)
-    private BigDecimal sma50;
+    @Column(name = "avg_volume_30d", precision = 20, scale = 2)
+    private BigDecimal avgVolume30d;
 
-    @Column(name = "sma_200", precision = 14, scale = 2)
-    private BigDecimal sma200;
+    @Column(name = "latest_trading_day_volume")
+    private Long latestTradingDayVolume;
+
+    @Column(name = "latest_trading_date")
+    private LocalDate latestTradingDate;
+
+    @Column(name = "relative_volume", precision = 12, scale = 4)
+    private BigDecimal relativeVolume;
+
+    @Column(name = "volatility_30d", precision = 12, scale = 2)
+    private BigDecimal volatility30d;
+
+    @Column(name = "volatility_90d", precision = 12, scale = 2)
+    private BigDecimal volatility90d;
+
+    @Column(name = "volatility_1y", precision = 12, scale = 2)
+    private BigDecimal volatility1y;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -72,14 +85,6 @@ public class StockMetrics {
 
     public void setStockId(Long stockId) {
         this.stockId = stockId;
-    }
-
-    public BigDecimal getCurrentPrice() {
-        return currentPrice;
-    }
-
-    public void setCurrentPrice(BigDecimal currentPrice) {
-        this.currentPrice = currentPrice;
     }
 
     public BigDecimal getWeekReturn() {
@@ -106,28 +111,28 @@ public class StockMetrics {
         this.yearReturn = yearReturn;
     }
 
-    public BigDecimal getVolatility30d() {
-        return volatility30d;
+    public BigDecimal getThreeMonthReturn() {
+        return threeMonthReturn;
     }
 
-    public void setVolatility30d(BigDecimal volatility30d) {
-        this.volatility30d = volatility30d;
+    public void setThreeMonthReturn(BigDecimal threeMonthReturn) {
+        this.threeMonthReturn = threeMonthReturn;
     }
 
-    public BigDecimal getVolatility90d() {
-        return volatility90d;
+    public BigDecimal getSixMonthReturn() {
+        return sixMonthReturn;
     }
 
-    public void setVolatility90d(BigDecimal volatility90d) {
-        this.volatility90d = volatility90d;
+    public void setSixMonthReturn(BigDecimal sixMonthReturn) {
+        this.sixMonthReturn = sixMonthReturn;
     }
 
-    public BigDecimal getAvgVolume30d() {
-        return avgVolume30d;
+    public BigDecimal getThreeYearReturn() {
+        return threeYearReturn;
     }
 
-    public void setAvgVolume30d(BigDecimal avgVolume30d) {
-        this.avgVolume30d = avgVolume30d;
+    public void setThreeYearReturn(BigDecimal threeYearReturn) {
+        this.threeYearReturn = threeYearReturn;
     }
 
     public BigDecimal getHigh52w() {
@@ -146,37 +151,78 @@ public class StockMetrics {
         this.low52w = low52w;
     }
 
-    public BigDecimal getRsi14() {
-        return rsi14;
+    public BigDecimal getDistanceFromHighPercent() {
+        return distanceFromHighPercent;
     }
 
-    public void setRsi14(BigDecimal rsi14) {
-        this.rsi14 = rsi14;
+    public void setDistanceFromHighPercent(BigDecimal distanceFromHighPercent) {
+        this.distanceFromHighPercent = distanceFromHighPercent;
     }
 
-    public BigDecimal getSma20() {
-        return sma20;
+    public BigDecimal getDistanceFromLowPercent() {
+        return distanceFromLowPercent;
     }
 
-    public void setSma20(BigDecimal sma20) {
-        this.sma20 = sma20;
+    public void setDistanceFromLowPercent(BigDecimal distanceFromLowPercent) {
+        this.distanceFromLowPercent = distanceFromLowPercent;
     }
 
-    public BigDecimal getSma50() {
-        return sma50;
+    public BigDecimal getAvgVolume30d() {
+        return avgVolume30d;
     }
 
-    public void setSma50(BigDecimal sma50) {
-        this.sma50 = sma50;
+    public void setAvgVolume30d(BigDecimal avgVolume30d) {
+        this.avgVolume30d = avgVolume30d;
     }
 
-    public BigDecimal getSma200() {
-        return sma200;
+    public Long getLatestTradingDayVolume() {
+        return latestTradingDayVolume;
     }
 
-    public void setSma200(BigDecimal sma200) {
-        this.sma200 = sma200;
+    public void setLatestTradingDayVolume(Long latestTradingDayVolume) {
+        this.latestTradingDayVolume = latestTradingDayVolume;
     }
+
+    public LocalDate getLatestTradingDate() {
+        return latestTradingDate;
+    }
+
+    public void setLatestTradingDate(LocalDate latestTradingDate) {
+        this.latestTradingDate = latestTradingDate;
+    }
+
+    public BigDecimal getRelativeVolume() {
+        return relativeVolume;
+    }
+
+    public void setRelativeVolume(BigDecimal relativeVolume) {
+        this.relativeVolume = relativeVolume;
+    }
+
+    public BigDecimal getVolatility30d() {
+        return volatility30d;
+    }
+
+    public void setVolatility30d(BigDecimal volatility30d) {
+        this.volatility30d = volatility30d;
+    }
+
+    public BigDecimal getVolatility90d() {
+        return volatility90d;
+    }
+
+    public void setVolatility90d(BigDecimal volatility90d) {
+        this.volatility90d = volatility90d;
+    }
+
+    public BigDecimal getVolatility1y() {
+        return volatility1y;
+    }
+
+    public void setVolatility1y(BigDecimal volatility1y) {
+        this.volatility1y = volatility1y;
+    }
+
 
     public Instant getUpdatedAt() {
         return updatedAt;

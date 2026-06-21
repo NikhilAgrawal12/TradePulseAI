@@ -51,7 +51,8 @@ public record StockInsightsResponseDTO(
     }
 
     public record VolumeMetricsDTO(
-            Long todaysVolume,
+            Long latestTradingDayVolume,
+            String latestTradingDate,
             Double average30DayVolume,
             Double relativeVolume
     ) {

@@ -39,3 +39,24 @@ CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_stock_id ON all_stocks_last_valu
 CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_cached_at ON all_stocks_last_value_cache(cached_at DESC);
 CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_aggregate_ts ON all_stocks_last_value_cache(aggregate_updated_at DESC);
 
+-- Ensure stock_metrics has all returns windows used by Insights Returns tab
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS three_month_return NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS six_month_return NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS three_year_return NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS distance_from_high_percent NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS distance_from_low_percent NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS avg_volume_30d NUMERIC(20, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_trading_day_volume BIGINT;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_trading_date DATE;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS relative_volume NUMERIC(12, 4);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_30d NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_1y NUMERIC(12, 2);
+
+-- Drop unused stock_metrics columns now computed directly from OHLC/realtime paths
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS current_price;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS rsi_14;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_20;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200;
+

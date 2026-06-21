@@ -48,7 +48,8 @@ export type StockInsights = {
     threeYearReturn: number | null;
   };
   volumeMetrics: {
-    todaysVolume: number | null;
+    latestTradingDayVolume: number | null;
+    latestTradingDate: string | null;
     average30DayVolume: number | null;
     relativeVolume: number | null;
   };

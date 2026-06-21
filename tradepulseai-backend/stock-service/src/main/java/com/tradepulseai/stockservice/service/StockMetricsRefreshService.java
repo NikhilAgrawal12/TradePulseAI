@@ -25,7 +25,15 @@ import java.util.Optional;
 public class StockMetricsRefreshService {
 
     private static final Logger log = LoggerFactory.getLogger(StockMetricsRefreshService.class);
-    private static final int LOOKBACK_ROWS = 260;
+    private static final int LOOKBACK_ROWS = 800;
+    private static final int ONE_WEEK_PERIODS = 5;
+    private static final int ONE_MONTH_PERIODS = 21;
+    private static final int THREE_MONTH_PERIODS = 63;
+    private static final int SIX_MONTH_PERIODS = 126;
+    private static final int ONE_YEAR_PERIODS = 252;
+    private static final int THREE_YEAR_PERIODS = 756;
+    private static final double SQRT_252 = Math.sqrt(252.0d);
+    private static final BigDecimal ZERO = BigDecimal.ZERO;
     private static final MathContext MATH_CONTEXT = new MathContext(12, RoundingMode.HALF_UP);
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
@@ -88,35 +96,47 @@ public class StockMetricsRefreshService {
         List<BigDecimal> closes = historyAsc.stream().map(StockMarketData::getClosePrice).toList();
         List<Long> volumes = historyAsc.stream().map(StockMarketData::getVolume).toList();
 
+        BigDecimal weekReturn = computeReturn(closes, ONE_WEEK_PERIODS);
+        BigDecimal monthReturn = computeReturn(closes, ONE_MONTH_PERIODS);
+        BigDecimal threeMonthReturn = computeReturn(closes, THREE_MONTH_PERIODS);
+        BigDecimal sixMonthReturn = computeReturn(closes, SIX_MONTH_PERIODS);
+        BigDecimal yearReturn = computeReturn(closes, ONE_YEAR_PERIODS);
+        BigDecimal threeYearReturn = computeReturn(closes, THREE_YEAR_PERIODS);
+        BigDecimal high52w = maxHigh(historyAsc, ONE_YEAR_PERIODS);
+        BigDecimal low52w = minLow(historyAsc, ONE_YEAR_PERIODS);
         BigDecimal currentPrice = latest.getClosePrice();
-        BigDecimal weekReturn = computeReturn(closes, 5);
-        BigDecimal monthReturn = computeReturn(closes, 21);
-        BigDecimal yearReturn = computeReturn(closes, 252);
-        BigDecimal volatility30d = computeVolatilityPercent(closes, 30);
-        BigDecimal volatility90d = computeVolatilityPercent(closes, 90);
-        BigDecimal avgVolume30d = averageVolume(volumes, 30);
-        BigDecimal high52w = maxHigh(historyAsc, 252);
-        BigDecimal low52w = minLow(historyAsc, 252);
-        BigDecimal rsi14 = computeRsi(closes, 14);
-        BigDecimal sma20 = simpleMovingAverage(closes, 20);
-        BigDecimal sma50 = simpleMovingAverage(closes, 50);
-        BigDecimal sma200 = simpleMovingAverage(closes, 200);
+        BigDecimal distanceFromHighPercent = percentDistance(currentPrice, high52w);
+        BigDecimal distanceFromLowPercent = percentDistance(currentPrice, low52w);
+        BigDecimal average30DayVolume = averageVolume(volumes, 30);
+        Long latestTradingDayVolume = latest.getVolume();
+        BigDecimal relativeVolume = latestTradingDayVolume == null
+                || average30DayVolume == null
+                || average30DayVolume.compareTo(BigDecimal.ZERO) == 0
+                ? null
+                : BigDecimal.valueOf(latestTradingDayVolume).divide(average30DayVolume, MATH_CONTEXT);
+        BigDecimal volatility30d = computeAnnualizedVolatility(closes, 30);
+        BigDecimal volatility90d = computeAnnualizedVolatility(closes, 90);
+        BigDecimal volatility1y = computeAnnualizedVolatility(closes, ONE_YEAR_PERIODS);
 
         StockMetrics row = new StockMetrics();
         row.setStockId(stockId);
-        row.setCurrentPrice(scale(valueOrZero(currentPrice)));
-        row.setWeekReturn(scale(valueOrZero(weekReturn)));
-        row.setMonthReturn(scale(valueOrZero(monthReturn)));
-        row.setYearReturn(scale(valueOrZero(yearReturn)));
-        row.setVolatility30d(scale(valueOrZero(volatility30d)));
-        row.setVolatility90d(scale(valueOrZero(volatility90d)));
-        row.setAvgVolume30d(scale(valueOrZero(avgVolume30d)));
-        row.setHigh52w(scale(valueOrZero(high52w)));
-        row.setLow52w(scale(valueOrZero(low52w)));
-        row.setRsi14(scale(valueOrZero(rsi14)));
-        row.setSma20(scale(valueOrZero(sma20)));
-        row.setSma50(scale(valueOrZero(sma50)));
-        row.setSma200(scale(valueOrZero(sma200)));
+        row.setWeekReturn(scaleNullable(weekReturn));
+        row.setMonthReturn(scaleNullable(monthReturn));
+        row.setThreeMonthReturn(scaleNullable(threeMonthReturn));
+        row.setSixMonthReturn(scaleNullable(sixMonthReturn));
+        row.setYearReturn(scaleNullable(yearReturn));
+        row.setThreeYearReturn(scaleNullable(threeYearReturn));
+        row.setHigh52w(scaleNullable(high52w));
+        row.setLow52w(scaleNullable(low52w));
+        row.setDistanceFromHighPercent(scaleNullable(distanceFromHighPercent));
+        row.setDistanceFromLowPercent(scaleNullable(distanceFromLowPercent));
+        row.setAvgVolume30d(scaleNullable(average30DayVolume));
+        row.setLatestTradingDayVolume(latestTradingDayVolume);
+        row.setLatestTradingDate(latest.getTradingDate());
+        row.setRelativeVolume(scaleNullable(relativeVolume));
+        row.setVolatility30d(scaleNullable(volatility30d));
+        row.setVolatility90d(scaleNullable(volatility90d));
+        row.setVolatility1y(scaleNullable(volatility1y));
         return row;
     }
 
@@ -134,64 +154,11 @@ public class StockMetricsRefreshService {
         return latest.divide(baseline, MATH_CONTEXT).subtract(BigDecimal.ONE).multiply(HUNDRED, MATH_CONTEXT);
     }
 
-    private BigDecimal computeVolatilityPercent(List<BigDecimal> closes, int periods) {
-        List<Double> returns = dailyReturns(closes, periods);
-        if (returns.size() < 2) {
+    private BigDecimal percentDistance(BigDecimal current, BigDecimal anchor) {
+        if (current == null || anchor == null || anchor.compareTo(ZERO) == 0) {
             return null;
         }
-
-        double mean = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
-        double sumSquaredDiff = 0.0d;
-        for (double value : returns) {
-            double delta = value - mean;
-            sumSquaredDiff += delta * delta;
-        }
-        double variance = sumSquaredDiff / (returns.size() - 1);
-        double stdDev = Math.sqrt(variance);
-        return BigDecimal.valueOf(stdDev * 100.0d);
-    }
-
-    private List<Double> dailyReturns(List<BigDecimal> closes, int periods) {
-        int size = closes.size();
-        if (size < periods + 1) {
-            return List.of();
-        }
-
-        int start = size - (periods + 1);
-        List<Double> values = new ArrayList<>(periods);
-        for (int i = start + 1; i < size; i++) {
-            BigDecimal prev = closes.get(i - 1);
-            BigDecimal current = closes.get(i);
-            if (prev == null || current == null || prev.compareTo(BigDecimal.ZERO) == 0) {
-                continue;
-            }
-            double ret = current.subtract(prev).divide(prev, MATH_CONTEXT).doubleValue();
-            values.add(ret);
-        }
-        return values;
-    }
-
-    private BigDecimal averageVolume(List<Long> volumes, int periods) {
-        if (volumes.isEmpty()) {
-            return null;
-        }
-
-        int size = volumes.size();
-        int from = Math.max(0, size - periods);
-        long count = 0L;
-        BigDecimal sum = BigDecimal.ZERO;
-        for (int i = from; i < size; i++) {
-            Long volume = volumes.get(i);
-            if (volume == null) {
-                continue;
-            }
-            sum = sum.add(BigDecimal.valueOf(volume));
-            count++;
-        }
-        if (count == 0L) {
-            return null;
-        }
-        return sum.divide(BigDecimal.valueOf(count), MATH_CONTEXT);
+        return current.subtract(anchor).divide(anchor, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
     }
 
     private BigDecimal maxHigh(List<StockMarketData> historyAsc, int periods) {
@@ -226,63 +193,73 @@ public class StockMetricsRefreshService {
         return min;
     }
 
-    private BigDecimal simpleMovingAverage(List<BigDecimal> closes, int periods) {
-        int size = closes.size();
-        if (size < periods) {
+    private BigDecimal averageVolume(List<Long> volumes, int periods) {
+        if (volumes.isEmpty()) {
             return null;
         }
 
+        int size = volumes.size();
+        int from = Math.max(0, size - periods);
+        long count = 0L;
         BigDecimal sum = BigDecimal.ZERO;
-        for (int i = size - periods; i < size; i++) {
-            BigDecimal close = closes.get(i);
-            if (close == null) {
-                return null;
+        for (int i = from; i < size; i++) {
+            Long volume = volumes.get(i);
+            if (volume == null) {
+                continue;
             }
-            sum = sum.add(close);
+            sum = sum.add(BigDecimal.valueOf(volume));
+            count++;
         }
-        return sum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
+        if (count == 0L) {
+            return null;
+        }
+        return sum.divide(BigDecimal.valueOf(count), MATH_CONTEXT);
     }
 
-    private BigDecimal computeRsi(List<BigDecimal> closes, int periods) {
-        int size = closes.size();
-        if (size < periods + 1) {
+    private BigDecimal computeAnnualizedVolatility(List<BigDecimal> closes, int periods) {
+        List<Double> returns = dailyReturns(closes, periods);
+        if (returns.size() < 2) {
             return null;
         }
 
-        BigDecimal gainSum = BigDecimal.ZERO;
-        BigDecimal lossSum = BigDecimal.ZERO;
+        double mean = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
+        double sumSquaredDiff = 0.0d;
+        for (double value : returns) {
+            double delta = value - mean;
+            sumSquaredDiff += delta * delta;
+        }
+
+        double variance = sumSquaredDiff / (returns.size() - 1);
+        double stdDev = Math.sqrt(variance);
+        return BigDecimal.valueOf(stdDev * SQRT_252 * 100.0d);
+    }
+
+    private List<Double> dailyReturns(List<BigDecimal> closes, int periods) {
+        int size = closes.size();
+        if (size < periods + 1) {
+            return List.of();
+        }
+
         int start = size - (periods + 1);
+        List<Double> values = new ArrayList<>(periods);
         for (int i = start + 1; i < size; i++) {
             BigDecimal prev = closes.get(i - 1);
             BigDecimal current = closes.get(i);
-            if (prev == null || current == null) {
-                return null;
+            if (prev == null || current == null || prev.compareTo(BigDecimal.ZERO) == 0) {
+                continue;
             }
-            BigDecimal delta = current.subtract(prev);
-            if (delta.compareTo(BigDecimal.ZERO) >= 0) {
-                gainSum = gainSum.add(delta);
-            } else {
-                lossSum = lossSum.add(delta.abs());
-            }
+            double ret = current.subtract(prev).divide(prev, MATH_CONTEXT).doubleValue();
+            values.add(ret);
         }
-
-        BigDecimal averageGain = gainSum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
-        BigDecimal averageLoss = lossSum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
-
-        if (averageLoss.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.valueOf(100);
-        }
-
-        BigDecimal rs = averageGain.divide(averageLoss, MATH_CONTEXT);
-        BigDecimal denominator = BigDecimal.ONE.add(rs);
-        return BigDecimal.valueOf(100).subtract(BigDecimal.valueOf(100).divide(denominator, MATH_CONTEXT));
+        return values;
     }
 
     private BigDecimal scale(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal valueOrZero(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
+    private BigDecimal scaleNullable(BigDecimal value) {
+        return value == null ? null : scale(value);
     }
+
 }

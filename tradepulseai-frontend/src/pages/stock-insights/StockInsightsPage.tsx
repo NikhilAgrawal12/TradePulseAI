@@ -14,6 +14,11 @@ type LineDefinition = {
   color: string;
 };
 
+type AxisTick = {
+  index: number;
+  label: string;
+};
+
 const RANGE_DAYS: Record<RangeKey, number> = {
   "1M": 31,
   "3M": 92,
@@ -24,11 +29,23 @@ const RANGE_DAYS: Record<RangeKey, number> = {
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+function parseDisplayDate(value: string): Date {
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    // Date-only strings from the API are trading dates, so parse in local time to avoid UTC day shifts.
+    return new Date(year, month - 1, day);
+  }
+  return new Date(value);
+}
+
 function formatDateLabel(value: string | null | undefined): string {
   if (!value) {
     return "--";
   }
-  const parsed = new Date(value);
+  const parsed = parseDisplayDate(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -36,7 +53,7 @@ function formatDateShort(value: string | null | undefined): string {
   if (!value) {
     return "--";
   }
-  const parsed = new Date(value);
+  const parsed = parseDisplayDate(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -64,6 +81,22 @@ function formatVolume(value: number | null | undefined): string {
   return value == null ? "--" : Math.round(value).toLocaleString();
 }
 
+function formatCompactVolume(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+  if (Math.abs(value) >= 1_000_000_000) {
+    return `${formatMoney(value / 1_000_000_000)}B`;
+  }
+  if (Math.abs(value) >= 1_000_000) {
+    return `${formatMoney(value / 1_000_000)}M`;
+  }
+  if (Math.abs(value) >= 1_000) {
+    return `${formatMoney(value / 1_000)}K`;
+  }
+  return formatMoney(value);
+}
+
 function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): StockHistoryPoint[] {
   if (history.length === 0) {
     return [];
@@ -74,7 +107,7 @@ function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): St
     return history;
   }
 
-  const latestDate = new Date(latest);
+  const latestDate = parseDisplayDate(latest);
   if (Number.isNaN(latestDate.getTime())) {
     return history;
   }
@@ -85,9 +118,62 @@ function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): St
     if (!point.tradingDate) {
       return false;
     }
-    const pointDate = new Date(point.tradingDate);
+    const pointDate = parseDisplayDate(point.tradingDate);
     return !Number.isNaN(pointDate.getTime()) && pointDate >= cutoff;
   });
+}
+
+function buildXAxisTicks(data: StockHistoryPoint[], maxTicks = 6): AxisTick[] {
+  if (data.length === 0) {
+    return [];
+  }
+
+  if (data.length === 1) {
+    const onlyDate = data[0]?.tradingDate;
+    return onlyDate
+      ? [{
+          index: 0,
+          label: parseDisplayDate(onlyDate).toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+        }]
+      : [];
+  }
+
+  const requestedTicks = Math.max(2, Math.min(maxTicks, data.length));
+  const step = (data.length - 1) / (requestedTicks - 1);
+  const used = new Set<number>();
+  const ticks: AxisTick[] = [];
+
+  for (let i = 0; i < requestedTicks; i += 1) {
+    const index = Math.round(i * step);
+    if (used.has(index)) {
+      continue;
+    }
+    used.add(index);
+    const dateLabel = data[index]?.tradingDate;
+    if (!dateLabel) {
+      continue;
+    }
+    const parsed = parseDisplayDate(dateLabel);
+    ticks.push({
+      index,
+      label: Number.isNaN(parsed.getTime())
+        ? dateLabel
+        : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+    });
+  }
+
+  const lastDateLabel = data[data.length - 1]?.tradingDate;
+  if (!used.has(data.length - 1) && lastDateLabel) {
+    const parsed = parseDisplayDate(lastDateLabel);
+    ticks.push({
+      index: data.length - 1,
+      label: Number.isNaN(parsed.getTime())
+        ? lastDateLabel
+        : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+    });
+  }
+
+  return ticks.sort((left, right) => left.index - right.index);
 }
 
 function getSeriesBounds(data: StockHistoryPoint[], keys: Array<keyof StockHistoryPoint>): { min: number; max: number } {
@@ -111,21 +197,28 @@ function getSeriesBounds(data: StockHistoryPoint[], keys: Array<keyof StockHisto
   return { min: min - padding, max: max + padding };
 }
 
-function buildLinePath(data: StockHistoryPoint[], key: keyof StockHistoryPoint, width: number, height: number, min: number, max: number): string {
+function buildLinePath(
+  data: StockHistoryPoint[],
+  key: keyof StockHistoryPoint,
+  left: number,
+  top: number,
+  innerWidth: number,
+  innerHeight: number,
+  min: number,
+  max: number,
+): string {
   if (data.length === 0) {
     return "";
   }
 
-  const innerWidth = width - 24;
-  const innerHeight = height - 24;
   return data
     .map((point, index) => {
       const rawValue = point[key];
       if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
         return null;
       }
-      const x = 12 + (index / Math.max(data.length - 1, 1)) * innerWidth;
-      const y = 12 + innerHeight - ((rawValue - min) / Math.max(max - min, 1e-9)) * innerHeight;
+      const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
+      const y = top + innerHeight - ((rawValue - min) / Math.max(max - min, 1e-9)) * innerHeight;
       return `${index === 0 ? "M" : "L"}${x},${y}`;
     })
     .filter((value): value is string => value !== null)
@@ -156,76 +249,174 @@ function MetricSection({ title, children }: { title: string; children: ReactNode
 }
 
 function MetricGrid({ items }: { items: Array<{ label: string; value: string; tone?: "positive" | "negative" }> }) {
-  return (
-    <div className="insights-metric-grid">
-      {items.map((item) => (
-        <div key={item.label} className="insights-metric-card">
-          <span>{item.label}</span>
-          <strong className={item.tone === "positive" ? "metric-positive" : item.tone === "negative" ? "metric-negative" : undefined}>{item.value}</strong>
-        </div>
-      ))}
-    </div>
-  );
+   return (
+     <div className="insights-metric-grid">
+       {items.map((item) => (
+         <div key={item.label} className="insights-metric-card">
+           <span>{item.label}</span>
+           <strong className={item.tone === "positive" ? "metric-positive" : item.tone === "negative" ? "metric-negative" : undefined}>{item.value}</strong>
+         </div>
+       ))}
+     </div>
+   );
 }
 
-function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoint[]; lines: LineDefinition[]; valueFormatter?: (value: number) => string }) {
-  const width = 900;
-  const height = 280;
-  const bounds = useMemo(() => getSeriesBounds(data, lines.map((line) => line.key)), [data, lines]);
-  const yTicks = useMemo(() => {
-    return Array.from({ length: 5 }, (_, index) => {
-      const ratio = index / 4;
-      return bounds.max - (bounds.max - bounds.min) * ratio;
-    });
-  }, [bounds]);
-
+function CandlestickLegend() {
   return (
-    <div className="insights-chart-shell">
-      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock line chart">
-        {yTicks.map((tick, index) => {
-          const y = 12 + (index / 4) * (height - 24);
-          return (
-            <g key={tick}>
-              <line x1="12" y1={y} x2={width - 12} y2={y} className="chart-grid-line" />
-              <text x="16" y={y - 4} className="chart-axis-label">
-                {valueFormatter ? valueFormatter(tick) : formatMoney(tick)}
-              </text>
-            </g>
-          );
-        })}
-        {lines.map((line) => (
-          <path key={line.label} d={buildLinePath(data, line.key, width, height, bounds.min, bounds.max)} fill="none" stroke={line.color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-        ))}
-      </svg>
-      <div className="insights-chart-legend">
-        {lines.map((line) => (
-          <span key={line.label}><i style={{ backgroundColor: line.color }} />{line.label}</span>
-        ))}
+    <div className="chart-legend-grid">
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-candle">
+          {/* Green candle (close > open) */}
+          <line x1="30" y1="10" x2="30" y2="45" stroke="#16a34a" strokeWidth="1.5" />
+          <rect x="24" y="25" width="12" height="20" fill="#16a34a" rx="1" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Close &gt; Open</text>
+        </svg>
+      </div>
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-candle">
+          {/* Red candle (close < open) */}
+          <line x1="30" y1="10" x2="30" y2="45" stroke="#dc2626" strokeWidth="1.5" />
+          <rect x="24" y="25" width="12" height="20" fill="#dc2626" rx="1" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Close &lt; Open</text>
+        </svg>
+      </div>
+      <div className="legend-note">
+        <p><strong>Wick:</strong> High to low price range</p>
+        <p><strong>Body:</strong> Open to close price range</p>
       </div>
     </div>
   );
 }
 
-function CandlestickChart({ data }: { data: StockHistoryPoint[] }) {
-  const width = 900;
-  const height = 280;
-  const bounds = useMemo(() => getSeriesBounds(data, ["low", "high"]), [data]);
-  const innerWidth = width - 24;
-  const innerHeight = height - 24;
-
+function VolumeLegend() {
   return (
-    <div className="insights-chart-shell">
-      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock candlestick chart">
+    <div className="chart-legend-grid">
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-bars">
+          {/* Green bar (positive return) */}
+          <rect x="20" y="15" width="20" height="35" fill="#16a34a" rx="2" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Positive Day</text>
+        </svg>
+      </div>
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-bars">
+          {/* Red bar (negative return) */}
+          <rect x="20" y="15" width="20" height="35" fill="#dc2626" rx="2" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Negative Day</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+
+function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoint[]; lines: LineDefinition[]; valueFormatter?: (value: number) => string }) {
+   const width = 900;
+   const height = 360;
+   const left = 70;
+   const right = 14;
+   const top = 12;
+   const bottom = 60;
+   const innerWidth = width - left - right;
+   const innerHeight = height - top - bottom;
+   const bounds = useMemo(() => getSeriesBounds(data, lines.map((line) => line.key)), [data, lines]);
+   const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
+   const yTicks = useMemo(() => {
+     return Array.from({ length: 5 }, (_, index) => {
+       const ratio = index / 4;
+       return bounds.max - (bounds.max - bounds.min) * ratio;
+     });
+   }, [bounds]);
+
+   return (
+     <div className="insights-chart-shell">
+       <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock line chart">
+         {yTicks.map((tick, index) => {
+           const y = top + (index / 4) * innerHeight;
+           return (
+             <g key={tick}>
+               <line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" />
+               <text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">
+                 {valueFormatter ? valueFormatter(tick) : formatMoney(tick)}
+               </text>
+             </g>
+           );
+         })}
+         <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
+         {xTicks.map((tick) => {
+           const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth;
+           return (
+             <g key={`${tick.index}-${tick.label}`}>
+               <line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" />
+               <text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">
+                 {tick.label}
+               </text>
+             </g>
+           );
+         })}
+         {lines.map((line) => (
+           <path
+             key={line.label}
+             d={buildLinePath(data, line.key, left, top, innerWidth, innerHeight, bounds.min, bounds.max)}
+             fill="none"
+             stroke={line.color}
+             strokeWidth="3"
+             strokeLinejoin="round"
+             strokeLinecap="round"
+           />
+         ))}
+        </svg>
+        <div className="insights-chart-legend">
+          {lines.map((line) => (
+            <span key={line.label}><i style={{ backgroundColor: line.color }} />{line.label}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function CandlestickChart({ data }: { data: StockHistoryPoint[] }) {
+   const width = 900;
+   const height = 360;
+   const left = 70;
+   const right = 14;
+   const top = 12;
+   const bottom = 60;
+   const bounds = useMemo(() => getSeriesBounds(data, ["low", "high"]), [data]);
+   const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
+   const yTicks = useMemo(() => {
+     return Array.from({ length: 5 }, (_, index) => {
+       const ratio = index / 4;
+       return bounds.max - (bounds.max - bounds.min) * ratio;
+     });
+   }, [bounds]);
+   const innerWidth = width - left - right;
+   const innerHeight = height - top - bottom;
+
+   return (
+     <div className="insights-chart-shell">
+       <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock candlestick chart">
+         {yTicks.map((tick, index) => {
+           const y = top + (index / 4) * innerHeight;
+           return (
+             <g key={tick}>
+               <line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" />
+               <text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">
+                 {formatMoney(tick)}
+               </text>
+             </g>
+           );
+         })}
         {data.map((point, index) => {
           if ([point.open, point.high, point.low, point.close].some((value) => typeof value !== "number")) {
             return null;
           }
-          const x = 12 + (index / Math.max(data.length - 1, 1)) * innerWidth;
+          const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
           const candleWidth = Math.max(innerWidth / Math.max(data.length * 1.8, 24), 2);
-          const highY = 12 + innerHeight - (((point.high as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const lowY = 12 + innerHeight - (((point.low as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const openY = 12 + innerHeight - (((point.open as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const closeY = 12 + innerHeight - (((point.close as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const highY = top + innerHeight - (((point.high as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const lowY = top + innerHeight - (((point.low as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const openY = top + innerHeight - (((point.open as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const closeY = top + innerHeight - (((point.close as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
           const color = (point.close as number) >= (point.open as number) ? "#16a34a" : "#dc2626";
           const bodyY = Math.min(openY, closeY);
           const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
@@ -237,36 +428,82 @@ function CandlestickChart({ data }: { data: StockHistoryPoint[] }) {
             </g>
           );
         })}
-      </svg>
-    </div>
-  );
-}
+         <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
+         {xTicks.map((tick) => {
+           const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth;
+           return (
+             <g key={`${tick.index}-${tick.label}`}>
+               <line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" />
+               <text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">
+                 {tick.label}
+               </text>
+             </g>
+           );
+         })}
+       </svg>
+     </div>
+   );
+ }
 
-function VolumeChart({ data }: { data: StockHistoryPoint[] }) {
-  const width = 900;
-  const height = 220;
-  const maxVolume = Math.max(...data.map((point) => point.volume ?? 0), 1);
-  const innerWidth = width - 24;
-  const innerHeight = height - 24;
+  function VolumeChart({ data }: { data: StockHistoryPoint[] }) {
+   const width = 900;
+   const height = 300;
+   const left = 70;
+   const right = 14;
+   const top = 12;
+   const bottom = 60;
+   const maxVolume = Math.max(...data.map((point) => point.volume ?? 0), 1);
+   const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
+   const yTicks = useMemo(() => {
+     return Array.from({ length: 5 }, (_, index) => {
+       const ratio = index / 4;
+       return maxVolume * (1 - ratio);
+     });
+   }, [maxVolume]);
+   const innerWidth = width - left - right;
+   const innerHeight = height - top - bottom;
 
-  return (
-    <div className="insights-chart-shell">
-      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock volume chart">
+   return (
+     <div className="insights-chart-shell">
+       <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock volume chart">
+         {yTicks.map((tick, index) => {
+           const y = top + (index / 4) * innerHeight;
+           return (
+             <g key={tick}>
+               <line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" />
+               <text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">
+                 {formatCompactVolume(tick)}
+               </text>
+             </g>
+           );
+         })}
         {data.map((point, index) => {
           const volume = point.volume ?? 0;
-          const x = 12 + (index / Math.max(data.length - 1, 1)) * innerWidth;
+          const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
           const barWidth = Math.max(innerWidth / Math.max(data.length * 1.6, 20), 2);
           const barHeight = (volume / maxVolume) * innerHeight;
-          const y = 12 + innerHeight - barHeight;
-          const isPositive = (point.dailyReturnPercent ?? 0) >= 0;
-          return <rect key={`${point.tradingDate}-${index}`} x={x - barWidth / 2} y={y} width={barWidth} height={barHeight} fill={isPositive ? "rgba(37, 99, 235, 0.78)" : "rgba(148, 163, 184, 0.88)"} rx="1" />;
+          const y = top + innerHeight - barHeight;
+           const isPositive = (point.dailyReturnPercent ?? 0) >= 0;
+           return <rect key={`${point.tradingDate}-${index}`} x={x - barWidth / 2} y={y} width={barWidth} height={barHeight} fill={isPositive ? "#16a34a" : "#dc2626"} rx="1" />;
         })}
-      </svg>
-    </div>
-  );
-}
+         <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
+         {xTicks.map((tick) => {
+           const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth;
+           return (
+             <g key={`${tick.index}-${tick.label}`}>
+               <line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" />
+               <text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">
+                 {tick.label}
+               </text>
+             </g>
+           );
+         })}
+       </svg>
+     </div>
+   );
+ }
 
-function ReturnHistogram({ history }: { history: StockHistoryPoint[] }) {
+ function ReturnHistogram({ history }: { history: StockHistoryPoint[] }) {
   const returns = history
     .map((point) => point.dailyReturnPercent)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
@@ -347,11 +584,15 @@ function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] })
 }
 
 export function StockInsightsPage() {
-  const { stockId } = useParams();
-  const [insights, setInsights] = useState<StockInsights | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedRange, setSelectedRange] = useState<RangeKey>("6M");
+   const { stockId } = useParams();
+   const [insights, setInsights] = useState<StockInsights | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState<string | null>(null);
+   const [selectedRange, setSelectedRange] = useState<RangeKey>("1M");
+   const [candlestickRange, setCandlestickRange] = useState<RangeKey>("1M");
+   const [volumeRange, setVolumeRange] = useState<RangeKey>("1M");
+   const [movingAverageRange, setMovingAverageRange] = useState<RangeKey>("1M");
+   const [rollingVolatilityRange, setRollingVolatilityRange] = useState<RangeKey>("1M");
 
   useEffect(() => {
     document.title = "Stock Insights | TradePulseAI";
@@ -394,7 +635,11 @@ export function StockInsightsPage() {
     };
   }, [stockId]);
 
-  const rangeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], selectedRange), [insights?.history, selectedRange]);
+   const rangeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], selectedRange), [insights?.history, selectedRange]);
+   const candlestickHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], candlestickRange), [insights?.history, candlestickRange]);
+   const volumeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], volumeRange), [insights?.history, volumeRange]);
+   const movingAverageHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], movingAverageRange), [insights?.history, movingAverageRange]);
+   const rollingVolatilityHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], rollingVolatilityRange), [insights?.history, rollingVolatilityRange]);
 
   const summaryTone = (value: number | null | undefined): "positive" | "negative" | undefined => {
     if (value == null) return undefined;
@@ -498,7 +743,8 @@ export function StockInsightsPage() {
               <MetricSection title="Volume Metrics">
                 <MetricGrid
                   items={[
-                    { label: "Today's Volume", value: formatVolume(insights.volumeMetrics.todaysVolume) },
+                    { label: "Volume As Of", value: formatDateLabel(insights.volumeMetrics.latestTradingDate) },
+                    { label: "Latest Trading Day Volume", value: formatVolume(insights.volumeMetrics.latestTradingDayVolume) },
                     { label: "Average 30-Day Volume", value: formatVolume(insights.volumeMetrics.average30DayVolume) },
                     { label: "Relative Volume", value: formatMaybeRatio(insights.volumeMetrics.relativeVolume) },
                   ]}
@@ -515,42 +761,71 @@ export function StockInsightsPage() {
                 />
               </MetricSection>
 
-              <section className="insights-range-row" aria-label="Chart range selector">
-                {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
-                  <button key={range} type="button" className={`range-pill ${selectedRange === range ? "active" : ""}`} onClick={() => setSelectedRange(range)}>
-                    {range}
-                  </button>
-                ))}
-              </section>
+               <ChartCard title="Price History" subtitle="Line chart showing price movement over time">
+                 <section className="insights-range-row" aria-label="Price history range selector">
+                   {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                     <button key={range} type="button" className={`range-pill ${selectedRange === range ? "active" : ""}`} onClick={() => setSelectedRange(range)}>
+                       {range}
+                     </button>
+                   ))}
+                 </section>
+                 <MultiLineChart data={rangeHistory} lines={[{ key: "close", label: "Price", color: "#7c3aed" }]} valueFormatter={(value) => formatMoney(value)} />
+               </ChartCard>
 
-              <ChartCard title="Price History" subtitle="Line chart for the selected range">
-                <MultiLineChart data={rangeHistory} lines={[{ key: "close", label: "Price", color: "#7c3aed" }]} valueFormatter={(value) => `$${formatMoney(value)}`} />
-              </ChartCard>
+               <ChartCard title="Candlestick Chart">
+                 <section className="insights-range-row" aria-label="Candlestick range selector">
+                   {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
+                     <button key={range} type="button" className={`range-pill ${candlestickRange === range ? "active" : ""}`} onClick={() => setCandlestickRange(range as RangeKey)}>
+                       {range}
+                     </button>
+                   ))}
+                 </section>
+                 <CandlestickChart data={candlestickHistory} />
+                 <CandlestickLegend />
+               </ChartCard>
 
-              <ChartCard title="Candlestick Chart" subtitle="Open, high, low, and close by day">
-                <CandlestickChart data={rangeHistory} />
-              </ChartCard>
-
-              <ChartCard title="Volume Chart" subtitle="Daily traded volume for the selected range">
-                <VolumeChart data={rangeHistory} />
-              </ChartCard>
+               <ChartCard title="Volume Chart">
+                 <section className="insights-range-row" aria-label="Volume range selector">
+                   {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
+                     <button key={range} type="button" className={`range-pill ${volumeRange === range ? "active" : ""}`} onClick={() => setVolumeRange(range as RangeKey)}>
+                       {range}
+                     </button>
+                   ))}
+                 </section>
+                 <VolumeChart data={volumeHistory} />
+                 <VolumeLegend />
+               </ChartCard>
 
               <ChartCard title="Moving Averages" subtitle="Price with 20, 50, and 200 day SMAs">
+                <section className="insights-range-row" aria-label="Moving averages range selector">
+                  {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${movingAverageRange === range ? "active" : ""}`} onClick={() => setMovingAverageRange(range)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
                 <MultiLineChart
-                  data={rangeHistory}
+                  data={movingAverageHistory}
                   lines={[
                     { key: "close", label: "Price", color: "#7c3aed" },
                     { key: "sma20", label: "20 SMA", color: "#2563eb" },
                     { key: "sma50", label: "50 SMA", color: "#f97316" },
                     { key: "sma200", label: "200 SMA", color: "#16a34a" },
                   ]}
-                  valueFormatter={(value) => `$${formatMoney(value)}`}
+                  valueFormatter={(value) => formatMoney(value)}
                 />
               </ChartCard>
 
               <ChartCard title="Rolling Volatility" subtitle="Risk trend across 30-day, 90-day, and 1-year windows">
+                <section className="insights-range-row" aria-label="Rolling volatility range selector">
+                  {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
                 <MultiLineChart
-                  data={rangeHistory}
+                  data={rollingVolatilityHistory}
                   lines={[
                     { key: "volatility30Day", label: "30D Volatility", color: "#dc2626" },
                     { key: "volatility90Day", label: "90D Volatility", color: "#0f766e" },
@@ -674,6 +949,3 @@ export function StockInsightsPage() {
     </>
   );
 }
-
-
-
