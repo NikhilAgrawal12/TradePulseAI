@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import type { MonthlyReturnHeatmapCell, StockHistoryPoint, StockInsights } from "../../types/stockInsights";
+import type { Stock } from "../../types/stock";
 import { fetchStockInsights } from "../../utils/stockInsightsApi";
 import { formatMoney, formatPercent, formatSignedCurrency } from "../../utils/money";
+import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./StockInsightsPage.css";
 
 type RangeKey = "1M" | "3M" | "6M" | "1Y" | "3Y";
@@ -28,7 +30,6 @@ const RANGE_DAYS: Record<RangeKey, number> = {
 };
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const INSIGHTS_STREAM_RECONNECT_MS = 3000;
 
 function parseDisplayDate(value: string): Date {
   const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -95,25 +96,10 @@ function formatCompactVolume(value: number): string {
   if (Math.abs(value) >= 1_000) {
     return `${formatMoney(value / 1_000)}K`;
   }
-  return formatMoney(value);
-}
+   return formatMoney(value);
+ }
 
-function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function derivePreviousClose(currentPrice: number | null, changePercent: number | null): number | null {
-  if (currentPrice == null || changePercent == null) {
-    return null;
-  }
-  const denominator = 1 + (changePercent / 100);
-  if (!Number.isFinite(denominator) || denominator === 0) {
-    return null;
-  }
-  return currentPrice / denominator;
-}
-
-function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): StockHistoryPoint[] {
+ function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): StockHistoryPoint[] {
   if (history.length === 0) {
     return [];
   }
@@ -650,163 +636,103 @@ export function StockInsightsPage() {
    const [movingAverageRange, setMovingAverageRange] = useState<RangeKey>("1M");
    const [rollingVolatilityRange, setRollingVolatilityRange] = useState<RangeKey>("1M");
 
-  useEffect(() => {
-    document.title = "Stock Insights | TradePulseAI";
-  }, []);
+   const { stocks: streamedStocks, setSearchTerm } = useStreamedStocks();
 
-  useEffect(() => {
-    let mounted = true;
+   useEffect(() => {
+     document.title = "Stock Insights | TradePulseAI";
+   }, []);
 
-    const loadInsights = async () => {
-      if (!stockId) {
-        setError("Stock id is missing.");
-        setLoading(false);
-        return;
-      }
+   useEffect(() => {
+     let mounted = true;
 
-      try {
-        setLoading(true);
-        const nextInsights = await fetchStockInsights(stockId);
-        if (!mounted) {
-          return;
-        }
-        setInsights(nextInsights);
-        setError(null);
-      } catch {
-        if (!mounted) {
-          return;
-        }
-        setError("Unable to load stock insights right now. Please try again shortly.");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
+     const loadInsights = async () => {
+       if (!stockId) {
+         setError("Stock id is missing.");
+         setLoading(false);
+         return;
+       }
 
-    void loadInsights();
+       try {
+         setLoading(true);
+         const nextInsights = await fetchStockInsights(stockId);
+         if (!mounted) {
+           return;
+         }
+         setInsights(nextInsights);
+         setError(null);
+       } catch {
+         if (!mounted) {
+           return;
+         }
+         setError("Unable to load stock insights right now. Please try again shortly.");
+       } finally {
+         if (mounted) {
+           setLoading(false);
+         }
+       }
+     };
 
-    return () => {
-      mounted = false;
-    };
-  }, [stockId]);
+     void loadInsights();
 
-  useEffect(() => {
-    if (!insights?.symbol) {
-      return;
-    }
+     return () => {
+       mounted = false;
+     };
+   }, [stockId]);
 
-    let mounted = true;
-    let eventSource: EventSource | null = null;
-    let reconnectTimer: number | null = null;
+   // Set search term to filter streamed stocks by the current symbol
+   useEffect(() => {
+     if (!insights?.symbol) {
+       setSearchTerm("");
+       return;
+     }
+     setSearchTerm(insights.symbol);
+   }, [insights?.symbol, setSearchTerm]);
 
-    const applyLiveTick = (payload: unknown) => {
-      if (!mounted) {
-        return;
-      }
+   // Apply real-time updates from streamed stocks to insights
+   useEffect(() => {
+     if (!insights?.symbol || streamedStocks.length === 0) {
+       return;
+     }
 
-      const rows = Array.isArray(payload)
-        ? payload
-        : payload && typeof payload === "object"
-          ? [payload]
-          : [];
+     const matchedStock = streamedStocks.find((stock) =>
+       stock.symbol.toUpperCase() === insights.symbol.toUpperCase()
+     ) as Stock | undefined;
 
-      const match = rows.find((row) => {
-        if (!row || typeof row !== "object") {
-          return false;
-        }
-        const item = row as Record<string, unknown>;
-        const itemId = String(item.id ?? "");
-        const itemSymbol = String(item.symbol ?? "").toUpperCase();
-        return itemId === stockId || itemSymbol === insights.symbol.toUpperCase();
-      }) as Record<string, unknown> | undefined;
+     if (!matchedStock) {
+       return;
+     }
 
-      if (!match) {
-        return;
-      }
+     const livePrice = typeof matchedStock.price === "number" ? matchedStock.price : null;
+     const liveChangePercent = typeof matchedStock.changePercent === "number" ? matchedStock.changePercent : null;
 
-      const livePrice = asNumber(match.price);
-      const liveChangePercent = asNumber(match.changePercent);
+     setInsights((prev) => {
+       if (!prev) {
+         return prev;
+       }
 
-      setInsights((prev) => {
-        if (!prev) {
-          return prev;
-        }
+       const nextCurrentPrice = livePrice == null ? prev.currentPerformance.currentPrice : livePrice;
+       // Keep previous close fixed to backend-provided prior-day baseline.
+       const nextPreviousClose = prev.currentPerformance.previousClose;
+       const nextDailyChange =
+         nextCurrentPrice != null && nextPreviousClose != null
+           ? nextCurrentPrice - nextPreviousClose
+           : prev.currentPerformance.dailyChange;
 
-        const nextCurrentPrice = livePrice == null ? prev.currentPerformance.currentPrice : livePrice;
-        const derivedPrevClose = derivePreviousClose(nextCurrentPrice, liveChangePercent);
-        const nextPreviousClose = derivedPrevClose == null
-          ? prev.currentPerformance.previousClose
-          : derivedPrevClose;
-        const nextDailyChange =
-          nextCurrentPrice != null && nextPreviousClose != null
-            ? nextCurrentPrice - nextPreviousClose
-            : prev.currentPerformance.dailyChange;
-
-        return {
-          ...prev,
-          lastUpdated: typeof match.lastUpdated === "string" ? match.lastUpdated : prev.lastUpdated,
-          currentPerformance: {
-            ...prev.currentPerformance,
-            currentPrice: nextCurrentPrice,
-            previousClose: nextPreviousClose,
-            dailyChange: nextDailyChange,
-            dailyChangePercent: liveChangePercent == null
-              ? prev.currentPerformance.dailyChangePercent
-              : liveChangePercent,
-          },
-        };
-      });
-    };
-
-    const connect = () => {
-      if (!mounted) {
-        return;
-      }
-
-      const query = encodeURIComponent(insights.symbol);
-      eventSource = new EventSource(`/api/stocks/stream/featured?query=${query}`);
-
-      const handleMessage = (raw: string) => {
-        try {
-          applyLiveTick(JSON.parse(raw));
-        } catch {
-          // Ignore malformed stream ticks and wait for the next one.
-        }
-      };
-
-      eventSource.addEventListener("stocks", (event) => {
-        handleMessage((event as MessageEvent).data);
-      });
-
-      eventSource.onmessage = (event) => {
-        handleMessage(event.data);
-      };
-
-      eventSource.onerror = () => {
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-        if (!mounted) {
-          return;
-        }
-        reconnectTimer = window.setTimeout(connect, INSIGHTS_STREAM_RECONNECT_MS);
-      };
-    };
-
-    connect();
-
-    return () => {
-      mounted = false;
-      if (reconnectTimer != null) {
-        window.clearTimeout(reconnectTimer);
-      }
-      if (eventSource) {
-        eventSource.close();
-      }
-    };
-  }, [insights?.symbol, stockId]);
+       return {
+         ...prev,
+         lastUpdated: matchedStock.lastUpdated ?? prev.lastUpdated,
+         currentPerformance: {
+           ...prev.currentPerformance,
+           currentPrice: nextCurrentPrice,
+           previousClose: nextPreviousClose,
+           dailyChange: nextDailyChange,
+           dailyChangePercent: liveChangePercent == null
+             ? prev.currentPerformance.dailyChangePercent
+             : liveChangePercent,
+         },
+       };
+     });
+   }, [insights?.symbol, streamedStocks]);
 
    const rangeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], selectedRange), [insights?.history, selectedRange]);
    const candlestickHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], candlestickRange), [insights?.history, candlestickRange]);
@@ -882,7 +808,7 @@ export function StockInsightsPage() {
                 <MetricGrid
                   items={[
                     { label: "Current Price", value: formatMaybeMoney(insights.currentPerformance.currentPrice) },
-                    { label: "Previous Close", value: formatMaybeMoney(insights.currentPerformance.previousClose) },
+                    { label: "Previous Day Close", value: formatMaybeMoney(insights.currentPerformance.previousClose) },
                     { label: "Daily Change ($)", value: formatMaybeSignedMoney(insights.currentPerformance.dailyChange), tone: summaryTone(insights.currentPerformance.dailyChange) },
                     { label: "Daily Change (%)", value: formatMaybePercent(insights.currentPerformance.dailyChangePercent), tone: summaryTone(insights.currentPerformance.dailyChangePercent) },
                   ]}

@@ -2,44 +2,43 @@
 .wl-page {
   margin-top: 60px;
   min-height: calc(100vh - 60px);
-  padding: 32px 24px 60px;
+  padding: 40px 32px 60px;
   background: linear-gradient(180deg, #f0fdf4 0%, #f7fef5 100%);
-  max-width: 1200px;
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
 }
 
-/* ── Summary stats ── */
-.wl-stats {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  margin-bottom: 20px;
-}
-
-.wl-stat-card {
-  background: #ffffff;
-  border: 1px solid rgba(21, 128, 61, 0.12);
-  border-radius: 14px;
-  padding: 18px 20px;
-  box-shadow: 0 6px 20px rgba(21, 128, 61, 0.08);
+/* ── Page Header ── */
+.wl-header {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(21, 128, 61, 0.1);
 }
 
-.wl-stat-card span {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #5a8772;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.wl-stat-card strong {
-  font-size: 1.4rem;
+.wl-title {
+  margin: 0 0 8px;
+  font-size: 2.2rem;
   font-weight: 800;
   color: #14532d;
+  letter-spacing: -0.5px;
+}
+
+.wl-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #5a8772;
+  font-weight: 600;
+}
+
+.wl-count {
+  font-weight: 800;
+  color: #0d8a4c;
+  font-size: 1.1rem;
+  padding: 0 4px;
 }
 
 .wl-stat-card.stat-green strong { color: #0d8a4c; }
@@ -52,7 +51,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   flex-wrap: wrap;
 }
 
@@ -61,17 +60,18 @@
 .wl-search {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #bbe5ca;
+  border: 1px solid #c7ead5;
   border-radius: 10px;
   background: #fff;
-  padding: 11px 14px;
+  padding: 12px 16px;
   font-size: 0.95rem;
+  transition: all 0.2s ease;
 }
 
 .wl-search:focus {
   outline: none;
   border-color: #15803d;
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15), 0 4px 12px rgba(21, 128, 61, 0.1);
 }
 
 .wl-add-btn {
@@ -94,27 +94,29 @@
 }
 
 .wl-market-status {
-  margin: -2px 0 14px;
+  margin: 0 0 20px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 10px;
+  padding: 8px 14px;
   border-radius: 10px;
   border: 1px solid #d3efdf;
   background: #ffffff;
   color: #25553f;
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.08);
 }
 
 .wl-session-badge {
   display: inline-block;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   border-radius: 999px;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border: 1px solid transparent;
+  text-transform: uppercase;
 }
 
 .wl-session-badge.session-regular {
@@ -264,6 +266,7 @@
   overflow-x: auto;
   border-radius: 16px;
   box-shadow: 0 10px 32px rgba(21, 128, 61, 0.1);
+  margin-bottom: 40px;
 }
 
 .wl-table {
@@ -281,24 +284,58 @@
 }
 
 .wl-table th {
-  padding: 13px 14px;
-  text-align: left;
+  padding: 15px 16px;
+  text-align: center;
   font-weight: 700;
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   white-space: nowrap;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.wl-table th:first-child {
+  text-align: left;
+}
+
+.wl-table th:last-child {
+  border-right: none;
 }
 
 .wl-table td {
-  padding: 12px 14px;
+  padding: 14px 16px;
   vertical-align: middle;
   border-bottom: 1px solid #e8f7ee;
-  white-space: nowrap;
+  border-right: 1px solid #e8f7ee;
+  text-align: center;
 }
 
-.wl-table tbody tr:last-child td { border-bottom: none; }
+.wl-table td:first-child {
+  text-align: left;
+}
 
-.wl-table tbody tr:hover { background: #f0fdf4; }
+.wl-table td:nth-child(2) {
+  text-align: left;
+}
+
+.wl-table td:last-child {
+  border-right: none;
+}
+
+.wl-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.wl-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.wl-table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(21, 128, 61, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
+}
+
+.wl-table tbody tr:nth-child(even) {
+  background: rgba(240, 253, 244, 0.4);
+}
 
 /* ── Row tints ── */
 .row-green {
@@ -326,15 +363,16 @@
 
 .wl-name {
   display: block;
-  font-weight: 600;
+  font-weight: 700;
   color: #14532d;
+  margin-bottom: 4px;
 }
 
 .wl-sector {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: #5a8772;
-  margin-top: 2px;
+  font-weight: 500;
 }
 
 /* Recommendation badges */
@@ -358,14 +396,23 @@
   background: #fff0f0;
   color: #c0392b;
   border-radius: 6px;
-  padding: 5px 8px;
+  padding: 6px 10px;
   font-weight: 700;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: background 0.15s;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
 }
 
-.wl-remove-btn:hover { background: #fde0e0; }
+.wl-remove-btn:hover {
+  background: #fde0e0;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.2);
+}
 
 /* Add to cart button */
 .wl-add-to-cart-btn {
@@ -377,19 +424,53 @@
   font-weight: 700;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: background 0.15s;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
 }
 
-.wl-add-to-cart-btn:hover { background: #d4f0e1; }
+.wl-add-to-cart-btn:hover {
+  background: #d4f0e1;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(13, 138, 76, 0.2);
+}
+
+/* Insights link button */
+.wl-insights-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #14532d 0%, #166534 100%);
+  transition: all 0.2s ease;
+  min-width: 70px;
+  height: 32px;
+  box-shadow: 0 2px 8px rgba(20, 83, 45, 0.2);
+}
+
+.wl-insights-btn:hover {
+  background: linear-gradient(135deg, #0f3d21 0%, #1d7a3a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(20, 83, 45, 0.3);
+}
 
 /* ── Empty state ── */
 .wl-empty {
-  background: #fff;
-  border: 1px dashed #9fd9b5;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border: 2px dashed #c7ead5;
   border-radius: 14px;
-  padding: 36px;
+  padding: 48px 36px;
   text-align: center;
   color: #4d735f;
+  font-size: 1rem;
 }
 
 /* ── Responsive ── */
