@@ -28,6 +28,7 @@ const RANGE_DAYS: Record<RangeKey, number> = {
 };
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const INSIGHTS_STREAM_RECONNECT_MS = 3000;
 
 function parseDisplayDate(value: string): Date {
   const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -95,6 +96,21 @@ function formatCompactVolume(value: number): string {
     return `${formatMoney(value / 1_000)}K`;
   }
   return formatMoney(value);
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function derivePreviousClose(currentPrice: number | null, changePercent: number | null): number | null {
+  if (currentPrice == null || changePercent == null) {
+    return null;
+  }
+  const denominator = 1 + (changePercent / 100);
+  if (!Number.isFinite(denominator) || denominator === 0) {
+    return null;
+  }
+  return currentPrice / denominator;
 }
 
 function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): StockHistoryPoint[] {
@@ -239,10 +255,11 @@ function ChartCard({ title, children, subtitle }: { title: string; subtitle?: st
   );
 }
 
-function MetricSection({ title, children }: { title: string; children: ReactNode }) {
+function MetricSection({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <section className="insights-section-card">
       <h3>{title}</h3>
+      {subtitle && <p className="insights-section-subtitle">{subtitle}</p>}
       {children}
     </section>
   );
@@ -259,6 +276,89 @@ function MetricGrid({ items }: { items: Array<{ label: string; value: string; to
        ))}
      </div>
    );
+}
+
+const DISTRIBUTION_COLORS = {
+  positive: "#16a34a",
+  negative: "#dc2626",
+  flat: "#94a3b8",
+};
+
+function DistributionPieChart({ positiveDays, negativeDays, flatDays }: { positiveDays: number; negativeDays: number; flatDays: number }) {
+  const total = (positiveDays ?? 0) + (negativeDays ?? 0) + (flatDays ?? 0);
+  if (total === 0) return null;
+
+  const size = 200;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = 80;
+  const innerR = 44; // donut hole
+
+  const segments = [
+    { value: positiveDays ?? 0, color: DISTRIBUTION_COLORS.positive, label: "Positive" },
+    { value: negativeDays ?? 0, color: DISTRIBUTION_COLORS.negative, label: "Negative" },
+    { value: flatDays ?? 0, color: DISTRIBUTION_COLORS.flat, label: "Flat" },
+  ].filter((s) => s.value > 0);
+
+  function polarToXY(angleDeg: number, radius: number) {
+    const rad = ((angleDeg - 90) * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  }
+
+  function buildDonutSlice(startAngle: number, endAngle: number) {
+    // Clamp to avoid floating-point full-circle issues
+    const sweep = Math.min(endAngle - startAngle, 359.9999);
+    const end = startAngle + sweep;
+    const large = sweep > 180 ? 1 : 0;
+    const s1 = polarToXY(startAngle, outerR);
+    const e1 = polarToXY(end, outerR);
+    const s2 = polarToXY(end, innerR);
+    const e2 = polarToXY(startAngle, innerR);
+    return [
+      `M ${s1.x} ${s1.y}`,
+      `A ${outerR} ${outerR} 0 ${large} 1 ${e1.x} ${e1.y}`,
+      `L ${s2.x} ${s2.y}`,
+      `A ${innerR} ${innerR} 0 ${large} 0 ${e2.x} ${e2.y}`,
+      "Z",
+    ].join(" ");
+  }
+
+  let current = 0;
+  const slices = segments.map((s) => {
+    const startAngle = current;
+    const sweep = (s.value / total) * 360;
+    current += sweep;
+    return { ...s, startAngle, endAngle: current };
+  });
+
+  const pct = (v: number) => ((v / total) * 100).toFixed(1);
+
+  return (
+    <div className="distribution-pie-wrapper">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="distribution-pie-svg">
+        {slices.map((s) => (
+          <path
+            key={s.label}
+            d={buildDonutSlice(s.startAngle, s.endAngle)}
+            fill={s.color}
+            stroke="#fff"
+            strokeWidth="2.5"
+          />
+        ))}
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="13" fontWeight="700" fill="#2e1065">{total}</text>
+        <text x={cx} y={cy + 11} textAnchor="middle" fontSize="10" fill="#7c6a9e">trading days</text>
+      </svg>
+      <div className="distribution-pie-legend">
+        {slices.map((s) => (
+          <div key={s.label} className="distribution-pie-legend-item">
+            <span className="distribution-pie-dot" style={{ background: s.color }} />
+            <span className="distribution-pie-legend-label">{s.label}</span>
+            <span className="distribution-pie-legend-pct">{pct(s.value)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function CandlestickLegend() {
@@ -500,52 +600,8 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
          })}
        </svg>
      </div>
-   );
- }
-
- function ReturnHistogram({ history }: { history: StockHistoryPoint[] }) {
-  const returns = history
-    .map((point) => point.dailyReturnPercent)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-
-  const buckets = useMemo(() => {
-    if (returns.length === 0) {
-      return [] as Array<{ label: string; count: number }>;
-    }
-    const min = Math.min(...returns);
-    const max = Math.max(...returns);
-    const bucketCount = 12;
-    const width = Math.max((max - min) / bucketCount, 0.5);
-    const counts = Array.from({ length: bucketCount }, () => 0);
-
-    returns.forEach((value) => {
-      const bucketIndex = Math.min(Math.floor((value - min) / width), bucketCount - 1);
-      counts[Math.max(bucketIndex, 0)] += 1;
-    });
-
-    return counts.map((count, index) => {
-      const start = min + index * width;
-      const end = start + width;
-      return { label: `${formatMoney(start)}% to ${formatMoney(end)}%`, count };
-    });
-  }, [returns]);
-
-  const maxCount = Math.max(...buckets.map((bucket) => bucket.count), 1);
-
-  return (
-    <div className="histogram-grid">
-      {buckets.map((bucket) => (
-        <div key={bucket.label} className="histogram-item">
-          <div className="histogram-bar-shell">
-            <div className="histogram-bar" style={{ height: `${(bucket.count / maxCount) * 100}%` }} />
-          </div>
-          <strong>{bucket.count}</strong>
-          <span>{bucket.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+    );
+  }
 
 function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] }) {
   const years = Array.from(new Set(cells.map((cell) => cell.year))).sort((left, right) => right - left);
@@ -634,6 +690,123 @@ export function StockInsightsPage() {
       mounted = false;
     };
   }, [stockId]);
+
+  useEffect(() => {
+    if (!insights?.symbol) {
+      return;
+    }
+
+    let mounted = true;
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: number | null = null;
+
+    const applyLiveTick = (payload: unknown) => {
+      if (!mounted) {
+        return;
+      }
+
+      const rows = Array.isArray(payload)
+        ? payload
+        : payload && typeof payload === "object"
+          ? [payload]
+          : [];
+
+      const match = rows.find((row) => {
+        if (!row || typeof row !== "object") {
+          return false;
+        }
+        const item = row as Record<string, unknown>;
+        const itemId = String(item.id ?? "");
+        const itemSymbol = String(item.symbol ?? "").toUpperCase();
+        return itemId === stockId || itemSymbol === insights.symbol.toUpperCase();
+      }) as Record<string, unknown> | undefined;
+
+      if (!match) {
+        return;
+      }
+
+      const livePrice = asNumber(match.price);
+      const liveChangePercent = asNumber(match.changePercent);
+
+      setInsights((prev) => {
+        if (!prev) {
+          return prev;
+        }
+
+        const nextCurrentPrice = livePrice == null ? prev.currentPerformance.currentPrice : livePrice;
+        const derivedPrevClose = derivePreviousClose(nextCurrentPrice, liveChangePercent);
+        const nextPreviousClose = derivedPrevClose == null
+          ? prev.currentPerformance.previousClose
+          : derivedPrevClose;
+        const nextDailyChange =
+          nextCurrentPrice != null && nextPreviousClose != null
+            ? nextCurrentPrice - nextPreviousClose
+            : prev.currentPerformance.dailyChange;
+
+        return {
+          ...prev,
+          lastUpdated: typeof match.lastUpdated === "string" ? match.lastUpdated : prev.lastUpdated,
+          currentPerformance: {
+            ...prev.currentPerformance,
+            currentPrice: nextCurrentPrice,
+            previousClose: nextPreviousClose,
+            dailyChange: nextDailyChange,
+            dailyChangePercent: liveChangePercent == null
+              ? prev.currentPerformance.dailyChangePercent
+              : liveChangePercent,
+          },
+        };
+      });
+    };
+
+    const connect = () => {
+      if (!mounted) {
+        return;
+      }
+
+      const query = encodeURIComponent(insights.symbol);
+      eventSource = new EventSource(`/api/stocks/stream/featured?query=${query}`);
+
+      const handleMessage = (raw: string) => {
+        try {
+          applyLiveTick(JSON.parse(raw));
+        } catch {
+          // Ignore malformed stream ticks and wait for the next one.
+        }
+      };
+
+      eventSource.addEventListener("stocks", (event) => {
+        handleMessage((event as MessageEvent).data);
+      });
+
+      eventSource.onmessage = (event) => {
+        handleMessage(event.data);
+      };
+
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (!mounted) {
+          return;
+        }
+        reconnectTimer = window.setTimeout(connect, INSIGHTS_STREAM_RECONNECT_MS);
+      };
+    };
+
+    connect();
+
+    return () => {
+      mounted = false;
+      if (reconnectTimer != null) {
+        window.clearTimeout(reconnectTimer);
+      }
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [insights?.symbol, stockId]);
 
    const rangeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], selectedRange), [insights?.history, selectedRange]);
    const candlestickHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], candlestickRange), [insights?.history, candlestickRange]);
@@ -832,68 +1005,41 @@ export function StockInsightsPage() {
                 />
               </ChartCard>
 
-              <div className="insights-two-col-grid">
-                <MetricSection title="Performance Distribution">
-                  <MetricGrid
-                    items={[
-                      { label: "Positive Days", value: insights.performanceDistribution.positiveDays.toString() },
-                      { label: "Negative Days", value: insights.performanceDistribution.negativeDays.toString() },
-                      { label: "Flat Days", value: insights.performanceDistribution.flatDays.toString() },
-                    ]}
-                  />
-                </MetricSection>
-
-                <MetricSection title="Volume Distribution">
-                  <MetricGrid
-                    items={[
-                      { label: "Min Volume", value: formatVolume(insights.volumeDistribution.minVolume) },
-                      { label: "Avg Volume", value: formatVolume(insights.volumeDistribution.averageVolume) },
-                      { label: "Max Volume", value: formatVolume(insights.volumeDistribution.maxVolume) },
-                    ]}
-                  />
-                </MetricSection>
-              </div>
+              <MetricSection title="Performance Distribution" subtitle="Based on last 1 year of trading data">
+                <MetricGrid
+                  items={[
+                    { label: "Positive Days", value: insights.performanceDistribution.positiveDays.toString() },
+                    { label: "Negative Days", value: insights.performanceDistribution.negativeDays.toString() },
+                    { label: "Flat Days", value: insights.performanceDistribution.flatDays.toString() },
+                  ]}
+                />
+                <DistributionPieChart
+                  positiveDays={insights.performanceDistribution.positiveDays}
+                  negativeDays={insights.performanceDistribution.negativeDays}
+                  flatDays={insights.performanceDistribution.flatDays}
+                />
+              </MetricSection>
 
               <MetricSection title="Monthly Returns Heatmap">
                 <MonthlyReturnsHeatmap cells={insights.monthlyReturnsHeatmap} />
               </MetricSection>
 
-              <MetricSection title="Return Histogram">
-                <ReturnHistogram history={insights.history} />
+              <MetricSection title="Drawdown Analysis">
+                <MetricGrid
+                  items={[
+                    { label: "Maximum Drawdown", value: formatMaybePercent(insights.drawdownAnalysis.maxDrawdown), tone: "negative" },
+                    { label: "Peak Date", value: formatDateLabel(insights.drawdownAnalysis.peakDate) },
+                    { label: "Trough Date", value: formatDateLabel(insights.drawdownAnalysis.troughDate) },
+                  ]}
+                />
               </MetricSection>
 
-              <div className="insights-two-col-grid">
-                <MetricSection title="Drawdown Analysis">
-                  <MetricGrid
-                    items={[
-                      { label: "Maximum Drawdown", value: formatMaybePercent(insights.drawdownAnalysis.maxDrawdown), tone: "negative" },
-                      { label: "Peak Date", value: formatDateLabel(insights.drawdownAnalysis.peakDate) },
-                      { label: "Trough Date", value: formatDateLabel(insights.drawdownAnalysis.troughDate) },
-                    ]}
-                  />
-                </MetricSection>
-
-                <MetricSection title="Best and Worst Days">
-                  <MetricGrid
-                    items={[
-                      { label: "Best Daily Gain", value: formatMaybePercent(insights.bestWorstDays.bestDailyGain), tone: "positive" },
-                      { label: "Best Gain Date", value: formatDateLabel(insights.bestWorstDays.bestDailyGainDate) },
-                      { label: "Worst Daily Loss", value: formatMaybePercent(insights.bestWorstDays.worstDailyLoss), tone: "negative" },
-                      { label: "Worst Loss Date", value: formatDateLabel(insights.bestWorstDays.worstDailyLossDate) },
-                    ]}
-                  />
-                </MetricSection>
-              </div>
 
               <MetricSection title="Advanced Metrics">
                 <MetricGrid
                   items={[
                     { label: "Sharpe Ratio", value: formatMaybePlain(insights.riskMetrics.sharpeRatio), tone: summaryTone(insights.riskMetrics.sharpeRatio) },
                     { label: "Sortino Ratio", value: formatMaybePlain(insights.riskMetrics.sortinoRatio), tone: summaryTone(insights.riskMetrics.sortinoRatio) },
-                    { label: "Beta (vs S&P 500)", value: formatMaybePlain(insights.riskMetrics.betaVsSp500) },
-                    { label: "SMA 20", value: formatMaybeMoney(insights.trendMetrics.sma20) },
-                    { label: "SMA 50", value: formatMaybeMoney(insights.trendMetrics.sma50) },
-                    { label: "SMA 200", value: formatMaybeMoney(insights.trendMetrics.sma200) },
                     { label: "Trend State", value: marketStateLabel },
                     { label: "RSI (14)", value: formatMaybePlain(insights.momentumMetrics.rsi14) },
                     { label: "MACD", value: formatMaybePlain(insights.momentumMetrics.macd), tone: summaryTone(insights.momentumMetrics.macd) },
@@ -907,7 +1053,7 @@ export function StockInsightsPage() {
                 <div className="insights-chart-head">
                   <div>
                     <h3>Recent Daily Data</h3>
-                    <p>Latest OHLC, volume, SMA, and volatility observations in the selected range.</p>
+                    <p>Latest OHLC and volume observations in the selected range.</p>
                   </div>
                 </div>
                 <div className="insights-table-wrap">
@@ -915,24 +1061,22 @@ export function StockInsightsPage() {
                     <thead>
                       <tr>
                         <th>Date</th>
+                        <th>Open</th>
+                        <th>High</th>
+                        <th>Low</th>
                         <th>Close</th>
                         <th>Volume</th>
-                        <th>Daily Return</th>
-                        <th>20 SMA</th>
-                        <th>50 SMA</th>
-                        <th>200 SMA</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rangeHistory.slice(-20).reverse().map((point) => (
                         <tr key={`${point.tradingDate}-${point.close}`}>
                           <td>{formatDateShort(point.tradingDate)}</td>
+                          <td>{formatMaybeMoney(point.open)}</td>
+                          <td>{formatMaybeMoney(point.high)}</td>
+                          <td>{formatMaybeMoney(point.low)}</td>
                           <td>{formatMaybeMoney(point.close)}</td>
                           <td>{formatVolume(point.volume)}</td>
-                          <td className={toneClass(point.dailyReturnPercent)}>{formatMaybePercent(point.dailyReturnPercent)}</td>
-                          <td>{formatMaybeMoney(point.sma20)}</td>
-                          <td>{formatMaybeMoney(point.sma50)}</td>
-                          <td>{formatMaybeMoney(point.sma200)}</td>
                         </tr>
                       ))}
                     </tbody>

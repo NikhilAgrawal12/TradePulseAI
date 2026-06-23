@@ -199,7 +199,6 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      PORTFOLIO_SYNC_KAFKA_TOPIC: portfolio-sync
     networks:
       - tradepulse
 
@@ -226,8 +225,8 @@ services:
       ORDER_PAYMENT_SERVICE_GRPC_PORT: 9002
       STOCK_SERVICE_GRPC_ADDRESS: stock-service
       STOCK_SERVICE_GRPC_PORT: 9003
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      PORTFOLIO_SYNC_KAFKA_TOPIC: portfolio-sync
+      PORTFOLIO_SYNC_SERVICE_ADDRESS: cust-service
+      PORTFOLIO_SYNC_SERVICE_GRPC_PORT: 9004
     networks:
       - tradepulse
 

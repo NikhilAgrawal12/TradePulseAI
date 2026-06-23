@@ -67,6 +67,51 @@ public class StockMetrics {
     @Column(name = "volatility_90d", precision = 12, scale = 2)
     private BigDecimal volatility90d;
 
+    @Column(name = "positive_days_1y")
+    private Integer positiveDays1y;
+
+    @Column(name = "negative_days_1y")
+    private Integer negativeDays1y;
+
+    @Column(name = "flat_days_1y")
+    private Integer flatDays1y;
+
+    @Column(name = "monthly_returns_heatmap", columnDefinition = "TEXT")
+    private String monthlyReturnsHeatmap;
+
+    @Column(name = "max_drawdown", precision = 12, scale = 2)
+    private BigDecimal maxDrawdown;
+
+    @Column(name = "drawdown_peak_date")
+    private LocalDate drawdownPeakDate;
+
+    @Column(name = "drawdown_trough_date")
+    private LocalDate drawdownTroughDate;
+
+    @Column(name = "sharpe_ratio", precision = 12, scale = 2)
+    private BigDecimal sharpeRatio;
+
+    @Column(name = "sortino_ratio", precision = 12, scale = 2)
+    private BigDecimal sortinoRatio;
+
+    @Column(name = "rsi_14", precision = 12, scale = 2)
+    private BigDecimal rsi14;
+
+    @Column(name = "macd", precision = 12, scale = 2)
+    private BigDecimal macd;
+
+    @Column(name = "macd_signal", precision = 12, scale = 2)
+    private BigDecimal macdSignal;
+
+    @Column(name = "momentum_30d", precision = 12, scale = 2)
+    private BigDecimal momentum30d;
+
+    @Column(name = "golden_cross")
+    private Boolean goldenCross;
+
+    @Column(name = "death_cross")
+    private Boolean deathCross;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
@@ -215,5 +260,125 @@ public class StockMetrics {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Integer getPositiveDays1y() {
+        return positiveDays1y;
+    }
+
+    public void setPositiveDays1y(Integer positiveDays1y) {
+        this.positiveDays1y = positiveDays1y;
+    }
+
+    public Integer getNegativeDays1y() {
+        return negativeDays1y;
+    }
+
+    public void setNegativeDays1y(Integer negativeDays1y) {
+        this.negativeDays1y = negativeDays1y;
+    }
+
+    public Integer getFlatDays1y() {
+        return flatDays1y;
+    }
+
+    public void setFlatDays1y(Integer flatDays1y) {
+        this.flatDays1y = flatDays1y;
+    }
+
+    public String getMonthlyReturnsHeatmap() {
+        return monthlyReturnsHeatmap;
+    }
+
+    public void setMonthlyReturnsHeatmap(String monthlyReturnsHeatmap) {
+        this.monthlyReturnsHeatmap = monthlyReturnsHeatmap;
+    }
+
+    public BigDecimal getMaxDrawdown() {
+        return maxDrawdown;
+    }
+
+    public void setMaxDrawdown(BigDecimal maxDrawdown) {
+        this.maxDrawdown = maxDrawdown;
+    }
+
+    public LocalDate getDrawdownPeakDate() {
+        return drawdownPeakDate;
+    }
+
+    public void setDrawdownPeakDate(LocalDate drawdownPeakDate) {
+        this.drawdownPeakDate = drawdownPeakDate;
+    }
+
+    public LocalDate getDrawdownTroughDate() {
+        return drawdownTroughDate;
+    }
+
+    public void setDrawdownTroughDate(LocalDate drawdownTroughDate) {
+        this.drawdownTroughDate = drawdownTroughDate;
+    }
+
+    public BigDecimal getSharpeRatio() {
+        return sharpeRatio;
+    }
+
+    public void setSharpeRatio(BigDecimal sharpeRatio) {
+        this.sharpeRatio = sharpeRatio;
+    }
+
+    public BigDecimal getSortinoRatio() {
+        return sortinoRatio;
+    }
+
+    public void setSortinoRatio(BigDecimal sortinoRatio) {
+        this.sortinoRatio = sortinoRatio;
+    }
+
+    public BigDecimal getRsi14() {
+        return rsi14;
+    }
+
+    public void setRsi14(BigDecimal rsi14) {
+        this.rsi14 = rsi14;
+    }
+
+    public BigDecimal getMacd() {
+        return macd;
+    }
+
+    public void setMacd(BigDecimal macd) {
+        this.macd = macd;
+    }
+
+    public BigDecimal getMacdSignal() {
+        return macdSignal;
+    }
+
+    public void setMacdSignal(BigDecimal macdSignal) {
+        this.macdSignal = macdSignal;
+    }
+
+    public BigDecimal getMomentum30d() {
+        return momentum30d;
+    }
+
+    public void setMomentum30d(BigDecimal momentum30d) {
+        this.momentum30d = momentum30d;
+    }
+
+    public Boolean getGoldenCross() {
+        return goldenCross;
+    }
+
+    public void setGoldenCross(Boolean goldenCross) {
+        this.goldenCross = goldenCross;
+    }
+
+    public Boolean getDeathCross() {
+        return deathCross;
+    }
+
+    public void setDeathCross(Boolean deathCross) {
+        this.deathCross = deathCross;
     }
 }

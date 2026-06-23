@@ -5,6 +5,7 @@ import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
+import com.tradepulseai.orderservice.grpc.PortfolioSyncGrpcClient;
 import com.tradepulseai.orderservice.mapper.OrderItemMapper;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
 import com.tradepulseai.orderservice.mapper.PortfolioOrderMapper;
@@ -14,6 +15,8 @@ import com.tradepulseai.orderservice.model.TradeOrder;
 import com.tradepulseai.orderservice.repository.CartItemRepository;
 import io.grpc.StatusRuntimeException;
 import order_payment.OrderPaymentResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,24 +30,25 @@ import java.util.Objects;
 @Service
 public class CartService {
 
+    private static final Logger log = LoggerFactory.getLogger(CartService.class);
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
 
     private final CartItemRepository cartItemRepository;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
-    private final PortfolioSyncClient portfolioSyncClient;
+    private final PortfolioSyncGrpcClient portfolioSyncGrpcClient;
     private final OrderHistoryService orderHistoryService;
     private final StockCatalogClient stockCatalogClient;
 
     public CartService(
             CartItemRepository cartItemRepository,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
-            PortfolioSyncClient portfolioSyncClient,
+            PortfolioSyncGrpcClient portfolioSyncGrpcClient,
             OrderHistoryService orderHistoryService,
             StockCatalogClient stockCatalogClient
     ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
-        this.portfolioSyncClient = portfolioSyncClient;
+        this.portfolioSyncGrpcClient = portfolioSyncGrpcClient;
         this.orderHistoryService = orderHistoryService;
         this.stockCatalogClient = stockCatalogClient;
     }
@@ -121,7 +125,16 @@ public class CartService {
 
         validateCompletedPaymentResponse(response, savedOrder.getId());
 
-        portfolioSyncClient.syncCompletedOrder(userId, PortfolioOrderMapper.toSyncRequestFromPayment(request.getItems()));
+        var syncRequest = PortfolioOrderMapper.toSyncRequestFromOrder(savedOrder);
+        if (syncRequest.getItems() == null || syncRequest.getItems().isEmpty()) {
+            throw new IllegalStateException("Payment completed, but portfolio sync payload is empty for orderId: " + savedOrder.getId());
+        }
+
+        log.info("Dispatching portfolio sync for orderId={}, userId={}, items={}",
+                savedOrder.getId(),
+                userId,
+                syncRequest.getItems().size());
+        portfolioSyncGrpcClient.syncCompletedOrder(userId, syncRequest);
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);

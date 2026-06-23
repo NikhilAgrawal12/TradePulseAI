@@ -8,7 +8,7 @@
  *   Closed      : 20:00 – 04:00
  */
 
-export type MarketSession = "pre-market" | "regular" | "after-hours" | "closed";
+export type MarketSession = "pre-market" | "regular" | "after-hours" | "closed" | "unknown";
 
 export type SessionMeta = {
   session: MarketSession;
@@ -20,7 +20,12 @@ type BackendMarketStatusResponse = {
   session?: string;
   label?: string;
   cssClass?: string;
+  stale?: boolean;
 };
+
+function unknownSessionMeta(): SessionMeta {
+  return { session: "unknown", label: "Checking market status...", cssClass: "session-pending" };
+}
 
 export function getMarketSession(now: Date = new Date()): SessionMeta {
   // Convert current time to US/Eastern fractional hour
@@ -68,22 +73,22 @@ export async function getMarketSessionFromBackend(): Promise<SessionMeta> {
   try {
     const response = await fetch("/api/stocks/market-status");
     if (!response.ok) {
-      return getMarketSession();
+      return unknownSessionMeta();
     }
 
     const payload = (await response.json()) as BackendMarketStatusResponse;
     const session = asMarketSession(payload.session);
-    if (!session) {
-      return getMarketSession();
+    if (!session || payload.stale === true) {
+      return unknownSessionMeta();
     }
 
     return {
       session,
-      label: typeof payload.label === "string" && payload.label.trim().length > 0 ? payload.label : getMarketSession().label,
+      label: typeof payload.label === "string" && payload.label.trim().length > 0 ? payload.label : "Market Status",
       cssClass: typeof payload.cssClass === "string" && payload.cssClass.trim().length > 0 ? payload.cssClass : "session-closed",
     };
   } catch {
-    return getMarketSession();
+    return unknownSessionMeta();
   }
 }
 

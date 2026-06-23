@@ -33,10 +33,19 @@ public class PortfolioSyncGrpcService extends PortfolioSyncServiceGrpc.Portfolio
             StreamObserver<RecordCompletedOrderResponse> responseObserver
     ) {
         try {
+            validateRequest(request);
+            log.info("Received portfolio sync request for userId={}, items={}", request.getUserId(), request.getItemsCount());
+
             Long userId = Long.parseLong(request.getUserId());
+            if (userId <= 0) {
+                throw new IllegalArgumentException("userId must be greater than 0");
+            }
+
             RecordPortfolioOrderRequestDTO dto = new RecordPortfolioOrderRequestDTO();
             dto.setItems(toItems(request.getItemsList()));
             portfolioService.recordCompletedOrder(userId, dto);
+
+            log.info("Portfolio sync completed for userId={}, items={}", userId, request.getItemsCount());
 
             responseObserver.onNext(
                     RecordCompletedOrderResponse.newBuilder()
@@ -64,6 +73,31 @@ public class PortfolioSyncGrpcService extends PortfolioSyncServiceGrpc.Portfolio
                             .withDescription("Unable to record completed order")
                             .asRuntimeException()
             );
+        }
+    }
+
+    private void validateRequest(RecordCompletedOrderRequest request) {
+        if (request.getUserId() == null || request.getUserId().isBlank()) {
+            throw new IllegalArgumentException("userId is required");
+        }
+
+        if (request.getItemsCount() == 0) {
+            throw new IllegalArgumentException("At least one portfolio item is required");
+        }
+
+        for (int index = 0; index < request.getItemsCount(); index++) {
+            PortfolioOrderItem item = request.getItems(index);
+            if (item.getStockId() == null || item.getStockId().isBlank()) {
+                throw new IllegalArgumentException("stockId is required for item at index " + index);
+            }
+
+            if (item.getPrice() <= 0) {
+                throw new IllegalArgumentException("price must be greater than 0 for stockId: " + item.getStockId());
+            }
+
+            if (item.getQuantity() <= 0) {
+                throw new IllegalArgumentException("quantity must be greater than 0 for stockId: " + item.getStockId());
+            }
         }
     }
 

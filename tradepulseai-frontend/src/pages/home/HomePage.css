@@ -294,6 +294,12 @@
   border: 1px solid #d0d0d0;
 }
 
+.recommendation-badge.session-pending {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
 .quote-price-row {
   margin-top: 10px;
   display: flex;

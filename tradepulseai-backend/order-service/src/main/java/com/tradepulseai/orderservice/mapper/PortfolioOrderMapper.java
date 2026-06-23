@@ -4,6 +4,8 @@ import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderItemDTO;
 import com.tradepulseai.orderservice.dto.portfolio.PortfolioOrderSyncRequestDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderItemRequestDTO;
 import com.tradepulseai.orderservice.model.CartItem;
+import com.tradepulseai.orderservice.model.TradeOrder;
+import com.tradepulseai.orderservice.model.TradeOrderItem;
 import com.tradepulseai.orderservice.service.StockQuote;
 
 import java.math.BigDecimal;
@@ -33,9 +35,19 @@ public class PortfolioOrderMapper {
                             PortfolioOrderItemDTO dto = new PortfolioOrderItemDTO();
                             dto.setStockId(item.getStockId());
                             dto.setPrice(item.getPrice() == null ? null : item.getPrice().setScale(2, java.math.RoundingMode.HALF_UP));
-                            dto.setQuantity(item.getQuantity().intValueExact());
+                            dto.setQuantity(toWholeNumberQuantity(item.getQuantity(), item.getStockId()));
                             return dto;
                         })
+                        .toList()
+        );
+        return request;
+    }
+
+    public static PortfolioOrderSyncRequestDTO toSyncRequestFromOrder(TradeOrder order) {
+        PortfolioOrderSyncRequestDTO request = new PortfolioOrderSyncRequestDTO();
+        request.setItems(
+                order.getItems().stream()
+                        .map(PortfolioOrderMapper::toItem)
                         .toList()
         );
         return request;
@@ -60,7 +72,23 @@ public class PortfolioOrderMapper {
 
     private static int toWholeNumberQuantity(BigDecimal quantity, Long stockId) {
         try {
-            return quantity.intValueExact();
+            return quantity.stripTrailingZeros().intValueExact();
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Portfolio sync supports whole-number quantity only for stockId: " + stockId, exception);
+        }
+    }
+
+    private static PortfolioOrderItemDTO toItem(TradeOrderItem orderItem) {
+        PortfolioOrderItemDTO item = new PortfolioOrderItemDTO();
+        item.setStockId(orderItem.getStockId());
+        item.setPrice(orderItem.getPrice());
+        item.setQuantity(toWholeNumberQuantity(orderItem.getQuantity(), orderItem.getStockId()));
+        return item;
+    }
+
+    private static int toWholeNumberQuantity(BigDecimal quantity, String stockId) {
+        try {
+            return quantity.stripTrailingZeros().intValueExact();
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException("Portfolio sync supports whole-number quantity only for stockId: " + stockId, exception);
         }

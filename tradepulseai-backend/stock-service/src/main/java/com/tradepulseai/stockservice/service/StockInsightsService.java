@@ -23,6 +23,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 @Service
 public class StockInsightsService {
 
@@ -71,51 +73,23 @@ public class StockInsightsService {
         AllStocksLastValueCache realtime = allStocksLastValueCacheService.getCacheEntryByStockId(stockId);
         StockMetrics metrics = stockMetricsRepository.findById(stockId).orElse(null);
 
-        List<BigDecimal> closes = historyAsc.stream().map(StockMarketData::getClosePrice).toList();
-        List<Long> volumes = historyAsc.stream().map(StockMarketData::getVolume).toList();
-
         // Current Performance — driven by realtime cache; falls back to latest daily OHLC when market is closed
         BigDecimal currentPrice = resolveCurrentPrice(realtime, latestHistorical);
         BigDecimal previousClose = resolvePreviousClose(realtime, latestHistorical, priorHistorical);
         BigDecimal dailyChange = currentPrice != null && previousClose != null ? currentPrice.subtract(previousClose) : null;
         BigDecimal dailyChangePercent = resolveDailyChangePercent(realtime, previousClose, currentPrice);
 
-        // 52-week high/low: prefer pre-computed stock_metrics (refreshed daily after OHLC sync),
-        // fall back to scanning OHLC rows in case metrics haven't been populated yet
-        BigDecimal high52Week = coalesce(metrics == null ? null : metrics.getHigh52w(), maxHigh(historyAsc, ONE_YEAR_PERIODS));
-        BigDecimal low52Week = coalesce(metrics == null ? null : metrics.getLow52w(), minLow(historyAsc, ONE_YEAR_PERIODS));
+        BigDecimal high52Week = metrics == null ? null : metrics.getHigh52w();
+        BigDecimal low52Week = metrics == null ? null : metrics.getLow52w();
+        BigDecimal distanceFromHighPercent = metrics == null ? null : metrics.getDistanceFromHighPercent();
+        BigDecimal distanceFromLowPercent = metrics == null ? null : metrics.getDistanceFromLowPercent();
 
-        BigDecimal distanceFromHighPercent = metrics != null && metrics.getDistanceFromHighPercent() != null
-                ? metrics.getDistanceFromHighPercent()
-                : high52Week == null || high52Week.compareTo(BigDecimal.ZERO) == 0 || currentPrice == null
-                    ? null
-                    : currentPrice.subtract(high52Week).divide(high52Week, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
-        BigDecimal distanceFromLowPercent = metrics != null && metrics.getDistanceFromLowPercent() != null
-                ? metrics.getDistanceFromLowPercent()
-                : low52Week == null || low52Week.compareTo(BigDecimal.ZERO) == 0 || currentPrice == null
-                    ? null
-                    : currentPrice.subtract(low52Week).divide(low52Week, MATH_CONTEXT).multiply(HUNDRED, MATH_CONTEXT);
-
-        // Returns tab uses pre-computed EOD values from stock_metrics (not realtime price).
-        BigDecimal eodPrice = latestHistorical.getClosePrice();
-        BigDecimal oneWeekReturn = metrics != null && metrics.getWeekReturn() != null
-                ? metrics.getWeekReturn()
-                : computeReturnFromCurrent(eodPrice, closes, ONE_WEEK_PERIODS);
-        BigDecimal oneMonthReturn = metrics != null && metrics.getMonthReturn() != null
-                ? metrics.getMonthReturn()
-                : computeReturnFromCurrent(eodPrice, closes, ONE_MONTH_PERIODS);
-        BigDecimal threeMonthReturn = metrics != null && metrics.getThreeMonthReturn() != null
-                ? metrics.getThreeMonthReturn()
-                : computeReturnFromCurrent(eodPrice, closes, THREE_MONTH_PERIODS);
-        BigDecimal sixMonthReturn = metrics != null && metrics.getSixMonthReturn() != null
-                ? metrics.getSixMonthReturn()
-                : computeReturnFromCurrent(eodPrice, closes, SIX_MONTH_PERIODS);
-        BigDecimal oneYearReturn = metrics != null && metrics.getYearReturn() != null
-                ? metrics.getYearReturn()
-                : computeReturnFromCurrent(eodPrice, closes, ONE_YEAR_PERIODS);
-        BigDecimal threeYearReturn = metrics != null && metrics.getThreeYearReturn() != null
-                ? metrics.getThreeYearReturn()
-                : computeReturnFromCurrent(eodPrice, closes, THREE_YEAR_PERIODS);
+        BigDecimal oneWeekReturn = metrics == null ? null : metrics.getWeekReturn();
+        BigDecimal oneMonthReturn = metrics == null ? null : metrics.getMonthReturn();
+        BigDecimal threeMonthReturn = metrics == null ? null : metrics.getThreeMonthReturn();
+        BigDecimal sixMonthReturn = metrics == null ? null : metrics.getSixMonthReturn();
+        BigDecimal oneYearReturn = metrics == null ? null : metrics.getYearReturn();
+        BigDecimal threeYearReturn = metrics == null ? null : metrics.getThreeYearReturn();
 
         long latestTradingDayVolume = metrics != null && metrics.getLatestTradingDayVolume() != null
                 ? metrics.getLatestTradingDayVolume()
@@ -123,34 +97,29 @@ public class StockInsightsService {
         String latestTradingDate = metrics != null && metrics.getLatestTradingDate() != null
                 ? metrics.getLatestTradingDate().toString()
                 : latestHistorical.getTradingDate() == null ? null : latestHistorical.getTradingDate().toString();
-        BigDecimal average30DayVolume = metrics != null && metrics.getAvgVolume30d() != null
-                ? metrics.getAvgVolume30d()
-                : averageVolume(volumes, 30);
-        BigDecimal relativeVolume = metrics != null && metrics.getRelativeVolume() != null
-                ? metrics.getRelativeVolume()
-                : average30DayVolume == null || average30DayVolume.compareTo(BigDecimal.ZERO) == 0
-                    ? null
-                    : BigDecimal.valueOf(latestTradingDayVolume).divide(average30DayVolume, MATH_CONTEXT);
+        BigDecimal average30DayVolume = metrics == null ? null : metrics.getAvgVolume30d();
+        BigDecimal relativeVolume = metrics == null ? null : metrics.getRelativeVolume();
 
-        BigDecimal volatility30Day = metrics != null && metrics.getVolatility30d() != null
-                ? metrics.getVolatility30d()
-                : computeAnnualizedVolatility(closes, 30);
-        BigDecimal volatility90Day = metrics != null && metrics.getVolatility90d() != null
-                ? metrics.getVolatility90d()
-                : computeAnnualizedVolatility(closes, 90);
+        BigDecimal volatility30Day = metrics == null ? null : metrics.getVolatility30d();
+        BigDecimal volatility90Day = metrics == null ? null : metrics.getVolatility90d();
 
-        BigDecimal sma20 = simpleMovingAverage(closes, 20);
-        BigDecimal sma50 = simpleMovingAverage(closes, 50);
+        BigDecimal sma20 = latestHistorical.getSma20();
+        BigDecimal sma50 = latestHistorical.getSma50();
+        BigDecimal sma200 = latestHistorical.getSma200();
+        Boolean goldenCross = metrics == null ? null : metrics.getGoldenCross();
+        Boolean deathCross = metrics == null ? null : metrics.getDeathCross();
 
-        BigDecimal rsi14 = computeRsi(closes, 14);
-        MacdResult macdResult = computeMacd(closes);
-        BigDecimal momentum30Day = computeReturnFromCurrent(currentPrice, closes, 30);
-        RiskSummary riskSummary = computeRiskSummary(closes);
-        DrawdownSummary drawdownSummary = computeDrawdownSummary(historyAsc);
-        BestWorstSummary bestWorstSummary = computeBestWorstSummary(historyAsc);
-        DistributionSummary distributionSummary = computeDistributionSummary(historyAsc);
-        VolumeSummary volumeSummary = computeVolumeSummary(volumes);
-        List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> monthlyReturnsHeatmap = computeMonthlyReturnsHeatmap(historyAsc);
+        BigDecimal rsi14 = metrics == null ? null : metrics.getRsi14();
+        MacdResult macdResult = new MacdResult(
+                metrics == null ? null : metrics.getMacd(),
+                metrics == null ? null : metrics.getMacdSignal());
+        BigDecimal momentum30Day = metrics == null ? null : metrics.getMomentum30d();
+        RiskSummary riskSummary = new RiskSummary(
+                metrics == null ? null : metrics.getSharpeRatio(),
+                metrics == null ? null : metrics.getSortinoRatio());
+        DrawdownSummary drawdownSummary = resolveDrawdownSummary(metrics);
+        DistributionSummary distributionSummary = resolveDistributionSummary(metrics);
+        List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> monthlyReturnsHeatmap = resolveMonthlyReturnsHeatmap(metrics);
         List<StockInsightsResponseDTO.StockHistoryPointDTO> historyPoints = buildHistoryPoints(historyAsc);
 
         return new StockInsightsResponseDTO(
@@ -206,29 +175,17 @@ public class StockInsightsService {
                 new StockInsightsResponseDTO.RiskMetricsDTO(
                         toDouble(riskSummary.sharpeRatio()),
                         toDouble(riskSummary.sortinoRatio()),
-                        toDouble(drawdownSummary.maxDrawdown()),
-                        toDouble(computeBetaVsSp500(stock.getStockId(), historyAsc))
+                        toDouble(drawdownSummary.maxDrawdown())
                 ),
                 new StockInsightsResponseDTO.PerformanceDistributionDTO(
                         distributionSummary.positiveDays(),
                         distributionSummary.negativeDays(),
                         distributionSummary.flatDays()
                 ),
-                new StockInsightsResponseDTO.VolumeDistributionDTO(
-                        volumeSummary.minVolume(),
-                        toDouble(volumeSummary.averageVolume()),
-                        volumeSummary.maxVolume()
-                ),
                 new StockInsightsResponseDTO.DrawdownAnalysisDTO(
                         toDouble(drawdownSummary.maxDrawdown()),
                         drawdownSummary.peakDate() == null ? null : drawdownSummary.peakDate().toString(),
                         drawdownSummary.troughDate() == null ? null : drawdownSummary.troughDate().toString()
-                ),
-                new StockInsightsResponseDTO.BestWorstDaysDTO(
-                        toDouble(bestWorstSummary.bestGain()),
-                        bestWorstSummary.bestGainDate() == null ? null : bestWorstSummary.bestGainDate().toString(),
-                        toDouble(bestWorstSummary.worstLoss()),
-                        bestWorstSummary.worstLossDate() == null ? null : bestWorstSummary.worstLossDate().toString()
                 ),
                 monthlyReturnsHeatmap,
                 historyPoints
@@ -286,16 +243,8 @@ public class StockInsightsService {
     }
 
     private List<StockInsightsResponseDTO.StockHistoryPointDTO> buildHistoryPoints(List<StockMarketData> historyAsc) {
-        List<BigDecimal> closes = historyAsc.stream().map(StockMarketData::getClosePrice).toList();
         List<StockInsightsResponseDTO.StockHistoryPointDTO> points = new ArrayList<>(historyAsc.size());
-        for (int index = 0; index < historyAsc.size(); index++) {
-            StockMarketData point = historyAsc.get(index);
-            BigDecimal sma20 = simpleMovingAverageAt(closes, index, 20);
-            BigDecimal sma50 = simpleMovingAverageAt(closes, index, 50);
-            BigDecimal sma200 = simpleMovingAverageAt(closes, index, 200);
-            BigDecimal volatility30 = computeAnnualizedVolatilityAt(closes, index, 30);
-            BigDecimal volatility90 = computeAnnualizedVolatilityAt(closes, index, 90);
-            BigDecimal dailyReturn = index == 0 ? null : percentChange(closes.get(index - 1), closes.get(index));
+        for (StockMarketData point : historyAsc) {
 
             points.add(new StockInsightsResponseDTO.StockHistoryPointDTO(
                     point.getTradingDate() == null ? null : point.getTradingDate().toString(),
@@ -304,230 +253,66 @@ public class StockInsightsService {
                     toDouble(point.getLowPrice()),
                     toDouble(point.getClosePrice()),
                     point.getVolume(),
-                    toDouble(sma20),
-                    toDouble(sma50),
-                    toDouble(sma200),
-                    toDouble(volatility30),
-                    toDouble(volatility90),
-                    toDouble(dailyReturn)
+                    toDouble(point.getSma20()),
+                    toDouble(point.getSma50()),
+                    toDouble(point.getSma200()),
+                    toDouble(point.getVolatility30d()),
+                    toDouble(point.getVolatility90d()),
+                    toDouble(point.getDailyReturnPercent())
             ));
         }
-        return points;
+         return points;
     }
 
-    private List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> computeMonthlyReturnsHeatmap(List<StockMarketData> historyAsc) {
-        Map<YearMonth, BigDecimal> monthCloseMap = new LinkedHashMap<>();
-        for (StockMarketData point : historyAsc) {
-            if (point.getTradingDate() == null || point.getClosePrice() == null) {
-                continue;
+    private List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> resolveMonthlyReturnsHeatmap(StockMetrics metrics) {
+        if (metrics != null && metrics.getMonthlyReturnsHeatmap() != null) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                List<Map<String, Object>> cells = mapper.readValue(
+                    metrics.getMonthlyReturnsHeatmap(),
+                    new TypeReference<List<Map<String, Object>>>() {}
+                );
+                List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> result = new ArrayList<>();
+                for (Map<String, Object> cell : cells) {
+                    Integer year = ((Number) cell.get("year")).intValue();
+                    Integer month = ((Number) cell.get("month")).intValue();
+                    Double returnPercent = cell.get("returnPercent") != null
+                        ? ((Number) cell.get("returnPercent")).doubleValue()
+                        : null;
+                    result.add(new StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO(year, month, returnPercent));
+                }
+                return result;
+            } catch (Exception e) {
+                return List.of();
             }
-            monthCloseMap.put(YearMonth.from(point.getTradingDate()), point.getClosePrice());
         }
-
-        List<Map.Entry<YearMonth, BigDecimal>> monthlyEntries = new ArrayList<>(monthCloseMap.entrySet());
-        List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> cells = new ArrayList<>();
-        for (int index = 1; index < monthlyEntries.size(); index++) {
-            Map.Entry<YearMonth, BigDecimal> current = monthlyEntries.get(index);
-            Map.Entry<YearMonth, BigDecimal> previous = monthlyEntries.get(index - 1);
-            BigDecimal monthlyReturn = percentChange(previous.getValue(), current.getValue());
-            cells.add(new StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO(
-                    current.getKey().getYear(),
-                    current.getKey().getMonthValue(),
-                    toDouble(monthlyReturn)
-            ));
-        }
-        return cells;
+        return List.of();
     }
 
-    private DistributionSummary computeDistributionSummary(List<StockMarketData> historyAsc) {
-        int positiveDays = 0;
-        int negativeDays = 0;
-        int flatDays = 0;
-        for (int index = 1; index < historyAsc.size(); index++) {
-            BigDecimal previous = historyAsc.get(index - 1).getClosePrice();
-            BigDecimal current = historyAsc.get(index).getClosePrice();
-            if (previous == null || current == null) {
-                continue;
-            }
-            int comparison = current.compareTo(previous);
-            if (comparison > 0) {
-                positiveDays++;
-            } else if (comparison < 0) {
-                negativeDays++;
-            } else {
-                flatDays++;
-            }
+    private DistributionSummary resolveDistributionSummary(StockMetrics metrics) {
+        if (metrics != null
+                && metrics.getPositiveDays1y() != null
+                && metrics.getNegativeDays1y() != null
+                && metrics.getFlatDays1y() != null) {
+            return new DistributionSummary(
+                    metrics.getPositiveDays1y(),
+                    metrics.getNegativeDays1y(),
+                    metrics.getFlatDays1y());
         }
-        return new DistributionSummary(positiveDays, negativeDays, flatDays);
+        return new DistributionSummary(0, 0, 0);
     }
 
-    private VolumeSummary computeVolumeSummary(List<Long> volumes) {
-        long min = Long.MAX_VALUE;
-        long max = Long.MIN_VALUE;
-        BigDecimal sum = BigDecimal.ZERO;
-        long count = 0L;
-        for (Long volume : volumes) {
-            if (volume == null) {
-                continue;
-            }
-            min = Math.min(min, volume);
-            max = Math.max(max, volume);
-            sum = sum.add(BigDecimal.valueOf(volume));
-            count++;
+    private DrawdownSummary resolveDrawdownSummary(StockMetrics metrics) {
+        if (metrics != null
+                && metrics.getMaxDrawdown() != null
+                && metrics.getDrawdownPeakDate() != null
+                && metrics.getDrawdownTroughDate() != null) {
+            return new DrawdownSummary(
+                    metrics.getMaxDrawdown(),
+                    metrics.getDrawdownPeakDate(),
+                    metrics.getDrawdownTroughDate());
         }
-        if (count == 0L) {
-            return new VolumeSummary(null, null, null);
-        }
-        return new VolumeSummary(min, sum.divide(BigDecimal.valueOf(count), MATH_CONTEXT), max);
-    }
-
-    private DrawdownSummary computeDrawdownSummary(List<StockMarketData> historyAsc) {
-        BigDecimal runningPeak = null;
-        LocalDate runningPeakDate = null;
-        BigDecimal maxDrawdown = BigDecimal.ZERO;
-        LocalDate peakDate = null;
-        LocalDate troughDate = null;
-
-        for (StockMarketData point : historyAsc) {
-            if (point.getClosePrice() == null || point.getTradingDate() == null) {
-                continue;
-            }
-
-            if (runningPeak == null || point.getClosePrice().compareTo(runningPeak) > 0) {
-                runningPeak = point.getClosePrice();
-                runningPeakDate = point.getTradingDate();
-                continue;
-            }
-
-            BigDecimal drawdown = point.getClosePrice()
-                    .subtract(runningPeak)
-                    .divide(runningPeak, MATH_CONTEXT)
-                    .multiply(HUNDRED, MATH_CONTEXT);
-            if (drawdown.compareTo(maxDrawdown) < 0) {
-                maxDrawdown = drawdown;
-                peakDate = runningPeakDate;
-                troughDate = point.getTradingDate();
-            }
-        }
-
-        return new DrawdownSummary(maxDrawdown, peakDate, troughDate);
-    }
-
-    private BestWorstSummary computeBestWorstSummary(List<StockMarketData> historyAsc) {
-        BigDecimal bestGain = null;
-        BigDecimal worstLoss = null;
-        LocalDate bestDate = null;
-        LocalDate worstDate = null;
-
-        for (int index = 1; index < historyAsc.size(); index++) {
-            BigDecimal previous = historyAsc.get(index - 1).getClosePrice();
-            BigDecimal current = historyAsc.get(index).getClosePrice();
-            LocalDate tradingDate = historyAsc.get(index).getTradingDate();
-            BigDecimal dailyReturn = percentChange(previous, current);
-            if (dailyReturn == null || tradingDate == null) {
-                continue;
-            }
-            if (bestGain == null || dailyReturn.compareTo(bestGain) > 0) {
-                bestGain = dailyReturn;
-                bestDate = tradingDate;
-            }
-            if (worstLoss == null || dailyReturn.compareTo(worstLoss) < 0) {
-                worstLoss = dailyReturn;
-                worstDate = tradingDate;
-            }
-        }
-
-        return new BestWorstSummary(bestGain, bestDate, worstLoss, worstDate);
-    }
-
-    private RiskSummary computeRiskSummary(List<BigDecimal> closes) {
-        List<Double> returns = dailyReturns(closes, ONE_YEAR_PERIODS);
-        if (returns.size() < 2) {
-            return new RiskSummary(null, null);
-        }
-
-        double mean = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
-        double stdDev = standardDeviation(returns, mean);
-        Double sharpeRatio = stdDev == 0.0d ? null : (mean / stdDev) * SQRT_252;
-
-        List<Double> downside = returns.stream().filter(value -> value < 0.0d).toList();
-        Double sortinoRatio = null;
-        if (!downside.isEmpty()) {
-            double downsideMean = downside.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
-            double downsideStdDev = standardDeviation(downside, downsideMean);
-            if (downsideStdDev != 0.0d) {
-                sortinoRatio = (mean / downsideStdDev) * SQRT_252;
-            }
-        }
-
-        return new RiskSummary(toBigDecimal(sharpeRatio), toBigDecimal(sortinoRatio));
-    }
-
-    private BigDecimal computeBetaVsSp500(Long stockId, List<StockMarketData> stockHistoryAsc) {
-        Optional<Stock> benchmarkOptional = stockRepository.findBySymbol("SPY");
-        if (benchmarkOptional.isEmpty() || benchmarkOptional.get().getStockId() == null || benchmarkOptional.get().getStockId().equals(stockId)) {
-            return null;
-        }
-
-        List<StockMarketData> benchmarkHistoryAsc = stockMarketDataRepository
-                .findRecentByStockId(benchmarkOptional.get().getStockId(), PageRequest.of(0, HISTORY_LOOKBACK_ROWS));
-        if (benchmarkHistoryAsc.isEmpty()) {
-            return null;
-        }
-        benchmarkHistoryAsc = new ArrayList<>(benchmarkHistoryAsc);
-        benchmarkHistoryAsc.sort(Comparator.comparing(StockMarketData::getTradingDate));
-
-        Map<LocalDate, Double> stockReturnsByDate = dailyReturnsByDate(stockHistoryAsc, ONE_YEAR_PERIODS);
-        Map<LocalDate, Double> benchmarkReturnsByDate = dailyReturnsByDate(benchmarkHistoryAsc, ONE_YEAR_PERIODS);
-        List<Double> stockReturns = new ArrayList<>();
-        List<Double> benchmarkReturns = new ArrayList<>();
-        for (Map.Entry<LocalDate, Double> entry : stockReturnsByDate.entrySet()) {
-            Double benchmarkReturn = benchmarkReturnsByDate.get(entry.getKey());
-            if (benchmarkReturn == null) {
-                continue;
-            }
-            stockReturns.add(entry.getValue());
-            benchmarkReturns.add(benchmarkReturn);
-        }
-        if (stockReturns.size() < 2) {
-            return null;
-        }
-
-        double stockMean = stockReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
-        double benchmarkMean = benchmarkReturns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
-        double covariance = 0.0d;
-        double benchmarkVariance = 0.0d;
-        for (int index = 0; index < stockReturns.size(); index++) {
-            double stockValue = stockReturns.get(index) - stockMean;
-            double benchmarkValue = benchmarkReturns.get(index) - benchmarkMean;
-            covariance += stockValue * benchmarkValue;
-            benchmarkVariance += benchmarkValue * benchmarkValue;
-        }
-        covariance /= (stockReturns.size() - 1);
-        benchmarkVariance /= (benchmarkReturns.size() - 1);
-        if (benchmarkVariance == 0.0d) {
-            return null;
-        }
-        return toBigDecimal(covariance / benchmarkVariance);
-    }
-
-    private Map<LocalDate, Double> dailyReturnsByDate(List<StockMarketData> historyAsc, int periods) {
-        Map<LocalDate, Double> returnsByDate = new LinkedHashMap<>();
-        int start = Math.max(1, historyAsc.size() - periods);
-        for (int index = start; index < historyAsc.size(); index++) {
-            StockMarketData previous = historyAsc.get(index - 1);
-            StockMarketData current = historyAsc.get(index);
-            if (previous.getTradingDate() == null || previous.getClosePrice() == null || current.getClosePrice() == null) {
-                continue;
-            }
-            Double value = percentChange(previous.getClosePrice(), current.getClosePrice()) == null
-                    ? null
-                    : percentChange(previous.getClosePrice(), current.getClosePrice()).divide(HUNDRED, MATH_CONTEXT).doubleValue();
-            if (value != null && current.getTradingDate() != null) {
-                returnsByDate.put(current.getTradingDate(), value);
-            }
-        }
-        return returnsByDate;
+        return new DrawdownSummary(null, null, null);
     }
 
     private MacdResult computeMacd(List<BigDecimal> closes) {
@@ -768,8 +553,6 @@ public class StockInsightsService {
     private record DrawdownSummary(BigDecimal maxDrawdown, LocalDate peakDate, LocalDate troughDate) {
     }
 
-    private record BestWorstSummary(BigDecimal bestGain, LocalDate bestGainDate, BigDecimal worstLoss, LocalDate worstLossDate) {
-    }
 }
 
 

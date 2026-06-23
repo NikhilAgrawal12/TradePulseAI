@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Stock } from "../types/stock";
 import { toMoney } from "./money";
 
@@ -48,6 +48,7 @@ function writeCachedStocks(stocks: Stock[]): void {
  */
 export function useStreamedStocks() {
   const [stocks, setStocks] = useState<Stock[]>(() => readCachedStocks());
+  const hadCachedStocksAtBoot = useRef(stocks.length > 0);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const stocksCount = stocks.length;
@@ -57,6 +58,11 @@ export function useStreamedStocks() {
 
     const loadInitialFeaturedStocks = async () => {
       if (searchTerm.trim()) {
+        return;
+      }
+
+      // Keep boot-time cache visible until SSE pushes fresh ticks.
+      if (hadCachedStocksAtBoot.current) {
         return;
       }
 

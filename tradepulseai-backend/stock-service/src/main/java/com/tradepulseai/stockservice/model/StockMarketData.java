@@ -56,6 +56,24 @@ public class StockMarketData {
     @Column(name = "vwap", precision = 12, scale = 2)
     private BigDecimal vwap;
 
+    @Column(name = "sma_20", precision = 12, scale = 2)
+    private BigDecimal sma20;
+
+    @Column(name = "sma_50", precision = 12, scale = 2)
+    private BigDecimal sma50;
+
+    @Column(name = "sma_200", precision = 12, scale = 2)
+    private BigDecimal sma200;
+
+    @Column(name = "volatility_30d", precision = 12, scale = 2)
+    private BigDecimal volatility30d;
+
+    @Column(name = "volatility_90d", precision = 12, scale = 2)
+    private BigDecimal volatility90d;
+
+    @Column(name = "daily_return_percent", precision = 12, scale = 2)
+    private BigDecimal dailyReturnPercent;
+
     @Column(name = "is_otc", nullable = false)
     private Boolean otc;
 
@@ -147,6 +165,54 @@ public class StockMarketData {
 
     public void setVwap(BigDecimal vwap) {
         this.vwap = vwap;
+    }
+
+    public BigDecimal getSma20() {
+        return sma20;
+    }
+
+    public void setSma20(BigDecimal sma20) {
+        this.sma20 = sma20;
+    }
+
+    public BigDecimal getSma50() {
+        return sma50;
+    }
+
+    public void setSma50(BigDecimal sma50) {
+        this.sma50 = sma50;
+    }
+
+    public BigDecimal getSma200() {
+        return sma200;
+    }
+
+    public void setSma200(BigDecimal sma200) {
+        this.sma200 = sma200;
+    }
+
+    public BigDecimal getVolatility30d() {
+        return volatility30d;
+    }
+
+    public void setVolatility30d(BigDecimal volatility30d) {
+        this.volatility30d = volatility30d;
+    }
+
+    public BigDecimal getVolatility90d() {
+        return volatility90d;
+    }
+
+    public void setVolatility90d(BigDecimal volatility90d) {
+        this.volatility90d = volatility90d;
+    }
+
+    public BigDecimal getDailyReturnPercent() {
+        return dailyReturnPercent;
+    }
+
+    public void setDailyReturnPercent(BigDecimal dailyReturnPercent) {
+        this.dailyReturnPercent = dailyReturnPercent;
     }
 
     public Boolean getOtc() {

@@ -73,28 +73,16 @@ export type StockInsights = {
     sharpeRatio: number | null;
     sortinoRatio: number | null;
     maxDrawdown: number | null;
-    betaVsSp500: number | null;
   };
   performanceDistribution: {
     positiveDays: number;
     negativeDays: number;
     flatDays: number;
   };
-  volumeDistribution: {
-    minVolume: number | null;
-    averageVolume: number | null;
-    maxVolume: number | null;
-  };
   drawdownAnalysis: {
     maxDrawdown: number | null;
     peakDate: string | null;
     troughDate: string | null;
-  };
-  bestWorstDays: {
-    bestDailyGain: number | null;
-    bestDailyGainDate: string | null;
-    worstDailyLoss: number | null;
-    worstDailyLossDate: string | null;
   };
   monthlyReturnsHeatmap: MonthlyReturnHeatmapCell[];
   history: StockHistoryPoint[];

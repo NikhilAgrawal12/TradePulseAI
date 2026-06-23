@@ -79,6 +79,8 @@ public class PortfolioService {
 
     @Transactional
     public PortfolioResponseDTO recordCompletedOrder(Long userId, RecordPortfolioOrderRequestDTO request) {
+        validateRecordCompletedOrderRequest(userId, request);
+
         for (PortfolioFillItemRequestDTO item : request.getItems()) {
             Long stockId = parseStockId(item.getStockId());
             PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, stockId)
@@ -95,6 +97,35 @@ public class PortfolioService {
         }
 
         return getPortfolio(userId);
+    }
+
+    private void validateRecordCompletedOrderRequest(Long userId, RecordPortfolioOrderRequestDTO request) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Valid userId is required.");
+        }
+
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("At least one portfolio item is required.");
+        }
+
+        for (int index = 0; index < request.getItems().size(); index++) {
+            PortfolioFillItemRequestDTO item = request.getItems().get(index);
+            if (item == null) {
+                throw new IllegalArgumentException("Portfolio item at index " + index + " is missing.");
+            }
+
+            if (item.getStockId() == null || item.getStockId().isBlank()) {
+                throw new IllegalArgumentException("stockId is required for item at index " + index);
+            }
+
+            if (item.getPrice() == null || item.getPrice().signum() <= 0) {
+                throw new IllegalArgumentException("price must be greater than 0 for stockId: " + item.getStockId());
+            }
+
+            if (item.getQuantity() <= 0) {
+                throw new IllegalArgumentException("quantity must be greater than 0 for stockId: " + item.getStockId());
+            }
+        }
     }
 
     @Transactional

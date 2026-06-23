@@ -18,9 +18,7 @@ public record StockInsightsResponseDTO(
         MomentumMetricsDTO momentumMetrics,
         RiskMetricsDTO riskMetrics,
         PerformanceDistributionDTO performanceDistribution,
-        VolumeDistributionDTO volumeDistribution,
         DrawdownAnalysisDTO drawdownAnalysis,
-        BestWorstDaysDTO bestWorstDays,
         List<MonthlyReturnHeatmapCellDTO> monthlyReturnsHeatmap,
         List<StockHistoryPointDTO> history
 ) {
@@ -84,8 +82,7 @@ public record StockInsightsResponseDTO(
     public record RiskMetricsDTO(
             Double sharpeRatio,
             Double sortinoRatio,
-            Double maxDrawdown,
-            Double betaVsSp500
+            Double maxDrawdown
     ) {
     }
 
@@ -96,12 +93,6 @@ public record StockInsightsResponseDTO(
     ) {
     }
 
-    public record VolumeDistributionDTO(
-            Long minVolume,
-            Double averageVolume,
-            Long maxVolume
-    ) {
-    }
 
     public record DrawdownAnalysisDTO(
             Double maxDrawdown,
@@ -110,13 +101,6 @@ public record StockInsightsResponseDTO(
     ) {
     }
 
-    public record BestWorstDaysDTO(
-            Double bestDailyGain,
-            String bestDailyGainDate,
-            Double worstDailyLoss,
-            String worstDailyLossDate
-    ) {
-    }
 
     public record MonthlyReturnHeatmapCellDTO(
             int year,

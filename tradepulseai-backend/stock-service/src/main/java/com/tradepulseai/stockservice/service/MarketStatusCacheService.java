@@ -188,7 +188,7 @@ public class MarketStatusCacheService implements ApplicationRunner {
                 null,
                 null,
                 null,
-                Instant.now()
+                null
         );
     }
 

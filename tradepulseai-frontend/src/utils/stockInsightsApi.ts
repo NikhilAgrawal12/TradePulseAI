@@ -69,20 +69,10 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
       sharpeRatio: data.riskMetrics.sharpeRatio == null ? null : toMoney(data.riskMetrics.sharpeRatio),
       sortinoRatio: data.riskMetrics.sortinoRatio == null ? null : toMoney(data.riskMetrics.sortinoRatio),
       maxDrawdown: data.riskMetrics.maxDrawdown == null ? null : toMoney(data.riskMetrics.maxDrawdown),
-      betaVsSp500: data.riskMetrics.betaVsSp500 == null ? null : toMoney(data.riskMetrics.betaVsSp500),
-    },
-    volumeDistribution: {
-      ...data.volumeDistribution,
-      averageVolume: data.volumeDistribution.averageVolume == null ? null : toMoney(data.volumeDistribution.averageVolume),
     },
     drawdownAnalysis: {
       ...data.drawdownAnalysis,
       maxDrawdown: data.drawdownAnalysis.maxDrawdown == null ? null : toMoney(data.drawdownAnalysis.maxDrawdown),
-    },
-    bestWorstDays: {
-      ...data.bestWorstDays,
-      bestDailyGain: data.bestWorstDays.bestDailyGain == null ? null : toMoney(data.bestWorstDays.bestDailyGain),
-      worstDailyLoss: data.bestWorstDays.worstDailyLoss == null ? null : toMoney(data.bestWorstDays.worstDailyLoss),
     },
     monthlyReturnsHeatmap: data.monthlyReturnsHeatmap.map((cell) => ({
       ...cell,

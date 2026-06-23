@@ -4,7 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../../utils/auth";
-import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
@@ -27,8 +27,11 @@ export function HomePage() {
     document.title = "Home | TradePulseAI";
   }, []);
 
-  // Update session badge every minute
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>({
+    session: "unknown",
+    label: "Checking market status...",
+    cssClass: "session-pending",
+  });
   useEffect(() => {
     let cancelled = false;
 
@@ -42,7 +45,7 @@ export function HomePage() {
     void refreshSession();
     const id = window.setInterval(() => {
       void refreshSession();
-    }, 60_000);
+    }, 15_000);
 
     return () => {
       cancelled = true;

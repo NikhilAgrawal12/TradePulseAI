@@ -16,10 +16,14 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class StockMetricsRefreshService {
@@ -65,6 +69,7 @@ public class StockMetricsRefreshService {
         }
 
         List<StockMetrics> metricsRows = new ArrayList<>();
+        List<StockMarketData> indicatorRows = new ArrayList<>();
         for (Stock stock : stocks) {
             Long stockId = stock.getStockId();
             if (stockId == null) {
@@ -77,6 +82,8 @@ public class StockMetricsRefreshService {
             }
 
             historyDesc.sort(Comparator.comparing(StockMarketData::getTradingDate));
+            applyIndicatorsToHistory(historyDesc);
+            indicatorRows.addAll(historyDesc);
             StockMetrics metrics = buildMetrics(stockId, historyDesc);
             metricsRows.add(metrics);
         }
@@ -86,9 +93,28 @@ public class StockMetricsRefreshService {
             return;
         }
 
+        stockMarketDataRepository.saveAll(indicatorRows);
         stockMetricsRepository.saveAll(metricsRows);
         log.info("Stock metrics refresh ({}) upserted {} rows for latest OHLC date {}.",
                 trigger, metricsRows.size(), maxTradingDate.get());
+    }
+
+    private void applyIndicatorsToHistory(List<StockMarketData> historyAsc) {
+        List<BigDecimal> closes = historyAsc.stream().map(StockMarketData::getClosePrice).toList();
+        for (int index = 0; index < historyAsc.size(); index++) {
+            StockMarketData row = historyAsc.get(index);
+            row.setSma20(scaleNullable(simpleMovingAverageAt(closes, index, 20)));
+            row.setSma50(scaleNullable(simpleMovingAverageAt(closes, index, 50)));
+            row.setSma200(scaleNullable(simpleMovingAverageAt(closes, index, 200)));
+            row.setVolatility30d(scaleNullable(computeAnnualizedVolatilityAt(closes, index, 30)));
+            row.setVolatility90d(scaleNullable(computeAnnualizedVolatilityAt(closes, index, 90)));
+
+            BigDecimal dailyReturn = null;
+            if (index > 0) {
+                dailyReturn = percentChange(closes.get(index - 1), closes.get(index));
+            }
+            row.setDailyReturnPercent(scaleNullable(dailyReturn));
+        }
     }
 
     private StockMetrics buildMetrics(Long stockId, List<StockMarketData> historyAsc) {
@@ -116,6 +142,17 @@ public class StockMetricsRefreshService {
                 : BigDecimal.valueOf(latestTradingDayVolume).divide(average30DayVolume, MATH_CONTEXT);
         BigDecimal volatility30d = computeAnnualizedVolatility(closes, 30);
         BigDecimal volatility90d = computeAnnualizedVolatility(closes, 90);
+        int[] distribution = computeDistribution(historyAsc, ONE_YEAR_PERIODS);
+        DrawdownSummary drawdownSummary = computeDrawdownSummary(historyAsc);
+        RiskSummary riskSummary = computeRiskSummary(closes);
+        BigDecimal rsi14 = computeRsi(closes, 14);
+        MacdResult macdResult = computeMacd(closes);
+        BigDecimal momentum30d = computeReturn(closes, 30);
+        BigDecimal sma50 = simpleMovingAverage(closes, 50);
+        BigDecimal sma200 = simpleMovingAverage(closes, 200);
+        Boolean goldenCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) > 0 : null;
+        Boolean deathCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) < 0 : null;
+        String monthlyReturnsJson = serializeMonthlyReturnsHeatmap(historyAsc);
 
         StockMetrics row = new StockMetrics();
         row.setStockId(stockId);
@@ -135,7 +172,39 @@ public class StockMetricsRefreshService {
         row.setRelativeVolume(scaleNullable(relativeVolume));
         row.setVolatility30d(scaleNullable(volatility30d));
         row.setVolatility90d(scaleNullable(volatility90d));
+        row.setPositiveDays1y(distribution[0]);
+        row.setNegativeDays1y(distribution[1]);
+        row.setFlatDays1y(distribution[2]);
+        row.setMonthlyReturnsHeatmap(monthlyReturnsJson);
+        row.setMaxDrawdown(scaleNullable(drawdownSummary.maxDrawdown()));
+        row.setDrawdownPeakDate(drawdownSummary.peakDate());
+        row.setDrawdownTroughDate(drawdownSummary.troughDate());
+        row.setSharpeRatio(scaleNullable(riskSummary.sharpeRatio()));
+        row.setSortinoRatio(scaleNullable(riskSummary.sortinoRatio()));
+        row.setRsi14(scaleNullable(rsi14));
+        row.setMacd(scaleNullable(macdResult.macd()));
+        row.setMacdSignal(scaleNullable(macdResult.signal()));
+        row.setMomentum30d(scaleNullable(momentum30d));
+        row.setGoldenCross(goldenCross);
+        row.setDeathCross(deathCross);
         return row;
+    }
+
+    /** Returns [positiveDays, negativeDays, flatDays] for up to the last {@code periods} trading rows. */
+    private int[] computeDistribution(List<StockMarketData> historyAsc, int periods) {
+        int size = historyAsc.size();
+        int start = Math.max(1, size - periods);
+        int positive = 0, negative = 0, flat = 0;
+        for (int i = start; i < size; i++) {
+            BigDecimal prev = historyAsc.get(i - 1).getClosePrice();
+            BigDecimal curr = historyAsc.get(i).getClosePrice();
+            if (prev == null || curr == null) continue;
+            int cmp = curr.compareTo(prev);
+            if (cmp > 0) positive++;
+            else if (cmp < 0) negative++;
+            else flat++;
+        }
+        return new int[]{positive, negative, flat};
     }
 
     private BigDecimal computeReturn(List<BigDecimal> closes, int lookbackPeriods) {
@@ -232,6 +301,46 @@ public class StockMetricsRefreshService {
         return BigDecimal.valueOf(stdDev * SQRT_252 * 100.0d);
     }
 
+    private BigDecimal computeAnnualizedVolatilityAt(List<BigDecimal> closes, int inclusiveIndex, int periods) {
+        if (inclusiveIndex < periods) {
+            return null;
+        }
+        List<BigDecimal> subset = closes.subList(0, inclusiveIndex + 1);
+        return computeAnnualizedVolatility(subset, periods);
+    }
+
+    private DrawdownSummary computeDrawdownSummary(List<StockMarketData> historyAsc) {
+        BigDecimal runningPeak = null;
+        LocalDate runningPeakDate = null;
+        BigDecimal maxDrawdown = BigDecimal.ZERO;
+        LocalDate peakDate = null;
+        LocalDate troughDate = null;
+
+        for (StockMarketData point : historyAsc) {
+            if (point.getClosePrice() == null || point.getTradingDate() == null) {
+                continue;
+            }
+
+            if (runningPeak == null || point.getClosePrice().compareTo(runningPeak) > 0) {
+                runningPeak = point.getClosePrice();
+                runningPeakDate = point.getTradingDate();
+                continue;
+            }
+
+            BigDecimal drawdown = point.getClosePrice()
+                    .subtract(runningPeak)
+                    .divide(runningPeak, MATH_CONTEXT)
+                    .multiply(HUNDRED, MATH_CONTEXT);
+            if (drawdown.compareTo(maxDrawdown) < 0) {
+                maxDrawdown = drawdown;
+                peakDate = runningPeakDate;
+                troughDate = point.getTradingDate();
+            }
+        }
+
+        return new DrawdownSummary(maxDrawdown, peakDate, troughDate);
+    }
+
     private List<Double> dailyReturns(List<BigDecimal> closes, int periods) {
         int size = closes.size();
         if (size < periods + 1) {
@@ -252,12 +361,206 @@ public class StockMetricsRefreshService {
         return values;
     }
 
+    private RiskSummary computeRiskSummary(List<BigDecimal> closes) {
+        List<Double> returns = dailyReturns(closes, ONE_YEAR_PERIODS);
+        if (returns.size() < 2) {
+            return new RiskSummary(null, null);
+        }
+
+        double mean = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
+        double stdDev = standardDeviation(returns, mean);
+        BigDecimal sharpe = stdDev == 0.0d ? null : BigDecimal.valueOf((mean / stdDev) * SQRT_252);
+
+        List<Double> downside = returns.stream().filter(value -> value < 0.0d).toList();
+        BigDecimal sortino = null;
+        if (!downside.isEmpty()) {
+            double downsideMean = downside.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
+            double downsideStdDev = standardDeviation(downside, downsideMean);
+            if (downsideStdDev != 0.0d) {
+                sortino = BigDecimal.valueOf((mean / downsideStdDev) * SQRT_252);
+            }
+        }
+
+        return new RiskSummary(sharpe, sortino);
+    }
+
+    private double standardDeviation(List<Double> values, double mean) {
+        if (values.size() < 2) {
+            return 0.0d;
+        }
+        double squaredDiff = 0.0d;
+        for (double value : values) {
+            double delta = value - mean;
+            squaredDiff += delta * delta;
+        }
+        return Math.sqrt(squaredDiff / (values.size() - 1));
+    }
+
+    private BigDecimal simpleMovingAverage(List<BigDecimal> closes, int periods) {
+        if (closes.size() < periods) {
+            return null;
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        int start = closes.size() - periods;
+        for (int index = start; index < closes.size(); index++) {
+            BigDecimal close = closes.get(index);
+            if (close == null) {
+                return null;
+            }
+            sum = sum.add(close);
+        }
+        return sum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
+    }
+
+    private BigDecimal simpleMovingAverageAt(List<BigDecimal> closes, int inclusiveIndex, int periods) {
+        if (inclusiveIndex + 1 < periods) {
+            return null;
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (int index = inclusiveIndex - periods + 1; index <= inclusiveIndex; index++) {
+            BigDecimal close = closes.get(index);
+            if (close == null) {
+                return null;
+            }
+            sum = sum.add(close);
+        }
+        return sum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
+    }
+
+    private BigDecimal computeRsi(List<BigDecimal> closes, int periods) {
+        if (closes.size() < periods + 1) {
+            return null;
+        }
+        BigDecimal gainSum = BigDecimal.ZERO;
+        BigDecimal lossSum = BigDecimal.ZERO;
+        int start = closes.size() - (periods + 1);
+        for (int index = start + 1; index < closes.size(); index++) {
+            BigDecimal previous = closes.get(index - 1);
+            BigDecimal current = closes.get(index);
+            if (previous == null || current == null) {
+                return null;
+            }
+            BigDecimal delta = current.subtract(previous);
+            if (delta.compareTo(BigDecimal.ZERO) >= 0) {
+                gainSum = gainSum.add(delta);
+            } else {
+                lossSum = lossSum.add(delta.abs());
+            }
+        }
+        BigDecimal averageGain = gainSum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
+        BigDecimal averageLoss = lossSum.divide(BigDecimal.valueOf(periods), MATH_CONTEXT);
+        if (averageLoss.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.valueOf(100);
+        }
+        BigDecimal rs = averageGain.divide(averageLoss, MATH_CONTEXT);
+        return HUNDRED.subtract(HUNDRED.divide(BigDecimal.ONE.add(rs), MATH_CONTEXT));
+    }
+
+    private MacdResult computeMacd(List<BigDecimal> closes) {
+        if (closes.size() < 26) {
+            return new MacdResult(null, null);
+        }
+        List<Double> closeValues = closes.stream()
+                .map(value -> value == null ? null : value.doubleValue())
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (closeValues.size() < 26) {
+            return new MacdResult(null, null);
+        }
+
+        List<Double> ema12 = emaSeries(closeValues, 12);
+        List<Double> ema26 = emaSeries(closeValues, 26);
+        List<Double> macdSeries = new ArrayList<>();
+        for (int index = 0; index < closeValues.size(); index++) {
+            Double shortValue = ema12.get(index);
+            Double longValue = ema26.get(index);
+            macdSeries.add(shortValue == null || longValue == null ? null : shortValue - longValue);
+        }
+
+        List<Double> compactMacd = macdSeries.stream().filter(java.util.Objects::nonNull).toList();
+        if (compactMacd.isEmpty()) {
+            return new MacdResult(null, null);
+        }
+        List<Double> signalSeries = emaSeries(compactMacd, 9);
+        Double macd = compactMacd.get(compactMacd.size() - 1);
+        Double signal = signalSeries.get(signalSeries.size() - 1);
+        return new MacdResult(BigDecimal.valueOf(macd), signal == null ? null : BigDecimal.valueOf(signal));
+    }
+
+    private List<Double> emaSeries(List<Double> values, int periods) {
+        List<Double> ema = new ArrayList<>(values.size());
+        double multiplier = 2.0d / (periods + 1.0d);
+        Double previous = null;
+        for (Double value : values) {
+            if (value == null) {
+                ema.add(null);
+                continue;
+            }
+            if (previous == null) {
+                previous = value;
+            } else {
+                previous = ((value - previous) * multiplier) + previous;
+            }
+            ema.add(previous);
+        }
+        return ema;
+    }
+
     private BigDecimal scale(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal scaleNullable(BigDecimal value) {
         return value == null ? null : scale(value);
+    }
+
+    /** Computes and serializes monthly returns heatmap as JSON. */
+    private String serializeMonthlyReturnsHeatmap(List<StockMarketData> historyAsc) {
+        try {
+            Map<YearMonth, BigDecimal> monthCloseMap = new LinkedHashMap<>();
+            for (StockMarketData point : historyAsc) {
+                if (point.getTradingDate() == null || point.getClosePrice() == null) {
+                    continue;
+                }
+                monthCloseMap.put(YearMonth.from(point.getTradingDate()), point.getClosePrice());
+            }
+
+            List<Map.Entry<YearMonth, BigDecimal>> monthlyEntries = new ArrayList<>(monthCloseMap.entrySet());
+            List<Map<String, Object>> cells = new ArrayList<>();
+            for (int index = 1; index < monthlyEntries.size(); index++) {
+                Map.Entry<YearMonth, BigDecimal> current = monthlyEntries.get(index);
+                Map.Entry<YearMonth, BigDecimal> previous = monthlyEntries.get(index - 1);
+                BigDecimal monthlyReturn = percentChange(previous.getValue(), current.getValue());
+
+                Map<String, Object> cell = new LinkedHashMap<>();
+                cell.put("year", current.getKey().getYear());
+                cell.put("month", current.getKey().getMonthValue());
+                cell.put("returnPercent", monthlyReturn == null ? null : monthlyReturn.setScale(2, RoundingMode.HALF_UP).doubleValue());
+                cells.add(cell);
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(cells);
+        } catch (Exception e) {
+            log.warn("Failed to serialize monthly returns heatmap: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private BigDecimal percentChange(BigDecimal baseline, BigDecimal current) {
+        if (baseline == null || current == null || baseline.compareTo(ZERO) == 0) {
+            return null;
+        }
+        return current.subtract(baseline).divide(baseline, MATH_CONTEXT).multiply(BigDecimal.valueOf(100), MATH_CONTEXT);
+    }
+
+    private record DrawdownSummary(BigDecimal maxDrawdown, LocalDate peakDate, LocalDate troughDate) {
+    }
+
+    private record RiskSummary(BigDecimal sharpeRatio, BigDecimal sortinoRatio) {
+    }
+
+    private record MacdResult(BigDecimal macd, BigDecimal signal) {
     }
 
 }

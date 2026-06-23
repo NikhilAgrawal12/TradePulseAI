@@ -39,6 +39,14 @@ CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_stock_id ON all_stocks_last_valu
 CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_cached_at ON all_stocks_last_value_cache(cached_at DESC);
 CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_aggregate_ts ON all_stocks_last_value_cache(aggregate_updated_at DESC);
 
+-- Ensure stock_daily_ohlc has precomputed indicator columns used by insights history charts/table
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sma_20 NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sma_50 NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sma_200 NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_30d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS daily_return_percent NUMERIC(12, 2);
+
 -- Ensure stock_metrics has all returns windows used by Insights Returns tab
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS three_month_return NUMERIC(12, 2);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS six_month_return NUMERIC(12, 2);
@@ -51,10 +59,24 @@ ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_trading_date DATE;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS relative_volume NUMERIC(12, 4);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_30d NUMERIC(12, 2);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS positive_days_1y INT;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS negative_days_1y INT;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS flat_days_1y INT;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS monthly_returns_heatmap TEXT;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS max_drawdown NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS drawdown_peak_date DATE;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS drawdown_trough_date DATE;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS sharpe_ratio NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS sortino_ratio NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS rsi_14 NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS macd NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS macd_signal NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS momentum_30d NUMERIC(12, 2);
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS golden_cross BOOLEAN;
+ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS death_cross BOOLEAN;
 
 -- Drop unused stock_metrics columns now computed directly from OHLC/realtime paths
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS current_price;
-ALTER TABLE stock_metrics DROP COLUMN IF EXISTS rsi_14;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_20;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200;
