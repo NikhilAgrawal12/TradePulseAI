@@ -14,19 +14,19 @@ public interface AllStocksLastValueCacheRepository extends JpaRepository<AllStoc
     /**
      * Find cache entry by stock ID with eager loading
      */
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     Optional<AllStocksLastValueCache> findByStockStockId(Long stockId);
 
     /**
      * Find cache entry by stock symbol with eager loading
      */
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     Optional<AllStocksLastValueCache> findByStockSymbolIgnoreCase(String symbol);
 
     /**
      * Get all cache entries with eager loading (avoids N+1 query)
      */
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     List<AllStocksLastValueCache> findAll();
 }
 

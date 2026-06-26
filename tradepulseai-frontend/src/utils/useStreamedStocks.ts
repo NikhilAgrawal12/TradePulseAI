@@ -166,6 +166,3 @@ export function useStreamedStocks() {
 
   return { stocks, error, searchTerm, setSearchTerm };
 }
-
-
-

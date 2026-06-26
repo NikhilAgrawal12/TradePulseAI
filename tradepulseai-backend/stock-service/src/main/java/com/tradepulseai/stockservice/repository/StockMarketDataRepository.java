@@ -16,12 +16,12 @@ import java.util.Optional;
 @Repository
 public interface StockMarketDataRepository extends JpaRepository<StockMarketData, Long> {
 
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     Optional<StockMarketData> findTopByStockOrderByTradingDateDesc(Stock stock);
 
     boolean existsByStockAndTradingDate(Stock stock, LocalDate tradingDate);
 
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     Optional<StockMarketData> findTopByOrderByTradingDateDesc();
 
     @Query("SELECT MAX(smd.tradingDate) FROM StockMarketData smd")
@@ -30,7 +30,7 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
     @Query("SELECT smd.stock.stockId FROM StockMarketData smd WHERE smd.tradingDate = :tradingDate")
     List<Long> findStockIdsByTradingDate(@Param("tradingDate") LocalDate tradingDate);
 
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     @Query("""
             SELECT smd
             FROM StockMarketData smd
@@ -39,7 +39,7 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
             """)
     List<StockMarketData> findRecentByStockId(@Param("stockId") Long stockId, Pageable pageable);
 
-    @EntityGraph(attributePaths = "stock")
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     @Query("""
             SELECT smd
             FROM StockMarketData smd

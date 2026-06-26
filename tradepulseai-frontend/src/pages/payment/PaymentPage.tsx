@@ -11,6 +11,13 @@ import "./PaymentPage.css";
 
 const PRICE_LOCK_SECONDS = 15;
 
+type LockedQuoteState = {
+  items: CartItem[];
+  subtotal: number;
+  total: number;
+  lockSeconds: number;
+};
+
 export function PaymentPage() {
   useEffect(() => {
     document.title = "Payment | TradePulseAI";
@@ -42,10 +49,10 @@ export function PaymentPage() {
   } | null;
 
   const items = state?.items?.length ? state.items : cart;
-  const [lockedItems, setLockedItems] = useState<CartItem[] | null>(null);
+  const [lockedQuote, setLockedQuote] = useState<LockedQuoteState | null>(null);
 
   useEffect(() => {
-    if (lockedItems || items.length === 0) {
+    if (lockedQuote || items.length === 0) {
       return;
     }
 
@@ -64,8 +71,14 @@ export function PaymentPage() {
         if (cancelled) {
           return;
         }
-        setLockedItems(response.items);
-        setSecondsLeft(response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS);
+        const normalizedLockSeconds = response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS;
+        setLockedQuote({
+          items: response.items,
+          subtotal: roundMoney(response.subtotal),
+          total: roundMoney(response.total),
+          lockSeconds: normalizedLockSeconds,
+        });
+        setSecondsLeft(normalizedLockSeconds);
       } catch (lockError) {
         if (cancelled) {
           return;
@@ -86,29 +99,29 @@ export function PaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [items, lockedItems]);
+  }, [items, lockedQuote]);
 
-  const displayItems = lockedItems ?? [];
+  const displayItems = lockedQuote?.items ?? [];
 
   const subtotal = useMemo(
-    () => roundMoney(displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)),
-    [displayItems],
+    () => lockedQuote?.subtotal ?? roundMoney(displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)),
+    [displayItems, lockedQuote],
   );
-  const total = useMemo(() => roundMoney(subtotal), [subtotal]);
+  const total = useMemo(() => lockedQuote?.total ?? roundMoney(subtotal), [lockedQuote, subtotal]);
   const priceUpdated = useMemo(() => {
-    if (!lockedItems || items.length === 0) {
+    if (!lockedQuote || items.length === 0) {
       return false;
     }
 
     const sourceByStockId = new Map(items.map((item) => [String(item.stockId), roundMoney(item.price)]));
-    return lockedItems.some((item) => {
+    return lockedQuote.items.some((item) => {
       const sourcePrice = sourceByStockId.get(String(item.stockId));
       if (sourcePrice === undefined) {
         return false;
       }
       return Math.abs(sourcePrice - roundMoney(item.price)) >= 0.01;
     });
-  }, [items, lockedItems]);
+  }, [items, lockedQuote]);
 
   const hasSufficientBalance = !isWalletLoading && balance >= total;
 
@@ -188,7 +201,7 @@ export function PaymentPage() {
     );
   }
 
-  if (!lockedItems && quoteLoading) {
+  if (!lockedQuote && quoteLoading) {
     return (
       <>
         <Header />
@@ -202,7 +215,7 @@ export function PaymentPage() {
     );
   }
 
-  if (!lockedItems && quoteError) {
+  if (!lockedQuote && quoteError) {
     return (
       <>
         <Header />
@@ -268,7 +281,7 @@ export function PaymentPage() {
               {displayItems.map((item) => (
                 <p key={item.stockId}>
                   <span>{item.symbol} x {item.quantity}</span>
-                  <strong>${formatMoney(roundMoney(item.price * item.quantity))}</strong>
+                  <strong>${formatMoney(roundMoney(item.lineTotal ?? (item.price * item.quantity)))}</strong>
                 </p>
               ))}
             </div>

@@ -3,7 +3,10 @@ package com.tradepulseai.stockservice.service;
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.mapper.StockMapper;
 import com.tradepulseai.stockservice.model.AllStocksLastValueCache;
+import com.tradepulseai.stockservice.model.StockMarketData;
 import com.tradepulseai.stockservice.repository.FeaturedStockCacheRepository;
+import com.tradepulseai.stockservice.repository.StockMarketDataRepository;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -39,6 +42,7 @@ public class FeaturedStockSSEService {
 
     private final FeaturedStockCacheRepository featuredStockCacheRepository;
     private final AllStocksLastValueCacheService allStocksLastValueCacheService;
+    private final StockMarketDataRepository stockMarketDataRepository;
     private final ScheduledExecutorService eventBroadcastExecutor;
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final AtomicBoolean broadcastQueued = new AtomicBoolean(false);
@@ -48,9 +52,11 @@ public class FeaturedStockSSEService {
 
     public FeaturedStockSSEService(
             FeaturedStockCacheRepository featuredStockCacheRepository,
-            AllStocksLastValueCacheService allStocksLastValueCacheService) {
+            AllStocksLastValueCacheService allStocksLastValueCacheService,
+            StockMarketDataRepository stockMarketDataRepository) {
         this.featuredStockCacheRepository = featuredStockCacheRepository;
         this.allStocksLastValueCacheService = allStocksLastValueCacheService;
+        this.stockMarketDataRepository = stockMarketDataRepository;
         this.eventBroadcastExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "featured-stock-sse-event");
             t.setDaemon(true);
@@ -111,7 +117,13 @@ public class FeaturedStockSSEService {
         allStocksLastValueCacheService.getCacheSnapshotValues()
                 .forEach(entry -> realtimeByStockId.put(entry.getStock().getStockId(), entry));
 
-        List<StockResponseDTO> featuredStocks = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
+        Map<Long, StockMarketData> latestByStockId = new HashMap<>();
+        if (realtimeByStockId.isEmpty()) {
+            stockMarketDataRepository.findLatestForAllStocks()
+                    .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
+        }
+
+        List<StockResponseDTO> initialData = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
                 .stream()
                 .limit(50)
                 .map(cache -> {
@@ -119,11 +131,10 @@ public class FeaturedStockSSEService {
                     if (realtime != null) {
                         return StockMapper.toDTO(realtime);
                     }
-                    return StockMapper.toDTO(cache.getStock(), null);
+                    StockMarketData latestData = latestByStockId.get(cache.getStock().getStockId());
+                    return StockMapper.toDTO(cache.getStock(), latestData);
                 })
                 .toList();
-
-        List<StockResponseDTO> initialData = featuredStocks;
 
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
             String normalizedSearch = searchTerm.trim().toLowerCase();
@@ -194,6 +205,12 @@ public class FeaturedStockSSEService {
             allStocksLastValueCacheService.getCacheSnapshotValues()
                     .forEach(entry -> realtimeByStockId.put(entry.getStock().getStockId(), entry));
 
+            Map<Long, StockMarketData> latestByStockId = new HashMap<>();
+            if (realtimeByStockId.isEmpty()) {
+                stockMarketDataRepository.findLatestForAllStocks()
+                        .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
+            }
+
             // Get featured stocks from cache (top 50)
             List<StockResponseDTO> featuredStocks = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
                     .stream()
@@ -203,7 +220,8 @@ public class FeaturedStockSSEService {
                         if (realtime != null) {
                             return StockMapper.toDTO(realtime);
                         }
-                        return StockMapper.toDTO(cache.getStock(), null);
+                        StockMarketData latestData = latestByStockId.get(cache.getStock().getStockId());
+                        return StockMapper.toDTO(cache.getStock(), latestData);
                     })
                     .toList();
 
@@ -296,6 +314,7 @@ public class FeaturedStockSSEService {
                 .toList();
     }
 
+    @PreDestroy
     public void shutdown() {
         eventBroadcastExecutor.shutdownNow();
     }
