@@ -8,7 +8,7 @@ import "./RegistrationPage.css";
 const VALIDATION_PATTERNS = {
   password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/,
   phoneNumber: /^\+?[0-9\- ]{7,15}$/,
-  name: /^[A-Za-z\s'-]{1,100}$/,
+  name: /^[A-Za-z '\-]{1,100}$/,
 };
 
 // Validation messages
@@ -228,7 +228,7 @@ export function RegistrationPage() {
                 required
                 disabled={loading}
                 onChange={handleFieldChange}
-                pattern="^[A-Za-z\s'-]{1,100}$"
+                pattern="^[A-Za-z '\-]{1,100}$"
               />
               {validationErrors.firstName && <span className="validation-error">{validationErrors.firstName}</span>}
             </div>
@@ -243,7 +243,7 @@ export function RegistrationPage() {
                 required
                 disabled={loading}
                 onChange={handleFieldChange}
-                pattern="^[A-Za-z\s'-]{1,100}$"
+                pattern="^[A-Za-z '\-]{1,100}$"
               />
               {validationErrors.lastName && <span className="validation-error">{validationErrors.lastName}</span>}
             </div>

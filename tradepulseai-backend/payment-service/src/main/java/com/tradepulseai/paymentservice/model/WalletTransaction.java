@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -13,7 +14,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 @Entity
-@Table(name = "wallet_transactions")
+@Table(name = "wallet_transactions", indexes = {
+    @Index(name = "idx_wallet_transaction_wallet_id", columnList = "wallet_id"),
+    @Index(name = "idx_wallet_transaction_created_at", columnList = "created_at")
+})
 public class WalletTransaction {
 
     @Id

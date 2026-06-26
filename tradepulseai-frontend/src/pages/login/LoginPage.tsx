@@ -20,6 +20,7 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotStep, setForgotStep] = useState<"email" | "code" | "reset">("email");
   const [forgotEmail, setForgotEmail] = useState("");
@@ -300,7 +301,25 @@ export function LoginPage() {
               <input id="email" type="email" name="email" autoComplete="username" required disabled={loading} />
 
               <label htmlFor="password">Password</label>
-              <input id="password" type="password" name="password" autoComplete="current-password" required disabled={loading} />
+              <div className="password-input-row">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="password-visibility-btn"
+                  onClick={() => setShowPassword((current) => !current)}
+                  disabled={loading}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
 
               <div className="login-actions-row">
                 <button type="button" className="forgot-link" onClick={openForgotFlow} disabled={loading || forgotPasswordLoading}>

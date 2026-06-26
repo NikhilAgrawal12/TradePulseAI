@@ -1,6 +1,7 @@
 package com.tradepulseai.custservice.client;
 
 import com.tradepulseai.custservice.dto.customer.CustomerRegistrationRequestDTO;
+import com.tradepulseai.custservice.exception.EmailAlreadyExistsException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,15 @@ public class AuthServiceClient {
                 .uri("/register")
                 .body(payload)
                 .retrieve()
+                .onStatus(status -> status.value() == 409, (requestSpec, response) -> {
+                    throw new EmailAlreadyExistsException("Email already exists");
+                })
+                .onStatus(HttpStatusCode::is4xxClientError, (requestSpec, response) -> {
+                    throw new IllegalArgumentException("Invalid registration data for auth user: " + request.getEmail());
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, (requestSpec, response) -> {
+                    throw new IllegalStateException("Auth service is unavailable for registration: " + request.getEmail());
+                })
                 .onStatus(HttpStatusCode::isError, (requestSpec, response) -> {
                     throw new IllegalArgumentException("Unable to create auth user for email: " + request.getEmail());
                 })

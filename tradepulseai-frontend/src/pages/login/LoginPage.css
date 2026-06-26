@@ -54,7 +54,8 @@
 }
 
 .login-form input[type="email"],
-.login-form input[type="password"] {
+.login-form input[type="password"],
+.login-form input[type="text"] {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #bbe5ca;
@@ -66,11 +67,42 @@
 }
 
 .login-form input[type="email"]:focus,
-.login-form input[type="password"]:focus {
+.login-form input[type="password"]:focus,
+.login-form input[type="text"]:focus {
   outline: none;
   border-color: #15803d;
   box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
   background-color: #ffffff;
+}
+
+.password-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-input-row input {
+  flex: 1;
+}
+
+.password-visibility-btn {
+  border: 1px solid #9fd6b3;
+  background: #ffffff;
+  color: #166534;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.password-visibility-btn:hover {
+  background: #f0fdf4;
+}
+
+.password-visibility-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .login-actions-row {

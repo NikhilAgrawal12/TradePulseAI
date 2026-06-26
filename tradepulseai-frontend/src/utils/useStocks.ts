@@ -35,7 +35,13 @@ export function useStocks() {
       try {
         const data = JSON.parse(rawData);
         const nextStocks = Array.isArray(data) ? normalizeStocks(data as Stock[]) : [];
-        setStocks(nextStocks);
+        setStocks((current) => {
+          // Ignore transient empty snapshots to avoid clearing a healthy in-memory view.
+          if (nextStocks.length === 0 && current.length > 0) {
+            return current;
+          }
+          return nextStocks;
+        });
         setError(null);
       } catch {
         // Ignore malformed payloads and keep the previous snapshot.

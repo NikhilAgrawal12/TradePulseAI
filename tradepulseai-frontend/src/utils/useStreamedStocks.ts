@@ -98,6 +98,11 @@ export function useStreamedStocks() {
         const data = JSON.parse(rawData);
         const nextStocks = Array.isArray(data) ? normalizeStocks(data as Stock[]) : [];
 
+        // Guard against transient empty payloads during reconnect/startup so we don't wipe valid cache.
+        if (!searchTerm.trim() && nextStocks.length === 0 && stocksCount > 0) {
+          return;
+        }
+
         setStocks(nextStocks);
         if (!searchTerm.trim()) {
           writeCachedStocks(nextStocks);

@@ -643,6 +643,10 @@ export function StockInsightsPage() {
    }, []);
 
    useEffect(() => {
+     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+   }, [stockId]);
+
+   useEffect(() => {
      let mounted = true;
 
      const loadInsights = async () => {

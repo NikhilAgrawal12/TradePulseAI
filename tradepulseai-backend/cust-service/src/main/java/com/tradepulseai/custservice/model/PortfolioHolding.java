@@ -3,6 +3,7 @@ package com.tradepulseai.custservice.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -11,7 +12,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "portfolio_holdings")
+@Table(name = "portfolio_holdings", indexes = {
+    @Index(name = "idx_portfolio_holdings_user_id", columnList = "user_id")
+})
 public class PortfolioHolding {
 
     @EmbeddedId

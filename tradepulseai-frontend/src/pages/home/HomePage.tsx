@@ -14,7 +14,16 @@ function formatRealtimeTime(lastUpdated: string | null | undefined): string {
     return "--";
   }
   const parsed = new Date(lastUpdated);
-  return Number.isNaN(parsed.getTime()) ? "--" : parsed.toLocaleTimeString();
+  return Number.isNaN(parsed.getTime())
+    ? "--"
+    : parsed.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
 }
 
 export function HomePage() {

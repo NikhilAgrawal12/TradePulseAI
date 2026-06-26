@@ -79,7 +79,12 @@ public class CustomerService {
             return CustomerMapper.toDTO(customer, normalizedEmail);
         } catch (Exception exception) {
             if (createdAuthUser != null && createdAuthUser.userId() != null) {
-                rollbackAuthUser(createdAuthUser.userId());
+                try {
+                    rollbackAuthUser(createdAuthUser.userId());
+                } catch (Exception rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                    log.error("Customer registration compensation failed for userId={}", createdAuthUser.userId(), rollbackException);
+                }
             }
             throw exception;
         }
@@ -142,11 +147,6 @@ public class CustomerService {
     }
 
     private void rollbackAuthUser(Long userId) {
-        try {
-            authServiceClient.deleteUserById(userId);
-        } catch (Exception rollbackException) {
-            log.error("Customer registration compensation failed for userId={}", userId, rollbackException);
-            throw new IllegalStateException("Customer creation failed and auth rollback also failed. Please contact support.");
-        }
+        authServiceClient.deleteUserById(userId);
     }
 }
