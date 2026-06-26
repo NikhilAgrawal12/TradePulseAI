@@ -4,7 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import type { StockInsights } from "../../types/stockInsights";
-import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, formatSignedMoney } from "../../utils/money";
 import { fetchStockInsights } from "../../utils/stockInsightsApi";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
@@ -23,21 +23,23 @@ export function WatchlistPage() {
   useEffect(() => {
      let cancelled = false;
 
-     const refreshSession = async () => {
+     const bootstrapSession = async () => {
        const next = await getMarketSessionFromBackend();
        if (!cancelled) {
          setSessionMeta(next);
        }
      };
 
-     void refreshSession();
-     const id = window.setInterval(() => {
-       void refreshSession();
-     }, 60_000);
+     void bootstrapSession();
+     const unsubscribe = subscribeToMarketStatus((next) => {
+       if (!cancelled) {
+         setSessionMeta(next);
+       }
+     });
 
      return () => {
        cancelled = true;
-       window.clearInterval(id);
+       unsubscribe();
      };
    }, []);
 

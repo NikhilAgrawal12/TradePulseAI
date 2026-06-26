@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -33,6 +35,7 @@ public class FeaturedStockSSEService {
     private static final int SSE_RECONNECT_MS = 3000;
     private static final int EVENT_COALESCE_MS = 150;
     private static final int SEARCH_RESULT_LIMIT = 50;
+    private static final String ALL_STOCKS_STREAM_QUERY = "__all__";
 
     private final FeaturedStockCacheRepository featuredStockCacheRepository;
     private final AllStocksLastValueCacheService allStocksLastValueCacheService;
@@ -124,6 +127,13 @@ public class FeaturedStockSSEService {
 
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
             String normalizedSearch = searchTerm.trim().toLowerCase();
+            if (isAllStocksQuery(normalizedSearch)) {
+                initialData = realtimeByStockId.values()
+                        .stream()
+                        .sorted(Comparator.comparing(entry -> entry.getStock().getStockId()))
+                        .map(StockMapper::toDTO)
+                        .toList();
+            } else {
             initialData = realtimeByStockId.values()
                     .stream()
                     .map(StockMapper::toDTO)
@@ -137,6 +147,9 @@ public class FeaturedStockSSEService {
                     })
                     .limit(SEARCH_RESULT_LIMIT)
                     .toList();
+            }
+        } else if (initialData.isEmpty()) {
+            initialData = buildFallbackFeaturedFromRealtime(realtimeByStockId);
         }
 
         SseEmitter.SseEventBuilder event = SseEmitter.event()
@@ -194,6 +207,10 @@ public class FeaturedStockSSEService {
                     })
                     .toList();
 
+            if (featuredStocks.isEmpty()) {
+                featuredStocks = buildFallbackFeaturedFromRealtime(realtimeByStockId);
+            }
+
             // Broadcast to each connected client
             for (SseEmitter emitter : emitters) {
                 broadcastToClient(emitter, featuredStocks, realtimeByStockId);
@@ -217,19 +234,27 @@ public class FeaturedStockSSEService {
 
             if (searchTerm != null && !searchTerm.isEmpty()) {
                 // Search mode: filter all stocks and return top 50 matches
-                toSend = realtimeByStockId.values()
-                        .stream()
-                        .map(StockMapper::toDTO)
-                        .filter(stock -> {
-                            if (stock.getSymbol() == null || stock.getSymbol().trim().isEmpty()) {
-                                return false;
-                            }
-                            String symbol = stock.getSymbol().toLowerCase();
-                            String name = (stock.getName() != null ? stock.getName() : "").toLowerCase();
-                            return symbol.contains(searchTerm) || name.contains(searchTerm);
-                        })
-                        .limit(SEARCH_RESULT_LIMIT)
-                        .toList();
+                if (isAllStocksQuery(searchTerm)) {
+                    toSend = realtimeByStockId.values()
+                            .stream()
+                            .sorted(Comparator.comparing(entry -> entry.getStock().getStockId()))
+                            .map(StockMapper::toDTO)
+                            .toList();
+                } else {
+                    toSend = realtimeByStockId.values()
+                            .stream()
+                            .map(StockMapper::toDTO)
+                            .filter(stock -> {
+                                if (stock.getSymbol() == null || stock.getSymbol().trim().isEmpty()) {
+                                    return false;
+                                }
+                                String symbol = stock.getSymbol().toLowerCase();
+                                String name = (stock.getName() != null ? stock.getName() : "").toLowerCase();
+                                return symbol.contains(searchTerm) || name.contains(searchTerm);
+                            })
+                            .limit(SEARCH_RESULT_LIMIT)
+                            .toList();
+                }
             } else {
                 // No search: send featured stocks only
                 toSend = featuredStocks;
@@ -251,6 +276,24 @@ public class FeaturedStockSSEService {
 
     public int getConnectedClientsCount() {
         return emitters.size();
+    }
+
+    private boolean isAllStocksQuery(String searchTerm) {
+        return ALL_STOCKS_STREAM_QUERY.equals(searchTerm);
+    }
+
+    private List<StockResponseDTO> buildFallbackFeaturedFromRealtime(Map<Long, AllStocksLastValueCache> realtimeByStockId) {
+        return realtimeByStockId.values()
+                .stream()
+                .sorted(Comparator
+                        .comparing((AllStocksLastValueCache entry) -> entry.getStock().getMarketCap(), Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(entry -> {
+                            String symbol = entry.getStock().getSymbol();
+                            return symbol == null ? "" : symbol.toUpperCase(Locale.ROOT);
+                        }))
+                .limit(50)
+                .map(StockMapper::toDTO)
+                .toList();
     }
 
     public void shutdown() {

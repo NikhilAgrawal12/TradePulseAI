@@ -4,7 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../../utils/auth";
-import { getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
@@ -27,29 +27,27 @@ export function HomePage() {
     document.title = "Home | TradePulseAI";
   }, []);
 
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>({
-    session: "unknown",
-    label: "Checking market status...",
-    cssClass: "session-pending",
-  });
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
   useEffect(() => {
     let cancelled = false;
 
-    const refreshSession = async () => {
+    const bootstrapSession = async () => {
       const next = await getMarketSessionFromBackend();
       if (!cancelled) {
         setSessionMeta(next);
       }
     };
 
-    void refreshSession();
-    const id = window.setInterval(() => {
-      void refreshSession();
-    }, 15_000);
+    void bootstrapSession();
+    const unsubscribe = subscribeToMarketStatus((next) => {
+      if (!cancelled) {
+        setSessionMeta(next);
+      }
+    });
 
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      unsubscribe();
     };
   }, []);
 

@@ -32,21 +32,7 @@ public class StockCatalogClient {
 
     public StockQuote getStockQuote(Long stockId) {
         try {
-            StockQuoteResponse response = blockingStub.getStockQuote(
-                    StockQuoteRequest.newBuilder()
-                            .setStockId(String.valueOf(stockId))
-                            .build()
-            );
-
-            if (response == null || response.getSymbol().isBlank()) {
-                throw new IllegalArgumentException("Stock not found for stockId: " + stockId);
-            }
-
-            return new StockQuote(
-                    stockId,
-                    response.getSymbol(),
-                    BigDecimal.valueOf(response.getPrice()).setScale(2, RoundingMode.HALF_UP)
-            );
+            return fetchQuote(stockId);
         } catch (Exception exception) {
             log.warn("Falling back to default quote for stockId={}: {}", stockId, exception.getMessage());
             return new StockQuote(
@@ -55,6 +41,36 @@ public class StockCatalogClient {
                     BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
             );
         }
+    }
+
+    public StockQuote getRequiredStockQuote(Long stockId) {
+        try {
+            StockQuote quote = fetchQuote(stockId);
+            if (quote.unitPrice() == null || quote.unitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Invalid quote price for stockId: " + stockId);
+            }
+            return quote;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to fetch live quote for stockId: " + stockId, exception);
+        }
+    }
+
+    private StockQuote fetchQuote(Long stockId) {
+        StockQuoteResponse response = blockingStub.getStockQuote(
+                StockQuoteRequest.newBuilder()
+                        .setStockId(String.valueOf(stockId))
+                        .build()
+        );
+
+        if (response == null || response.getSymbol().isBlank()) {
+            throw new IllegalArgumentException("Stock not found for stockId: " + stockId);
+        }
+
+        return new StockQuote(
+                stockId,
+                response.getSymbol(),
+                BigDecimal.valueOf(response.getPrice()).setScale(2, RoundingMode.HALF_UP)
+        );
     }
 
 }

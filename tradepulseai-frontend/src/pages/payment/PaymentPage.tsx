@@ -5,9 +5,8 @@ import { useCart } from "../../context/CartContext";
 import { useOrders } from "../../context/OrdersContext";
 import { useWallet } from "../../context/WalletContext";
 import type { CartItem } from "../../types/cart";
-import { completeOrder } from "../../utils/cartApi";
+import { completeOrder, lockOrderQuote } from "../../utils/cartApi";
 import { formatMoney, roundMoney, toMoney } from "../../utils/money";
-import { useStocks } from "../../utils/useStocks";
 import "./PaymentPage.css";
 
 const PRICE_LOCK_SECONDS = 15;
@@ -22,7 +21,6 @@ export function PaymentPage() {
   const { cart, clearCart } = useCart();
   const { refreshOrders } = useOrders();
   const { balance, refreshWallet, isLoading: isWalletLoading } = useWallet();
-  const { stocks, loading: stocksLoading, error: stocksError } = useStocks();
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [receipt, setReceipt] = useState<{
@@ -34,6 +32,8 @@ export function PaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(PRICE_LOCK_SECONDS);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const state = location.state as {
     subtotal?: number;
@@ -44,35 +44,49 @@ export function PaymentPage() {
   const items = state?.items?.length ? state.items : cart;
   const [lockedItems, setLockedItems] = useState<CartItem[] | null>(null);
 
-  const stockById = useMemo(
-    () => new Map(stocks.map((stock) => [stock.id, stock])),
-    [stocks],
-  );
-
   useEffect(() => {
-    if (lockedItems) {
+    if (lockedItems || items.length === 0) {
       return;
     }
 
-    if (stocks.length > 0) {
-      setLockedItems(
-        items.map((item) => {
-          const stock = stockById.get(item.stockId);
+    let cancelled = false;
 
-          return {
-            ...item,
-            symbol: stock?.symbol ?? item.symbol,
-            price: roundMoney(stock?.price ?? item.price),
-          };
-        }),
-      );
-      return;
-    }
+    const loadLockedQuote = async () => {
+      try {
+        setQuoteLoading(true);
+        setQuoteError(null);
+        const fallbackTotal = roundMoney(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
+        const response = await lockOrderQuote({
+          items,
+          subtotal: fallbackTotal,
+          total: fallbackTotal,
+        });
+        if (cancelled) {
+          return;
+        }
+        setLockedItems(response.items);
+        setSecondsLeft(response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS);
+      } catch (lockError) {
+        if (cancelled) {
+          return;
+        }
+        const message = lockError instanceof Error
+          ? lockError.message
+          : "Unable to lock fresh stock prices right now. Please try again.";
+        setQuoteError(message);
+      } finally {
+        if (!cancelled) {
+          setQuoteLoading(false);
+        }
+      }
+    };
 
-    if (!stocksLoading && stocksError) {
-      setLockedItems(items);
-    }
-  }, [items, lockedItems, stocks, stocksError, stocksLoading, stockById]);
+    void loadLockedQuote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items, lockedItems]);
 
   const displayItems = lockedItems ?? [];
 
@@ -174,7 +188,7 @@ export function PaymentPage() {
     );
   }
 
-  if (!lockedItems && !stocksError) {
+  if (!lockedItems && quoteLoading) {
     return (
       <>
         <Header />
@@ -182,6 +196,21 @@ export function PaymentPage() {
           <div className="payment-container payment-empty">
             <h1>Locking latest prices...</h1>
             <p>Please wait while we fetch and freeze the current quote values for this payment.</p>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  if (!lockedItems && quoteError) {
+    return (
+      <>
+        <Header />
+        <main className="payment-page">
+          <div className="payment-container payment-empty">
+            <h1>Unable to lock prices</h1>
+            <p>{quoteError}</p>
+            <Link to="/checkout" className="payment-link-btn">Back to Order Cart</Link>
           </div>
         </main>
       </>

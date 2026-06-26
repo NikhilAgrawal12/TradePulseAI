@@ -11,6 +11,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @RestController
@@ -70,8 +73,8 @@ public class WalletController {
                 wallet.getWalletId(),
                 wallet.getUserId(),
                 wallet.getBalance(),
-                wallet.getCreatedAt(),
-                wallet.getUpdatedAt()
+                toUtcInstant(wallet.getCreatedAt()),
+                toUtcInstant(wallet.getUpdatedAt())
         );
     }
 
@@ -82,8 +85,12 @@ public class WalletController {
                 tx.getTransactionType(),
                 tx.getAmount(),
                 tx.getBalanceAfter(),
-                tx.getCreatedAt()
+                toUtcInstant(tx.getCreatedAt())
         );
+    }
+
+    private Instant toUtcInstant(LocalDateTime value) {
+        return value == null ? null : value.toInstant(ZoneOffset.UTC);
     }
 
     public record ErrorResponse(String message) {}

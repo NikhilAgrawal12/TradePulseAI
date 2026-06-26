@@ -135,6 +135,7 @@ export function LoginPage() {
   };
 
   const openForgotFlow = () => {
+    setError("");
     setShowForgotPassword(true);
     setForgotStep("email");
     setForgotEmail("");
@@ -290,7 +291,7 @@ export function LoginPage() {
           <h1 id="login-title">Sign in to TradePulseAI</h1>
           <p className="login-subtitle">Track your portfolio, watch markets, and manage orders in one place.</p>
 
-          {error && <div className="login-error">{error}</div>}
+          {!showForgotPassword && error && <div className="login-error">{error}</div>}
           {infoMessage && <div className="login-info">{infoMessage}</div>}
 
           {!showForgotPassword && (

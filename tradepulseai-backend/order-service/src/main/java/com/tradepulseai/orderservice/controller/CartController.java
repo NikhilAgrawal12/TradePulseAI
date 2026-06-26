@@ -5,6 +5,7 @@ import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.cart.UpdateCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
+import com.tradepulseai.orderservice.dto.order.LockedOrderQuoteResponseDTO;
 import com.tradepulseai.orderservice.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -83,6 +84,16 @@ public class CartController {
     ) {
         Long normalizedUserId = normalizeUserId(userId);
         return ResponseEntity.ok(cartService.completeOrder(normalizedUserId, request));
+    }
+
+    @PostMapping("/lock-quote")
+    @Operation(summary = "Fetch fresh stock quotes and lock prices for checkout payment")
+    public ResponseEntity<LockedOrderQuoteResponseDTO> lockQuote(
+            @RequestHeader(USER_ID_HEADER) String userId,
+            @Valid @RequestBody CompleteOrderRequestDTO request
+    ) {
+        Long normalizedUserId = normalizeUserId(userId);
+        return ResponseEntity.ok(cartService.lockOrderQuote(normalizedUserId, request));
     }
 
     private Long normalizeUserId(String userId) {

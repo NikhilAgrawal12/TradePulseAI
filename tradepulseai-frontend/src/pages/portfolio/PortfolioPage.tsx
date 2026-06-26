@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { Header } from "../../components/Header";
 import type { PortfolioHolding, PortfolioResponse } from "../../types/portfolio";
 import { isUserAuthenticated } from "../../utils/auth";
-import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { formatEasternDateTime } from "../../utils/dateTime";
+import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, formatSignedCurrency, toMoney } from "../../utils/money";
 import { sellPortfolioItem, fetchPortfolio } from "../../utils/portfolioApi";
 import { useStocks } from "../../utils/useStocks";
@@ -48,21 +49,23 @@ export function PortfolioPage() {
     useEffect(() => {
         let cancelled = false;
 
-        const refreshSession = async () => {
+        const bootstrapSession = async () => {
             const next = await getMarketSessionFromBackend();
             if (!cancelled) {
                 setSessionMeta(next);
             }
         };
 
-        void refreshSession();
-        const id = window.setInterval(() => {
-            void refreshSession();
-        }, 60_000);
+        void bootstrapSession();
+        const unsubscribe = subscribeToMarketStatus((next) => {
+            if (!cancelled) {
+                setSessionMeta(next);
+            }
+        });
 
         return () => {
             cancelled = true;
-            window.clearInterval(id);
+            unsubscribe();
         };
     }, []);
 
@@ -317,7 +320,7 @@ export function PortfolioPage() {
                                                                 ? formatSignedCurrency(transaction.realizedPnl)
                                                                 : "-"}
                                                         </td>
-                                                        <td>{new Date(transaction.executedAt).toLocaleString()}</td>
+                                                        <td>{formatEasternDateTime(transaction.executedAt)}</td>
                                                     </tr>
                                                 );
                                             })}

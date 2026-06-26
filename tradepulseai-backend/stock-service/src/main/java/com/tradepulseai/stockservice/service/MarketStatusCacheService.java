@@ -10,11 +10,14 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
 import java.time.Instant;
 import java.util.Locale;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -27,11 +30,13 @@ public class MarketStatusCacheService implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(MarketStatusCacheService.class);
     private static final long REFRESH_INTERVAL_SECONDS = 60;
     private static final long STALE_THRESHOLD_SECONDS = 180;
+    private static final long SSE_TIMEOUT_MS = 5 * 60 * 1000;
 
     private final RestClient restClient;
     private final String apiKey;
     private final ScheduledExecutorService scheduler;
     private final AtomicReference<CachedStatus> statusRef = new AtomicReference<>(fallbackStatus());
+    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     public MarketStatusCacheService(
             @Value("${massive.api.base-url}") String apiBaseUrl,
@@ -49,12 +54,9 @@ public class MarketStatusCacheService implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        // Prime cache immediately on startup, then keep refreshing every 60 seconds.
-        refreshCache();
-
         scheduler.scheduleAtFixedRate(
                 this::refreshCache,
-                REFRESH_INTERVAL_SECONDS,
+                0,
                 REFRESH_INTERVAL_SECONDS,
                 TimeUnit.SECONDS
         );
@@ -67,6 +69,30 @@ public class MarketStatusCacheService implements ApplicationRunner {
         boolean stale = cached.lastUpdated() == null
                 || cached.lastUpdated().plusSeconds(STALE_THRESHOLD_SECONDS).isBefore(Instant.now());
 
+        return toDto(cached, stale);
+    }
+
+    public SseEmitter subscribe() {
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        emitters.add(emitter);
+
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onError(error -> emitters.remove(emitter));
+
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("market-status")
+                    .data(getCurrentStatus())
+                    .reconnectTime(3000));
+        } catch (Exception ex) {
+            emitters.remove(emitter);
+        }
+
+        return emitter;
+    }
+
+    private MarketStatusResponseDTO toDto(CachedStatus cached, boolean stale) {
         MarketStatusResponseDTO dto = new MarketStatusResponseDTO();
         dto.setSession(cached.session());
         dto.setLabel(cached.label());
@@ -78,6 +104,24 @@ public class MarketStatusCacheService implements ApplicationRunner {
         dto.setLastUpdated(cached.lastUpdated() != null ? cached.lastUpdated().toString() : null);
         dto.setStale(stale);
         return dto;
+    }
+
+    private void broadcastCurrentStatus() {
+        if (emitters.isEmpty()) {
+            return;
+        }
+
+        MarketStatusResponseDTO dto = getCurrentStatus();
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("market-status")
+                        .data(dto)
+                        .reconnectTime(3000));
+            } catch (Exception ex) {
+                emitters.remove(emitter);
+            }
+        }
     }
 
     private void refreshCache() {
@@ -102,6 +146,7 @@ public class MarketStatusCacheService implements ApplicationRunner {
 
             CachedStatus mapped = mapResponse(response);
             statusRef.set(mapped);
+            broadcastCurrentStatus();
         } catch (Exception ex) {
             log.warn("Failed to refresh market status cache: {}", ex.getMessage());
         }

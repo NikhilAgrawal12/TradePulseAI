@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "wallet_transactions")
@@ -37,7 +38,7 @@ public class WalletTransaction {
 
     @PrePersist
     public void prePersist() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     public Long getTransactionId() { return transactionId; }

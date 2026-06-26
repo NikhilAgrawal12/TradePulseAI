@@ -1,20 +1,20 @@
 package com.tradepulseai.paymentservice.dto.wallet;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class WalletResponseDTO {
 
     private Long walletId;
     private Long userId;
     private BigDecimal balance;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Instant createdAt;
+    private Instant updatedAt;
 
     public WalletResponseDTO() {}
 
     public WalletResponseDTO(Long walletId, Long userId, BigDecimal balance,
-                              LocalDateTime createdAt, LocalDateTime updatedAt) {
+                              Instant createdAt, Instant updatedAt) {
         this.walletId = walletId;
         this.userId = userId;
         this.balance = balance;
@@ -31,10 +31,10 @@ public class WalletResponseDTO {
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }
 

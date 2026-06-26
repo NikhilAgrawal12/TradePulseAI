@@ -23,9 +23,8 @@ type BackendMarketStatusResponse = {
   stale?: boolean;
 };
 
-function unknownSessionMeta(): SessionMeta {
-  return { session: "unknown", label: "Checking market status...", cssClass: "session-pending" };
-}
+const MARKET_STATUS_FETCH_TIMEOUT_MS = 1500;
+const MARKET_STATUS_STREAM_RECONNECT_MS = 3000;
 
 export function getMarketSession(now: Date = new Date()): SessionMeta {
   // Convert current time to US/Eastern fractional hour
@@ -69,26 +68,94 @@ function asMarketSession(value: string | undefined): MarketSession | null {
   return null;
 }
 
-export async function getMarketSessionFromBackend(): Promise<SessionMeta> {
-  try {
-    const response = await fetch("/api/stocks/market-status");
-    if (!response.ok) {
-      return unknownSessionMeta();
-    }
-
-    const payload = (await response.json()) as BackendMarketStatusResponse;
-    const session = asMarketSession(payload.session);
-    if (!session || payload.stale === true) {
-      return unknownSessionMeta();
-    }
-
-    return {
-      session,
-      label: typeof payload.label === "string" && payload.label.trim().length > 0 ? payload.label : "Market Status",
-      cssClass: typeof payload.cssClass === "string" && payload.cssClass.trim().length > 0 ? payload.cssClass : "session-closed",
-    };
-  } catch {
-    return unknownSessionMeta();
+function toSessionMeta(payload: BackendMarketStatusResponse | null | undefined): SessionMeta {
+  if (!payload) {
+    return getMarketSession();
   }
+
+  const session = asMarketSession(payload?.session);
+  if (!session || payload?.stale === true) {
+    return getMarketSession();
+  }
+
+  const label = payload.label;
+  const cssClass = payload.cssClass;
+
+  return {
+    session,
+    label: typeof label === "string" && label.trim().length > 0 ? label : "Market Status",
+    cssClass: typeof cssClass === "string" && cssClass.trim().length > 0 ? cssClass : "session-closed",
+  };
+}
+
+export async function getMarketSessionFromBackend(): Promise<SessionMeta> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), MARKET_STATUS_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch("/api/stocks/market-status", { signal: controller.signal });
+    if (!response.ok) {
+      return getMarketSession();
+    }
+
+    return toSessionMeta((await response.json()) as BackendMarketStatusResponse);
+  } catch {
+    return getMarketSession();
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+export function subscribeToMarketStatus(onUpdate: (next: SessionMeta) => void): () => void {
+  let cancelled = false;
+  let eventSource: EventSource | null = null;
+  let reconnectTimer: number | null = null;
+
+  const handleMessage = (raw: string) => {
+    if (cancelled) {
+      return;
+    }
+    try {
+      const payload = JSON.parse(raw) as BackendMarketStatusResponse;
+      onUpdate(toSessionMeta(payload));
+    } catch {
+      // Ignore malformed stream payloads and wait for next message.
+    }
+  };
+
+  const connect = () => {
+    if (cancelled) {
+      return;
+    }
+
+    eventSource = new EventSource("/api/stocks/stream/market-status");
+    eventSource.addEventListener("market-status", (event) => {
+      handleMessage((event as MessageEvent).data);
+    });
+    eventSource.onmessage = (event) => {
+      handleMessage(event.data);
+    };
+    eventSource.onerror = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (cancelled) {
+        return;
+      }
+      reconnectTimer = window.setTimeout(connect, MARKET_STATUS_STREAM_RECONNECT_MS);
+    };
+  };
+
+  connect();
+
+  return () => {
+    cancelled = true;
+    if (reconnectTimer != null) {
+      window.clearTimeout(reconnectTimer);
+    }
+    if (eventSource) {
+      eventSource.close();
+    }
+  };
 }
 

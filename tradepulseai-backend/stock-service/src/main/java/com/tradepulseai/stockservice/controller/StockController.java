@@ -130,4 +130,10 @@ public class StockController {
     public ResponseEntity<MarketStatusResponseDTO> getMarketStatus() {
         return ResponseEntity.ok(marketStatusCacheService.getCurrentStatus());
     }
+
+    @GetMapping("/stream/market-status")
+    @Operation(summary = "Server-Sent Events stream for market session status")
+    public SseEmitter streamMarketStatus() {
+        return marketStatusCacheService.subscribe();
+    }
 }

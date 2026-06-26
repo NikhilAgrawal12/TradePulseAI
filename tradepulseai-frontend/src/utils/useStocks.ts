@@ -1,8 +1,9 @@
-import axios from "axios";
 import { useEffect, useState } from "react";
 import type { Stock } from "../types/stock";
 import { toMoney } from "./money";
-const STOCKS_REFRESH_MS = 2000;
+
+const STOCKS_STREAM_RECONNECT_MS = 3000;
+const ALL_STOCKS_STREAM_QUERY = "__all__";
 
 function normalizeStocks(rawStocks: Stock[]): Stock[] {
   return rawStocks.map((stock) => ({
@@ -23,22 +24,21 @@ export function useStocks() {
 
   useEffect(() => {
     let mounted = true;
-    let intervalId: number | null = null;
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: number | null = null;
 
-    const loadStocks = async () => {
+    const handlePayload = (rawData: string) => {
+      if (!mounted) {
+        return;
+      }
+
       try {
-        const response = await axios.get<Stock[]>("/api/stocks");
-        if (!mounted) {
-          return;
-        }
-        const data = Array.isArray(response.data) ? normalizeStocks(response.data) : [];
-        setStocks(data);
+        const data = JSON.parse(rawData);
+        const nextStocks = Array.isArray(data) ? normalizeStocks(data as Stock[]) : [];
+        setStocks(nextStocks);
         setError(null);
       } catch {
-        if (!mounted) {
-          return;
-        }
-        setError("Unable to load stocks right now. Please try again shortly.");
+        // Ignore malformed payloads and keep the previous snapshot.
       } finally {
         if (mounted) {
           setLoading(false);
@@ -46,15 +46,53 @@ export function useStocks() {
       }
     };
 
-    void loadStocks();
-    intervalId = window.setInterval(() => {
-      void loadStocks();
-    }, STOCKS_REFRESH_MS);
+    const connect = () => {
+      if (!mounted) {
+        return;
+      }
+
+      const streamUrl = `/api/stocks/stream/featured?query=${encodeURIComponent(ALL_STOCKS_STREAM_QUERY)}`;
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.addEventListener("stocks", (event) => {
+        handlePayload((event as MessageEvent).data);
+      });
+
+      eventSource.onmessage = (event) => {
+        handlePayload(event.data);
+      };
+
+      eventSource.onerror = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        setStocks((current) => {
+          if (current.length === 0) {
+            setError("Unable to load stocks right now. Please try again shortly.");
+            setLoading(false);
+          }
+          return current;
+        });
+
+        reconnectTimer = window.setTimeout(connect, STOCKS_STREAM_RECONNECT_MS);
+      };
+    };
+
+    connect();
 
     return () => {
       mounted = false;
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
+      if (reconnectTimer != null) {
+        window.clearTimeout(reconnectTimer);
+      }
+      if (eventSource) {
+        eventSource.close();
       }
     };
   }, []);

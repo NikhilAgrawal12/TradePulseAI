@@ -3,7 +3,9 @@ package com.tradepulseai.orderservice.service;
 import com.tradepulseai.orderservice.dto.cart.AddCartItemRequestDTO;
 import com.tradepulseai.orderservice.dto.cart.CartItemResponseDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderResponseDTO;
+import com.tradepulseai.orderservice.dto.order.CompleteOrderItemRequestDTO;
 import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
+import com.tradepulseai.orderservice.dto.order.LockedOrderQuoteResponseDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
 import com.tradepulseai.orderservice.grpc.PortfolioSyncGrpcClient;
 import com.tradepulseai.orderservice.mapper.OrderItemMapper;
@@ -32,6 +34,7 @@ public class CartService {
 
     private static final Logger log = LoggerFactory.getLogger(CartService.class);
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
+    private static final int PRICE_LOCK_SECONDS = 15;
 
     private final CartItemRepository cartItemRepository;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
@@ -107,8 +110,10 @@ public class CartService {
             throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
         }
 
+        CompleteOrderRequestDTO lockedRequest = buildLockedPriceRequest(request);
+
         TradeOrder savedOrder = orderHistoryService.saveCompletedOrder(
-                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, request)
+                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, lockedRequest)
         );
 
         // Send payment record for the entire order total
@@ -138,6 +143,24 @@ public class CartService {
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
+    }
+
+    @Transactional(readOnly = true)
+    public LockedOrderQuoteResponseDTO lockOrderQuote(Long userId, CompleteOrderRequestDTO request) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Valid userId is required.");
+        }
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("At least one item is required to lock prices.");
+        }
+
+        CompleteOrderRequestDTO quotedRequest = buildFreshQuotedRequest(request);
+        LockedOrderQuoteResponseDTO response = new LockedOrderQuoteResponseDTO();
+        response.setItems(quotedRequest.getItems());
+        response.setSubtotal(quotedRequest.getSubtotal());
+        response.setTotal(quotedRequest.getTotal());
+        response.setLockSeconds(PRICE_LOCK_SECONDS);
+        return response;
     }
 
     private Map<Long, StockQuote> loadStockQuotes(List<CartItem> cartItems) {
@@ -182,6 +205,80 @@ public class CartService {
     private BigDecimal scaleQuantity(BigDecimal quantity) {
         return Objects.requireNonNullElse(quantity, BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private CompleteOrderRequestDTO buildLockedPriceRequest(CompleteOrderRequestDTO request) {
+        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
+
+        List<CompleteOrderItemRequestDTO> lockedItems = request.getItems().stream()
+                .map(item -> {
+                    Long stockId = parseStockId(item.getStockId());
+                    BigDecimal quantity = scaleQuantity(item.getQuantity());
+                    if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("Quantity must be greater than 0 for stockId: " + item.getStockId());
+                    }
+
+                    BigDecimal lockedPrice = OrderItemMapper.scaleMoney(item.getPrice());
+                    if (lockedPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("Locked price must be greater than 0 for stockId: " + item.getStockId());
+                    }
+
+                    // Resolve canonical symbol and verify stock exists via gRPC at submit time.
+                    StockQuote quote = quotes.computeIfAbsent(stockId, stockCatalogClient::getRequiredStockQuote);
+                    CompleteOrderItemRequestDTO locked = new CompleteOrderItemRequestDTO();
+                    locked.setStockId(String.valueOf(stockId));
+                    locked.setSymbol(quote.symbol());
+                    locked.setPrice(lockedPrice);
+                    locked.setQuantity(quantity);
+                    return locked;
+                })
+                .toList();
+
+        BigDecimal recalculatedSubtotal = OrderItemMapper.scaleMoney(
+                lockedItems.stream()
+                        .map(item -> item.getPrice().multiply(item.getQuantity()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        );
+
+        CompleteOrderRequestDTO lockedRequest = new CompleteOrderRequestDTO();
+        lockedRequest.setItems(lockedItems);
+        lockedRequest.setSubtotal(recalculatedSubtotal);
+        lockedRequest.setTotal(recalculatedSubtotal);
+        return lockedRequest;
+    }
+
+    private CompleteOrderRequestDTO buildFreshQuotedRequest(CompleteOrderRequestDTO request) {
+        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
+
+        List<CompleteOrderItemRequestDTO> quotedItems = request.getItems().stream()
+                .map(item -> {
+                    Long stockId = parseStockId(item.getStockId());
+                    BigDecimal quantity = scaleQuantity(item.getQuantity());
+                    if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("Quantity must be greater than 0 for stockId: " + item.getStockId());
+                    }
+
+                    StockQuote quote = quotes.computeIfAbsent(stockId, stockCatalogClient::getRequiredStockQuote);
+                    CompleteOrderItemRequestDTO quoted = new CompleteOrderItemRequestDTO();
+                    quoted.setStockId(String.valueOf(stockId));
+                    quoted.setSymbol(quote.symbol());
+                    quoted.setPrice(OrderItemMapper.scaleMoney(quote.unitPrice()));
+                    quoted.setQuantity(quantity);
+                    return quoted;
+                })
+                .toList();
+
+        BigDecimal subtotal = OrderItemMapper.scaleMoney(
+                quotedItems.stream()
+                        .map(item -> item.getPrice().multiply(item.getQuantity()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        );
+
+        CompleteOrderRequestDTO quotedRequest = new CompleteOrderRequestDTO();
+        quotedRequest.setItems(quotedItems);
+        quotedRequest.setSubtotal(subtotal);
+        quotedRequest.setTotal(subtotal);
+        return quotedRequest;
     }
 
     private void validateCompletedPaymentResponse(OrderPaymentResponse response, String orderId) {

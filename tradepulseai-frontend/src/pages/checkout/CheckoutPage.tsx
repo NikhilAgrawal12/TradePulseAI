@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
-import { getMarketSession, getMarketSessionFromBackend, type SessionMeta } from "../../utils/marketSession";
+import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, roundMoney } from "../../utils/money";
 import { useStocks } from "../../utils/useStocks";
 import "./CheckoutPage.css";
@@ -31,21 +31,23 @@ export function CheckoutPage() {
   useEffect(() => {
     let cancelled = false;
 
-    const refreshSession = async () => {
+    const bootstrapSession = async () => {
       const next = await getMarketSessionFromBackend();
       if (!cancelled) {
         setSessionMeta(next);
       }
     };
 
-    void refreshSession();
-    const id = window.setInterval(() => {
-      void refreshSession();
-    }, 60_000);
+    void bootstrapSession();
+    const unsubscribe = subscribeToMarketStatus((next) => {
+      if (!cancelled) {
+        setSessionMeta(next);
+      }
+    });
 
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      unsubscribe();
     };
   }, []);
   const closedMarketMessage =

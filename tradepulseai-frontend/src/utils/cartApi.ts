@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AddCartItemRequest, CartItem, CompleteOrderResponse, UpdateCartItemRequest } from "../types/cart";
+import type { AddCartItemRequest, CartItem, CompleteOrderResponse, LockQuoteRequest, LockQuoteResponse, UpdateCartItemRequest } from "../types/cart";
 import { getEmailFromToken, getStoredToken, getUserIdFromToken } from "./auth";
 import { toMoney } from "./money";
 
@@ -94,3 +94,29 @@ export async function completeOrder(payload: { items: CartItem[]; subtotal: numb
     throw error;
   }
 }
+
+export async function lockOrderQuote(payload: LockQuoteRequest): Promise<LockQuoteResponse> {
+  const normalizedPayload = {
+    ...payload,
+    items: normalizeCartItems(payload.items),
+    subtotal: toMoney(payload.subtotal),
+    total: toMoney(payload.total),
+  };
+
+  const response = await axios.post<LockQuoteResponse>(
+    "/api/cart/lock-quote",
+    normalizedPayload,
+    {
+      headers: buildAuthHeaders(),
+    }
+  );
+
+  return {
+    ...response.data,
+    items: normalizeCartItems(response.data.items ?? []),
+    subtotal: toMoney(response.data.subtotal),
+    total: toMoney(response.data.total),
+    lockSeconds: Number.isFinite(response.data.lockSeconds) ? response.data.lockSeconds : 15,
+  };
+}
+

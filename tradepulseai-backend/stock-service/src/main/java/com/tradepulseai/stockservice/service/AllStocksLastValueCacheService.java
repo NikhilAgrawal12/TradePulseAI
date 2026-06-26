@@ -122,9 +122,16 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     private void connect() {
         try {
-            webSocket = httpClient.newWebSocketBuilder()
+            httpClient.newWebSocketBuilder()
                     .buildAsync(URI.create(MASSIVE_DELAYED_WS_URL), new MassiveWebSocketListener())
-                    .join();
+                    .whenComplete((socket, error) -> {
+                        if (error != null) {
+                            log.error("Unable to connect websocket for all-stocks cache.", error);
+                            queueReconnect();
+                            return;
+                        }
+                        webSocket = socket;
+                    });
         } catch (Exception ex) {
             log.error("Unable to connect websocket for all-stocks cache.", ex);
             queueReconnect();

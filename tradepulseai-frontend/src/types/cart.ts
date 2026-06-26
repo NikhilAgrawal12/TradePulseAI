@@ -21,3 +21,17 @@ export type CompleteOrderResponse = {
   accountId: string;
   status: string;
 };
+
+export type LockQuoteRequest = {
+  items: CartItem[];
+  subtotal: number;
+  total: number;
+};
+
+export type LockQuoteResponse = {
+  items: CartItem[];
+  subtotal: number;
+  total: number;
+  lockSeconds: number;
+};
+

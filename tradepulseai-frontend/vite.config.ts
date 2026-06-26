@@ -12,13 +12,13 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:4004'
+        target: 'http://127.0.0.1:4004'
       },
       '/auth': {
-        target: 'http://localhost:4004'
+        target: 'http://127.0.0.1:4004'
       },
       '/ws': {
-        target: 'ws://localhost:4004',
+        target: 'ws://127.0.0.1:4004',
         ws: true
       }
     }

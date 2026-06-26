@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Header } from "../../components/Header.tsx";
 import { useWallet } from "../../context/WalletContext";
+import { formatEasternDateTime } from "../../utils/dateTime";
 import { formatMoney, formatSignedCurrency, toMoney } from "../../utils/money";
 import { depositToWallet, fetchWalletTransactions, withdrawFromWallet } from "../../utils/walletApi";
 import type { WalletTransactionItem } from "../../utils/walletApi";
@@ -88,19 +89,6 @@ export function WalletPage() {
     } finally {
       setWithdrawLoading(false);
     }
-  };
-
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      timeZone: "America/New_York",
-    });
   };
 
   const typeBadgeClass = (type: string) => {
@@ -202,7 +190,7 @@ export function WalletPage() {
                     const isCredit = tx.transactionType === "DEPOSIT";
                     return (
                       <tr key={tx.transactionId}>
-                        <td>{formatDate(tx.createdAt)}</td>
+                        <td>{formatEasternDateTime(tx.createdAt)}</td>
                         <td><span className={typeBadgeClass(tx.transactionType)}>{tx.transactionType}</span></td>
                         <td className={isCredit ? "wallet-amount-positive" : "wallet-amount-negative"}>
                           {formatSignedCurrency(isCredit ? tx.amount : -tx.amount)}
