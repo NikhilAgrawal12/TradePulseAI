@@ -88,16 +88,14 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
         loadStocks();
         warmInMemoryCache();
-        startPersistenceLoop();
+        // Removed: startPersistenceLoop() - now saving immediately on each update
         connect();
         log.info("All-stocks websocket cache started for {} symbols.", stockBySymbol.size());
     }
 
     private void startPersistenceLoop() {
-        persistExecutor.scheduleAtFixedRate(this::flushDirtyEntries,
-                PERSIST_FLUSH_INTERVAL_SECONDS,
-                PERSIST_FLUSH_INTERVAL_SECONDS,
-                TimeUnit.SECONDS);
+        // DEPRECATED: Removed in favor of immediate saves on each update for true real-time performance
+        // Previously batch-saved every 2 seconds, now data is saved immediately when received
     }
 
     private void loadStocks() {
@@ -238,7 +236,14 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         entry.setCachedVwap(vwap != null ? vwap : close);
         entry.setCachedChangePercent(calculateChangePercent(open, close));
         entry.setAggregateUpdatedAt(Instant.ofEpochMilli(timestamp));
-        dirtyStockIds.add(stock.getStockId());
+
+        // Save to database immediately (not batched) for true real-time data
+        try {
+            allStocksLastValueCacheRepository.save(entry);
+        } catch (Exception ex) {
+            log.warn("Failed to save stock cache entry for stock_id {}: {}", stock.getStockId(), ex.getMessage());
+        }
+
         eventPublisher.publishEvent(new StockCacheUpdatedEvent(stock.getStockId()));
     }
 
@@ -319,7 +324,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     @PreDestroy
     public void shutdown() {
-        flushDirtyEntries();
+        // flushDirtyEntries() no longer needed - data is saved immediately on each update
         try {
             if (webSocket != null) {
                 webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "shutdown").join();
