@@ -8,6 +8,7 @@ import com.tradepulseai.paymentservice.model.WalletTransaction;
 import com.tradepulseai.paymentservice.service.WalletService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,6 +66,20 @@ public class WalletController {
         List<WalletTransactionDTO> dtos = transactions.stream()
                 .map(this::toTransactionDTO)
                 .toList();
+        return ResponseEntity.ok(dtos);
+    }
+
+    @GetMapping("/transactions/paged")
+    @Operation(summary = "Get paged wallet transaction history")
+    public ResponseEntity<Page<WalletTransactionDTO>> getTransactionsPage(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), 50);
+        Page<WalletTransactionDTO> dtos = walletService.getTransactionsPage(userId, normalizedPage, normalizedSize)
+                .map(this::toTransactionDTO);
         return ResponseEntity.ok(dtos);
     }
 

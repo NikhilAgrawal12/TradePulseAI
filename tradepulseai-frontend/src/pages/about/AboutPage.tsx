@@ -7,7 +7,7 @@ const features = [
 	{
 		icon: "📈",
 		title: "Live Stock Prices",
-		desc: "Real-time market data across thousands of equities, ETFs, and indices — all in one place.",
+		desc: "Track hundreds of stocks with real-time market data.",
 	},
 	{
 		icon: "🤖",

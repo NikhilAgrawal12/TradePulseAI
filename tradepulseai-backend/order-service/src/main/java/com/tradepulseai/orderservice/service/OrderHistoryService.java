@@ -4,6 +4,8 @@ import com.tradepulseai.orderservice.dto.order.OrderResponseDTO;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
 import com.tradepulseai.orderservice.model.TradeOrder;
 import com.tradepulseai.orderservice.repository.TradeOrderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +57,23 @@ public class OrderHistoryService {
         }
 
         return orders;
+    }
+
+    @Transactional
+    public Page<OrderResponseDTO> getOrdersPage(Long userId, int page, int size) {
+        Page<TradeOrder> userOrders = tradeOrderRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
+        userOrders.forEach(this::ensureOrderNumber);
+
+        Page<OrderResponseDTO> ordersPage = userOrders.map(OrderMapper::toDTO);
+
+        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
+        ordersPage.getContent().forEach(order -> order.getItems().forEach(item -> {
+            Long stockId = Long.parseLong(item.getStockId());
+            StockQuote quote = quotes.computeIfAbsent(stockId, stockCatalogClient::getStockQuote);
+            item.setSymbol(quote.symbol());
+        }));
+
+        return ordersPage;
     }
 
     private void ensureOrderNumber(TradeOrder order) {

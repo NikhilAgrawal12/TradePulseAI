@@ -4,7 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import type { StockInsights } from "../../types/stockInsights";
-import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
+import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, formatSignedMoney } from "../../utils/money";
 import { fetchStockInsights } from "../../utils/stockInsightsApi";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
@@ -16,21 +16,13 @@ export function WatchlistPage() {
   const { addToCart } = useCart();
   const { watchlist, removeFromWatchlist } = useWatchlist();
   const { stocks: streamedStocks } = useStreamedStocks();
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
   const [search, setSearch] = useState("");
   const [performanceByStockId, setPerformanceByStockId] = useState<Record<string, StockInsights["currentPerformance"]>>({});
 
   useEffect(() => {
      let cancelled = false;
 
-     const bootstrapSession = async () => {
-       const next = await getMarketSessionFromBackend();
-       if (!cancelled) {
-         setSessionMeta(next);
-       }
-     };
-
-     void bootstrapSession();
      const unsubscribe = subscribeToMarketStatus((next) => {
        if (!cancelled) {
          setSessionMeta(next);

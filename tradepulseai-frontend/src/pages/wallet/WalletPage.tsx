@@ -3,9 +3,11 @@ import { Header } from "../../components/Header.tsx";
 import { useWallet } from "../../context/WalletContext";
 import { formatEasternDateTime } from "../../utils/dateTime";
 import { formatMoney, formatSignedCurrency, toMoney } from "../../utils/money";
-import { depositToWallet, fetchWalletTransactions, withdrawFromWallet } from "../../utils/walletApi";
+import { depositToWallet, fetchWalletTransactionsPage, withdrawFromWallet } from "../../utils/walletApi";
 import type { WalletTransactionItem } from "../../utils/walletApi";
 import "./WalletPage.css";
+
+const WALLET_TX_PAGE_SIZE = 10;
 
 export function WalletPage() {
   useEffect(() => {
@@ -15,6 +17,9 @@ export function WalletPage() {
   const { balance, isLoading, refreshWallet } = useWallet();
   const [transactions, setTransactions] = useState<WalletTransactionItem[]>([]);
   const [txLoading, setTxLoading] = useState(true);
+  const [txPage, setTxPage] = useState(0);
+  const [txTotalPages, setTxTotalPages] = useState(0);
+  const [txTotalElements, setTxTotalElements] = useState(0);
 
   // Deposit state
   const [depositAmount, setDepositAmount] = useState("");
@@ -26,21 +31,26 @@ export function WalletPage() {
   const [withdrawMsg, setWithdrawMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  const loadTransactions = async () => {
+  const loadTransactions = async (targetPage: number) => {
     setTxLoading(true);
     try {
-      const data = await fetchWalletTransactions();
-      setTransactions(data);
+      const data = await fetchWalletTransactionsPage(targetPage, WALLET_TX_PAGE_SIZE);
+      setTransactions(data.content);
+      setTxPage(data.number);
+      setTxTotalPages(data.totalPages);
+      setTxTotalElements(data.totalElements);
     } catch {
       setTransactions([]);
+      setTxTotalPages(0);
+      setTxTotalElements(0);
     } finally {
       setTxLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadTransactions();
-  }, []);
+    void loadTransactions(txPage);
+  }, [txPage]);
 
   const handleDeposit = async (e: FormEvent) => {
     e.preventDefault();
@@ -54,7 +64,7 @@ export function WalletPage() {
     try {
       await depositToWallet(amount);
       await refreshWallet();
-      await loadTransactions();
+      await loadTransactions(0);
       setDepositAmount("");
       setDepositMsg({ type: "success", text: `$${formatMoney(amount)} added to your wallet!` });
     } catch {
@@ -80,7 +90,7 @@ export function WalletPage() {
     try {
       await withdrawFromWallet(amount);
       await refreshWallet();
-      await loadTransactions();
+      await loadTransactions(0);
       setWithdrawAmount("");
       setWithdrawMsg({ type: "success", text: `$${formatMoney(amount)} withdrawn successfully!` });
     } catch (err) {
@@ -170,7 +180,7 @@ export function WalletPage() {
         {/* Transaction History */}
         <div className="wallet-history-card">
           <h2>Transaction History</h2>
-          {txLoading ? (
+          {txLoading && transactions.length === 0 ? (
             <p className="wallet-empty-history">Loading transactions…</p>
           ) : transactions.length === 0 ? (
             <p className="wallet-empty-history">No transactions yet. Add funds to get started!</p>
@@ -201,6 +211,29 @@ export function WalletPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {!txLoading && txTotalPages > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={() => setTxPage((current) => Math.max(current - 1, 0))}
+                disabled={txPage === 0 || txLoading}
+              >
+                Previous
+              </button>
+              <span>
+                Page {txPage + 1} of {Math.max(txTotalPages, 1)} ({txTotalElements} transactions)
+              </span>
+              {txLoading && <span aria-live="polite">Loading page…</span>}
+              <button
+                type="button"
+                onClick={() => setTxPage((current) => (current + 1 < txTotalPages ? current + 1 : current))}
+                disabled={txPage + 1 >= txTotalPages || txLoading}
+              >
+                Next
+              </button>
             </div>
           )}
         </div>

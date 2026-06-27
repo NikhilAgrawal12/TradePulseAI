@@ -16,6 +16,12 @@ export type SessionMeta = {
   cssClass: string;
 };
 
+export const API_MARKET_STATUS_FALLBACK: SessionMeta = {
+  session: "closed",
+  label: "Fetching market status...",
+  cssClass: "session-closed",
+};
+
 type BackendMarketStatusResponse = {
   session?: string;
   label?: string;
@@ -70,12 +76,12 @@ function asMarketSession(value: string | undefined): MarketSession | null {
 
 function toSessionMeta(payload: BackendMarketStatusResponse | null | undefined): SessionMeta {
   if (!payload) {
-    return getMarketSession();
+    return API_MARKET_STATUS_FALLBACK;
   }
 
   const session = asMarketSession(payload?.session);
   if (!session || payload?.stale === true) {
-    return getMarketSession();
+    return API_MARKET_STATUS_FALLBACK;
   }
 
   const label = payload.label;
@@ -94,12 +100,12 @@ export async function getMarketSessionFromBackend(): Promise<SessionMeta> {
   try {
     const response = await fetch("/api/stocks/market-status", { signal: controller.signal });
     if (!response.ok) {
-      return getMarketSession();
+      return API_MARKET_STATUS_FALLBACK;
     }
 
     return toSessionMeta((await response.json()) as BackendMarketStatusResponse);
   } catch {
-    return getMarketSession();
+    return API_MARKET_STATUS_FALLBACK;
   } finally {
     window.clearTimeout(timeoutId);
   }

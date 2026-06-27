@@ -1,10 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
-import { useOrders } from "../../context/OrdersContext";
+import type { OrderHistoryEntry } from "../../types/order";
 import { isUserAuthenticated } from "../../utils/auth";
 import { formatMoney } from "../../utils/money";
+import { fetchOrderHistoryPage } from "../../utils/ordersApi";
 import "./OrdersPage.css";
+
+const ORDERS_PAGE_SIZE = 10;
 
 export function OrdersPage() {
   const navigate = useNavigate();
@@ -19,13 +22,55 @@ export function OrdersPage() {
     }
   }, [navigate]);
 
-  const { orders, loading, error, refreshOrders } = useOrders();
+  const [orders, setOrders] = useState<OrderHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   useEffect(() => {
-    if (isUserAuthenticated()) {
-      void refreshOrders();
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, [page]);
+
+  useEffect(() => {
+    if (!isUserAuthenticated()) {
+      return;
     }
-  }, [refreshOrders]);
+
+    let cancelled = false;
+    const loadOrders = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetchOrderHistoryPage(page, ORDERS_PAGE_SIZE);
+        if (cancelled) {
+          return;
+        }
+        setOrders(response.content);
+        setTotalPages(response.totalPages);
+        setTotalElements(response.totalElements);
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+        const message = loadError instanceof Error ? loadError.message : "Failed to fetch order history.";
+        setError(message);
+        setOrders([]);
+        setTotalPages(0);
+        setTotalElements(0);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
 
   return (
     <>
@@ -70,6 +115,24 @@ export function OrdersPage() {
                 ))}
               </section>
             )
+          )}
+
+          {!loading && !error && totalPages > 0 && (
+            <div className="orders-pagination" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
+              <button type="button" onClick={() => setPage((current) => Math.max(current - 1, 0))} disabled={page === 0}>
+                Previous
+              </button>
+              <span>
+                Page {page + 1} of {Math.max(totalPages, 1)} ({totalElements} orders)
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))}
+                disabled={page + 1 >= totalPages}
+              >
+                Next
+              </button>
+            </div>
           )}
         </div>
       </main>

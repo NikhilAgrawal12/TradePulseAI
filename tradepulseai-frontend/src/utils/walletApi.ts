@@ -2,6 +2,16 @@ import axios from "axios";
 import { buildAuthHeaders } from "./auth";
 import { toMoney } from "./money";
 
+export interface PaginatedResponse<T> {
+  content: T[];
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface WalletResponse {
   walletId: number;
   userId: number;
@@ -77,5 +87,17 @@ export async function fetchWalletTransactions(): Promise<WalletTransactionItem[]
     headers: buildAuthHeaders(),
   });
   return normalizeWalletTransactions(response.data);
+}
+
+export async function fetchWalletTransactionsPage(page: number, size: number): Promise<PaginatedResponse<WalletTransactionItem>> {
+  const response = await axios.get<PaginatedResponse<WalletTransactionItem>>("/api/wallet/transactions/paged", {
+    headers: buildAuthHeaders(),
+    params: { page, size },
+  });
+
+  return {
+    ...response.data,
+    content: normalizeWalletTransactions(response.data.content ?? []),
+  };
 }
 

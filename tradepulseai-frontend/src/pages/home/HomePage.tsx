@@ -4,7 +4,7 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../../utils/auth";
-import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
+import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
@@ -36,18 +36,10 @@ export function HomePage() {
     document.title = "Home | TradePulseAI";
   }, []);
 
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
   useEffect(() => {
     let cancelled = false;
 
-    const bootstrapSession = async () => {
-      const next = await getMarketSessionFromBackend();
-      if (!cancelled) {
-        setSessionMeta(next);
-      }
-    };
-
-    void bootstrapSession();
     const unsubscribe = subscribeToMarketStatus((next) => {
       if (!cancelled) {
         setSessionMeta(next);

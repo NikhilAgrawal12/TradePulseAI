@@ -4,10 +4,12 @@ import com.tradepulseai.orderservice.dto.order.OrderResponseDTO;
 import com.tradepulseai.orderservice.service.OrderHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -29,6 +31,18 @@ public class OrderHistoryController {
     @Operation(summary = "Get full order history for current user")
     public ResponseEntity<List<OrderResponseDTO>> getOrders(@RequestHeader(USER_ID_HEADER) String userId) {
         return ResponseEntity.ok(orderHistoryService.getOrders(normalizeUserId(userId)));
+    }
+
+    @GetMapping("/paged")
+    @Operation(summary = "Get paged order history for current user")
+    public ResponseEntity<Page<OrderResponseDTO>> getOrdersPage(
+            @RequestHeader(USER_ID_HEADER) String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), 50);
+        return ResponseEntity.ok(orderHistoryService.getOrdersPage(normalizeUserId(userId), normalizedPage, normalizedSize));
     }
 
     private Long normalizeUserId(String userId) {

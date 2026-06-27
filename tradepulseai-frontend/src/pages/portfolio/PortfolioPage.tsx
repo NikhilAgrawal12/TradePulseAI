@@ -4,7 +4,7 @@ import { Header } from "../../components/Header";
 import type { PortfolioHolding, PortfolioResponse } from "../../types/portfolio";
 import { isUserAuthenticated } from "../../utils/auth";
 import { formatEasternDateTime } from "../../utils/dateTime";
-import { getMarketSession, getMarketSessionFromBackend, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
+import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, formatSignedCurrency, toMoney } from "../../utils/money";
 import { sellPortfolioItem, fetchPortfolio } from "../../utils/portfolioApi";
 import { useStocks } from "../../utils/useStocks";
@@ -36,7 +36,7 @@ export function PortfolioPage() {
     const [error, setError] = useState<string | null>(null);
     const [sellingStockId, setSellingStockId] = useState<string | null>(null);
     const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
-    const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSession());
+    const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
     const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
 
     const closedMarketMessage =
@@ -49,14 +49,6 @@ export function PortfolioPage() {
     useEffect(() => {
         let cancelled = false;
 
-        const bootstrapSession = async () => {
-            const next = await getMarketSessionFromBackend();
-            if (!cancelled) {
-                setSessionMeta(next);
-            }
-        };
-
-        void bootstrapSession();
         const unsubscribe = subscribeToMarketStatus((next) => {
             if (!cancelled) {
                 setSessionMeta(next);

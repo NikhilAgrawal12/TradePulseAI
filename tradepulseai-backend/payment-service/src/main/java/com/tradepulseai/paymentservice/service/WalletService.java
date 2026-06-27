@@ -4,6 +4,8 @@ import com.tradepulseai.paymentservice.model.Wallet;
 import com.tradepulseai.paymentservice.model.WalletTransaction;
 import com.tradepulseai.paymentservice.repository.WalletRepository;
 import com.tradepulseai.paymentservice.repository.WalletTransactionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -111,6 +113,12 @@ public class WalletService {
     public List<WalletTransaction> getTransactions(Long userId) {
         Wallet wallet = getOrCreateWallet(userId);
         return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WalletTransaction> getTransactionsPage(Long userId, int page, int size) {
+        Wallet wallet = getOrCreateWallet(userId);
+        return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId(), PageRequest.of(page, size));
     }
 
     private void recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
