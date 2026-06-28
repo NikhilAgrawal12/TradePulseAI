@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
+import { useMarketStatus } from "../../context/MarketStatusContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import type { StockInsights } from "../../types/stockInsights";
-import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, formatSignedMoney } from "../../utils/money";
 import { fetchStockInsights } from "../../utils/stockInsightsApi";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
@@ -16,24 +16,10 @@ export function WatchlistPage() {
   const { addToCart } = useCart();
   const { watchlist, removeFromWatchlist } = useWatchlist();
   const { stocks: streamedStocks } = useStreamedStocks();
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
+  const { sessionMeta } = useMarketStatus();
   const [search, setSearch] = useState("");
   const [performanceByStockId, setPerformanceByStockId] = useState<Record<string, StockInsights["currentPerformance"]>>({});
 
-  useEffect(() => {
-     let cancelled = false;
-
-     const unsubscribe = subscribeToMarketStatus((next) => {
-       if (!cancelled) {
-         setSessionMeta(next);
-       }
-     });
-
-     return () => {
-       cancelled = true;
-       unsubscribe();
-     };
-   }, []);
 
    // Fetch initial insights currentPerformance for all watchlist stocks
    const watchlistStockIds = useMemo(() => watchlist.map((entry) => entry.stockId), [watchlist]);

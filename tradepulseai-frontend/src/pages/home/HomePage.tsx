@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
+import { useMarketStatus } from "../../context/MarketStatusContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import { isUserAuthenticated, subscribeToAuthChanges } from "../../utils/auth";
-import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./HomePage.css";
@@ -29,27 +29,12 @@ function formatRealtimeTime(lastUpdated: string | null | undefined): string {
 export function HomePage() {
   const { addToCart } = useCart();
   const { addToWatchlist } = useWatchlist();
+  const { sessionMeta } = useMarketStatus();
   const { stocks: streamedStocks, error, searchTerm, setSearchTerm } = useStreamedStocks();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => isUserAuthenticated());
 
   useEffect(() => {
     document.title = "Home | TradePulseAI";
-  }, []);
-
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
-  useEffect(() => {
-    let cancelled = false;
-
-    const unsubscribe = subscribeToMarketStatus((next) => {
-      if (!cancelled) {
-        setSessionMeta(next);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
   }, []);
 
   useEffect(() => {

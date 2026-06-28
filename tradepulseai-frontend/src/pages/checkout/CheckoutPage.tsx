@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
-import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
+import { useMarketStatus } from "../../context/MarketStatusContext";
 import { formatMoney, formatPercent, roundMoney } from "../../utils/money";
 import { useStocks } from "../../utils/useStocks";
 import "./CheckoutPage.css";
@@ -23,25 +23,10 @@ export function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { cart, removeFromCart, updateQuantity } = useCart();
+  const { sessionMeta } = useMarketStatus();
   const { stocks } = useStocks();
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
-  // Update session badge every minute
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
-  useEffect(() => {
-    let cancelled = false;
-
-    const unsubscribe = subscribeToMarketStatus((next) => {
-      if (!cancelled) {
-        setSessionMeta(next);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
   const closedMarketMessage =
     "Markets are currently closed. Trading is available Monday through Friday, excluding market holidays, during the following hours (ET): Pre-Market: 4:00 AM – 9:30 AM, Regular Market: 9:30 AM – 4:00 PM, and After-Hours: 4:00 PM – 8:00 PM. Please try again when trading resumes at 4:00 AM ET on the next trading day.";
   const paymentCancelledMessage = (location.state as { reason?: string; paymentCancelled?: boolean } | null)?.paymentCancelled

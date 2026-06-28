@@ -5,6 +5,7 @@ import { CartProvider } from './context/CartContext'
 import { OrdersProvider } from './context/OrdersContext'
 import { WatchlistProvider } from './context/WatchlistContext'
 import { WalletProvider } from './context/WalletContext'
+import { MarketStatusProvider } from './context/MarketStatusContext'
 import './index.css'
 import App from './App.tsx'
 
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')!).render(
         <OrdersProvider>
           <WatchlistProvider>
             <WalletProvider>
-              <App />
+              <MarketStatusProvider>
+                <App />
+              </MarketStatusProvider>
             </WalletProvider>
           </WatchlistProvider>
         </OrdersProvider>

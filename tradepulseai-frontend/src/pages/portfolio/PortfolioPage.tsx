@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Header } from "../../components/Header";
+import { useMarketStatus } from "../../context/MarketStatusContext";
 import type { PortfolioHolding, PortfolioResponse } from "../../types/portfolio";
 import { isUserAuthenticated } from "../../utils/auth";
 import { formatEasternDateTime } from "../../utils/dateTime";
-import { API_MARKET_STATUS_FALLBACK, subscribeToMarketStatus, type SessionMeta } from "../../utils/marketSession";
 import { formatMoney, formatPercent, formatSignedCurrency, toMoney } from "../../utils/money";
 import { sellPortfolioItem, fetchPortfolio } from "../../utils/portfolioApi";
 import { useStocks } from "../../utils/useStocks";
@@ -31,12 +31,12 @@ function formatCurrency(value: number) {
 export function PortfolioPage() {
     const navigate = useNavigate();
     const { stocks } = useStocks();
+    const { sessionMeta } = useMarketStatus();
     const [portfolio, setPortfolio] = useState<PortfolioResponse>(EMPTY_PORTFOLIO);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [sellingStockId, setSellingStockId] = useState<string | null>(null);
     const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
-    const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => API_MARKET_STATUS_FALLBACK);
     const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
 
     const closedMarketMessage =
@@ -44,21 +44,6 @@ export function PortfolioPage() {
 
     useEffect(() => {
         document.title = "Portfolio | TradePulseAI";
-    }, []);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        const unsubscribe = subscribeToMarketStatus((next) => {
-            if (!cancelled) {
-                setSessionMeta(next);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-            unsubscribe();
-        };
     }, []);
 
     const isMarketClosed = sessionMeta.session === "closed";

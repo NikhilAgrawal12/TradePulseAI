@@ -14,12 +14,14 @@ export type SessionMeta = {
   session: MarketSession;
   label: string;
   cssClass: string;
+  lastUpdatedMs: number | null;
 };
 
 export const API_MARKET_STATUS_FALLBACK: SessionMeta = {
   session: "closed",
   label: "Fetching market status...",
   cssClass: "session-closed",
+  lastUpdatedMs: null,
 };
 
 type BackendMarketStatusResponse = {
@@ -27,8 +29,10 @@ type BackendMarketStatusResponse = {
   label?: string;
   cssClass?: string;
   stale?: boolean;
+  lastUpdated?: string;
 };
 
+export const MARKET_STATUS_MAX_AGE_MS = 60_000;
 const MARKET_STATUS_FETCH_TIMEOUT_MS = 1500;
 const MARKET_STATUS_STREAM_RECONNECT_MS = 3000;
 
@@ -56,15 +60,15 @@ export function getMarketSession(now: Date = new Date()): SessionMeta {
   const AFTER_HOURS_END   = 20 * 60;       // 20:00
 
   if (totalMinutes >= PRE_MARKET_START && totalMinutes < REGULAR_START) {
-    return { session: "pre-market",   label: "Pre-Market",   cssClass: "session-pre-market"   };
+    return { session: "pre-market",   label: "Pre-Market",   cssClass: "session-pre-market", lastUpdatedMs: now.getTime()   };
   }
   if (totalMinutes >= REGULAR_START && totalMinutes < AFTER_HOURS_START) {
-    return { session: "regular",      label: "Market Open",  cssClass: "session-regular"       };
+    return { session: "regular",      label: "Market Open",  cssClass: "session-regular", lastUpdatedMs: now.getTime()       };
   }
   if (totalMinutes >= AFTER_HOURS_START && totalMinutes < AFTER_HOURS_END) {
-    return { session: "after-hours",  label: "After-Hours",  cssClass: "session-after-hours"   };
+    return { session: "after-hours",  label: "After-Hours",  cssClass: "session-after-hours", lastUpdatedMs: now.getTime()   };
   }
-  return   { session: "closed",       label: "Market Closed", cssClass: "session-closed"       };
+  return   { session: "closed",       label: "Market Closed", cssClass: "session-closed", lastUpdatedMs: now.getTime()       };
 }
 
 function asMarketSession(value: string | undefined): MarketSession | null {
@@ -80,7 +84,20 @@ function toSessionMeta(payload: BackendMarketStatusResponse | null | undefined):
   }
 
   const session = asMarketSession(payload?.session);
-  if (!session || payload?.stale === true) {
+  const lastUpdatedMs = (() => {
+    if (typeof payload.lastUpdated !== "string" || payload.lastUpdated.trim().length === 0) {
+      return null;
+    }
+    const parsed = new Date(payload.lastUpdated);
+    const timestamp = parsed.getTime();
+    return Number.isNaN(timestamp) ? null : timestamp;
+  })();
+
+  const isFresh =
+    lastUpdatedMs !== null &&
+    Date.now() - lastUpdatedMs <= MARKET_STATUS_MAX_AGE_MS;
+
+  if (!session || payload?.stale === true || !isFresh) {
     return API_MARKET_STATUS_FALLBACK;
   }
 
@@ -91,6 +108,7 @@ function toSessionMeta(payload: BackendMarketStatusResponse | null | undefined):
     session,
     label: typeof label === "string" && label.trim().length > 0 ? label : "Market Status",
     cssClass: typeof cssClass === "string" && cssClass.trim().length > 0 ? cssClass : "session-closed",
+    lastUpdatedMs,
   };
 }
 

@@ -29,7 +29,7 @@ public class MarketStatusCacheService implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(MarketStatusCacheService.class);
     private static final long REFRESH_INTERVAL_SECONDS = 60;
-    private static final long STALE_THRESHOLD_SECONDS = 180;
+    private static final long STALE_THRESHOLD_SECONDS = 60;
     private static final long SSE_TIMEOUT_MS = 5 * 60 * 1000;
 
     private final RestClient restClient;
