@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   API_MARKET_STATUS_FALLBACK,
   getMarketSessionFromBackend,
@@ -12,6 +12,7 @@ type MarketStatusContextValue = {
 };
 
 const LAST_MARKET_STATUS_CACHE_KEY = "tradepulseai:last-market-status";
+let inMemorySessionMeta: SessionMeta | null = null;
 
 const MarketStatusContext = createContext<MarketStatusContextValue>({
   sessionMeta: API_MARKET_STATUS_FALLBACK,
@@ -59,15 +60,44 @@ function writeCachedSession(meta: SessionMeta): void {
 }
 
 export function MarketStatusProvider({ children }: { children: ReactNode }) {
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => readCachedSession() ?? API_MARKET_STATUS_FALLBACK);
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => {
+    if (inMemorySessionMeta && isFresh(inMemorySessionMeta)) {
+      return inMemorySessionMeta;
+    }
+    return readCachedSession() ?? API_MARKET_STATUS_FALLBACK;
+  });
+  const isBootstrapInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
+    const commitNextSession = (next: SessionMeta) => {
+      setSessionMeta((current) => {
+        const nextFresh = isFresh(next);
+        const currentFresh = isFresh(current);
+
+        // Keep showing a known-fresh value when a transient startup timeout/error returns fallback.
+        if (!nextFresh && currentFresh) {
+          return current;
+        }
+
+        return next;
+      });
+    };
+
     const updateFromBackend = async () => {
-      const next = await getMarketSessionFromBackend();
-      if (!cancelled) {
-        setSessionMeta(next);
+      if (isBootstrapInFlightRef.current) {
+        return;
+      }
+      isBootstrapInFlightRef.current = true;
+
+      try {
+        const next = await getMarketSessionFromBackend();
+        if (!cancelled) {
+          commitNextSession(next);
+        }
+      } finally {
+        isBootstrapInFlightRef.current = false;
       }
     };
 
@@ -75,7 +105,7 @@ export function MarketStatusProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = subscribeToMarketStatus((next) => {
       if (!cancelled) {
-        setSessionMeta(next);
+        commitNextSession(next);
       }
     });
 
@@ -101,6 +131,7 @@ export function MarketStatusProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    inMemorySessionMeta = isFresh(sessionMeta) ? sessionMeta : null;
     writeCachedSession(sessionMeta);
   }, [sessionMeta]);
 
