@@ -12,6 +12,7 @@ spring:
             - Path=/auth/**
           filters:
             - StripPrefix=1
+            - RateLimit=20,60,ip
 
         - id: customer-register-route
           order: -1
@@ -21,6 +22,7 @@ spring:
             - Method=POST
           filters:
             - StripPrefix=1
+            - RateLimit=15,60,ip
 
         - id: customer-service-route
           uri: http://cust-service:4000
@@ -29,6 +31,7 @@ spring:
           filters:
             - StripPrefix=1
             - JwtValidation
+            - RateLimit=90,60,user
 
         - id: stock-service-route
           uri: http://stock-service:4003
@@ -36,6 +39,7 @@ spring:
             - Path=/api/stocks,/api/stocks/**
           filters:
             - StripPrefix=1
+            - RateLimit=120,60,ip
 
 
         - id: watchlist-service-route
@@ -45,6 +49,7 @@ spring:
           filters:
             - StripPrefix=1
             - JwtValidation
+            - RateLimit=90,60,user
 
         - id: order-service-route
           uri: http://order-service:4006
@@ -53,6 +58,7 @@ spring:
           filters:
             - StripPrefix=1
             - JwtValidation
+            - RateLimit=100,60,user
 
 
         - id: wallet-service-route
@@ -62,6 +68,7 @@ spring:
           filters:
             - StripPrefix=1
             - JwtValidation
+            - RateLimit=80,60,user
 
         - id: api-docs-customer-route
           uri: http://cust-service:4000
