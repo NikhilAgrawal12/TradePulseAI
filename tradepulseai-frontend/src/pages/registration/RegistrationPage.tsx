@@ -1,7 +1,19 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import axios from "axios";
 import { Header } from "../../components/Header.tsx";
+import { SearchableDropdown } from "../../components/SearchableDropdown";
+import {
+  findCityByName,
+  findCountryByName,
+  findStateByName,
+  getCityOptions,
+  getCountryOptions,
+  getStateOptions,
+  type LocationCityOption,
+  type LocationCountryOption,
+  type LocationStateOption,
+} from "../../utils/locationData";
 import "./RegistrationPage.css";
 
 // Validation patterns
@@ -25,9 +37,54 @@ export function RegistrationPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [countryOptions, setCountryOptions] = useState<LocationCountryOption[]>([]);
+  const [stateOptions, setStateOptions] = useState<LocationStateOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<LocationCityOption[]>([]);
+  const [selectedCountryCode, setSelectedCountryCode] = useState("");
+  const [selectedStateCode, setSelectedStateCode] = useState("");
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [locationValues, setLocationValues] = useState({
+    country: "",
+    state: "",
+    city: "",
+    postalCode: "",
+  });
 
   useEffect(() => {
     document.title = "Register | TradePulseAI";
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCountries = async () => {
+      setCountriesLoading(true);
+      setLocationError("");
+
+      try {
+        const countries = await getCountryOptions();
+        if (!cancelled) {
+          setCountryOptions(countries);
+        }
+      } catch {
+        if (!cancelled) {
+          setLocationError("Unable to load countries right now. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCountriesLoading(false);
+        }
+      }
+    };
+
+    void loadCountries();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const validateField = (name: string, value: string): string => {
@@ -106,15 +163,134 @@ export function RegistrationPage() {
       }
     }
 
+    if (name === "postalCode" && value.trim().length > 20) {
+      return "Postal code cannot exceed 20 characters";
+    }
+
     return "";
   };
 
-  const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFieldChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
+    if (name === "city" || name === "postalCode") {
+      setLocationValues((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+
     const error = validateField(name, value);
     setValidationErrors((prev) => ({
       ...prev,
       [name]: error,
+    }));
+  };
+
+  const handleCountryChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const nextCountryName = event.target.value;
+
+    setSelectedCountryCode("");
+    setSelectedStateCode("");
+    setStateOptions([]);
+    setCityOptions([]);
+    setLocationValues((prev) => ({
+      ...prev,
+      country: nextCountryName,
+      state: "",
+      city: "",
+    }));
+    setValidationErrors((prev) => ({
+      ...prev,
+      country: validateField("country", nextCountryName),
+      state: "",
+      city: "",
+    }));
+
+    const matchedCountry = await findCountryByName(nextCountryName);
+    if (!matchedCountry) {
+      return;
+    }
+
+    setSelectedCountryCode(matchedCountry.isoCode);
+    await loadStatesForCountry(matchedCountry.isoCode);
+  };
+
+  const loadStatesForCountry = async (countryCode: string) => {
+    if (!countryCode) {
+      setStateOptions([]);
+      setCityOptions([]);
+      return;
+    }
+
+    setStatesLoading(true);
+    setLocationError("");
+    try {
+      setStateOptions(await getStateOptions(countryCode));
+    } catch {
+      setStateOptions([]);
+      setLocationError("Unable to load states for the selected country.");
+    } finally {
+      setStatesLoading(false);
+    }
+  };
+
+  const loadCitiesForState = async (countryCode: string, stateCode: string) => {
+    if (!countryCode || !stateCode) {
+      setCityOptions([]);
+      return;
+    }
+
+    setCitiesLoading(true);
+    setLocationError("");
+    try {
+      setCityOptions(await getCityOptions(countryCode, stateCode));
+    } catch {
+      setCityOptions([]);
+      setLocationError("Unable to load cities for the selected state.");
+    } finally {
+      setCitiesLoading(false);
+    }
+  };
+
+  const handleStateChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const nextStateName = event.target.value;
+
+    setSelectedStateCode("");
+    setCityOptions([]);
+    setLocationValues((prev) => ({
+      ...prev,
+      state: nextStateName,
+      city: "",
+    }));
+    setValidationErrors((prev) => ({
+      ...prev,
+      state: validateField("state", nextStateName),
+      city: "",
+    }));
+
+    if (!selectedCountryCode) {
+      return;
+    }
+
+    const matchedState = await findStateByName(selectedCountryCode, nextStateName);
+    if (!matchedState) {
+      return;
+    }
+
+    setSelectedStateCode(matchedState.isoCode);
+    await loadCitiesForState(selectedCountryCode, matchedState.isoCode);
+  };
+
+  const handleCityChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextCityName = event.target.value;
+    setLocationValues((prev) => ({
+      ...prev,
+      city: nextCityName,
+    }));
+    setValidationErrors((prev) => ({
+      ...prev,
+      city: validateField("city", nextCityName),
     }));
   };
 
@@ -132,10 +308,10 @@ export function RegistrationPage() {
     const dateOfBirth = formData.get("dateOfBirth") as string;
     const addressLine1 = formData.get("addressLine1") as string;
     const addressLine2 = (formData.get("addressLine2") as string) || "";
-    const city = formData.get("city") as string;
-    const state = formData.get("state") as string;
-    const postalCode = formData.get("postalCode") as string;
-    const country = formData.get("country") as string;
+    const city = locationValues.city;
+    const state = locationValues.state;
+    const postalCode = locationValues.postalCode;
+    const country = locationValues.country;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
 
@@ -146,10 +322,28 @@ export function RegistrationPage() {
                     "password", "confirmPassword"];
 
     for (const field of fields) {
-      const value = formData.get(field) as string;
+      const value =
+        field === "city" || field === "state" || field === "postalCode" || field === "country"
+          ? locationValues[field]
+          : ((formData.get(field) as string) ?? "");
       const error = validateField(field, value === undefined ? "" : value);
       if (error) {
         newErrors[field] = error;
+      }
+    }
+
+    if (!selectedCountryCode) {
+      newErrors.country = "Please choose a valid country from the list.";
+    }
+
+    if (locationValues.state && !selectedStateCode) {
+      newErrors.state = "Please choose a valid state from the selected country.";
+    }
+
+    if (selectedCountryCode && selectedStateCode && cityOptions.length > 0) {
+      const selectedCity = await findCityByName(selectedCountryCode, selectedStateCode, city);
+      if (!selectedCity) {
+        newErrors.city = "Please choose a city from the selected state.";
       }
     }
 
@@ -216,6 +410,7 @@ export function RegistrationPage() {
           <p className="registration-subtitle">Set up your profile to track insights, portfolios, and live market activity.</p>
 
           {error && <div className="registration-error">{error}</div>}
+          {locationError && <div className="registration-error">{locationError}</div>}
 
           <form className="registration-form" onSubmit={handleSubmit}>
             <div className="form-group">
@@ -317,31 +512,57 @@ export function RegistrationPage() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="city">City</label>
-              <input
-                id="city"
-                type="text"
-                name="city"
-                autoComplete="address-level2"
-                required
-                disabled={loading}
-                onChange={handleFieldChange}
+              <label htmlFor="country">Country</label>
+              <SearchableDropdown
+                id="country"
+                name="country"
+                value={locationValues.country}
+                options={countryOptions.map((countryOption) => countryOption.name)}
+                disabled={loading || countriesLoading}
+                loading={countriesLoading}
+                placeholder={countriesLoading ? "Loading countries..." : "Type or choose country"}
+                noOptionsText="No countries found"
+                onChange={(nextValue) => {
+                  void handleCountryChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
+                }}
               />
-              {validationErrors.city && <span className="validation-error">{validationErrors.city}</span>}
+              {validationErrors.country && <span className="validation-error">{validationErrors.country}</span>}
             </div>
 
             <div className="form-group">
               <label htmlFor="state">State</label>
-              <input
+              <SearchableDropdown
                 id="state"
-                type="text"
                 name="state"
-                autoComplete="address-level1"
-                required
-                disabled={loading}
-                onChange={handleFieldChange}
+                value={locationValues.state}
+                options={stateOptions.map((stateOption) => stateOption.name)}
+                disabled={loading || !selectedCountryCode || statesLoading}
+                loading={statesLoading}
+                placeholder={statesLoading ? "Loading states..." : "Type or choose state"}
+                noOptionsText="No states found"
+                onChange={(nextValue) => {
+                  void handleStateChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
+                }}
               />
               {validationErrors.state && <span className="validation-error">{validationErrors.state}</span>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="city">City</label>
+              <SearchableDropdown
+                id="city"
+                name="city"
+                value={locationValues.city}
+                options={cityOptions.map((cityOption) => cityOption.name)}
+                disabled={loading || !selectedStateCode || citiesLoading}
+                loading={citiesLoading}
+                placeholder={citiesLoading ? "Loading cities..." : "Type or choose city"}
+                noOptionsText="No cities found"
+                onChange={(nextValue) => {
+                  handleCityChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
+                }}
+              />
+              {validationErrors.city && <span className="validation-error">{validationErrors.city}</span>}
             </div>
 
             <div className="form-group">
@@ -353,23 +574,11 @@ export function RegistrationPage() {
                 autoComplete="postal-code"
                 required
                 disabled={loading}
+                value={locationValues.postalCode}
                 onChange={handleFieldChange}
+                maxLength={20}
               />
               {validationErrors.postalCode && <span className="validation-error">{validationErrors.postalCode}</span>}
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="country">Country</label>
-              <input
-                id="country"
-                type="text"
-                name="country"
-                autoComplete="country-name"
-                required
-                disabled={loading}
-                onChange={handleFieldChange}
-              />
-              {validationErrors.country && <span className="validation-error">{validationErrors.country}</span>}
             </div>
 
             <div className="form-group">

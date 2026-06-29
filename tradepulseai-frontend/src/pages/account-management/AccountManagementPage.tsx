@@ -2,6 +2,18 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "
 import { useNavigate } from "react-router";
 import axios from "axios";
 import { Header } from "../../components/Header.tsx";
+import { SearchableDropdown } from "../../components/SearchableDropdown";
+import {
+  findCityByName,
+  findCountryByName,
+  findStateByName,
+  getCityOptions,
+  getCountryOptions,
+  getStateOptions,
+  type LocationCityOption,
+  type LocationCountryOption,
+  type LocationStateOption,
+} from "../../utils/locationData";
 import { getEmailFromToken, getStoredToken, getUserIdFromToken, setStoredToken } from "../../utils/auth";
 import "./AccountManagementPage.css";
 
@@ -77,6 +89,15 @@ export function AccountManagementPage() {
   const [credentialsError, setCredentialsError] = useState("");
   const [credentialsSuccess, setCredentialsSuccess] = useState("");
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [countryOptions, setCountryOptions] = useState<LocationCountryOption[]>([]);
+  const [stateOptions, setStateOptions] = useState<LocationStateOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<LocationCityOption[]>([]);
+  const [selectedCountryCode, setSelectedCountryCode] = useState("");
+  const [selectedStateCode, setSelectedStateCode] = useState("");
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   const token = getStoredToken();
   const emailFromToken = getEmailFromToken(token);
@@ -99,6 +120,109 @@ export function AccountManagementPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadCountries = async () => {
+      setCountriesLoading(true);
+      setLocationError("");
+
+      try {
+        const countries = await getCountryOptions();
+        if (!cancelled) {
+          setCountryOptions(countries);
+        }
+      } catch {
+        if (!cancelled) {
+          setLocationError("Unable to load countries right now. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCountriesLoading(false);
+        }
+      }
+    };
+
+    void loadCountries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loadStatesForCountry = async (countryCode: string) => {
+    if (!countryCode) {
+      setStateOptions([]);
+      setCityOptions([]);
+      return [] as LocationStateOption[];
+    }
+
+    setStatesLoading(true);
+    setLocationError("");
+    try {
+      const nextStates = await getStateOptions(countryCode);
+      setStateOptions(nextStates);
+      return nextStates;
+    } catch {
+      setStateOptions([]);
+      setLocationError("Unable to load states for the selected country.");
+      return [] as LocationStateOption[];
+    } finally {
+      setStatesLoading(false);
+    }
+  };
+
+  const loadCitiesForState = async (countryCode: string, stateCode: string) => {
+    if (!countryCode || !stateCode) {
+      setCityOptions([]);
+      return [] as LocationCityOption[];
+    }
+
+    setCitiesLoading(true);
+    setLocationError("");
+    try {
+      const nextCities = await getCityOptions(countryCode, stateCode);
+      setCityOptions(nextCities);
+      return nextCities;
+    } catch {
+      setCityOptions([]);
+      setLocationError("Unable to load cities for the selected state.");
+      return [] as LocationCityOption[];
+    } finally {
+      setCitiesLoading(false);
+    }
+  };
+
+  const syncLocationSelections = async (nextProfile: CustomerProfile) => {
+    const matchedCountry = await findCountryByName(nextProfile.country);
+    if (!matchedCountry) {
+      setSelectedCountryCode("");
+      setSelectedStateCode("");
+      setStateOptions([]);
+      setCityOptions([]);
+      return;
+    }
+
+    setSelectedCountryCode(matchedCountry.isoCode);
+    const nextStates = await loadStatesForCountry(matchedCountry.isoCode);
+
+    const matchedState = await findStateByName(matchedCountry.isoCode, nextProfile.state);
+    if (!matchedState) {
+      setSelectedStateCode("");
+      setCityOptions([]);
+      return;
+    }
+
+    if (!nextStates.some((state) => state.isoCode === matchedState.isoCode)) {
+      setSelectedStateCode("");
+      setCityOptions([]);
+      return;
+    }
+
+    setSelectedStateCode(matchedState.isoCode);
+    await loadCitiesForState(matchedCountry.isoCode, matchedState.isoCode);
+  };
+
+  useEffect(() => {
     if (!token || !userIdFromToken) {
       navigate("/login");
       return;
@@ -115,6 +239,11 @@ export function AccountManagementPage() {
         const loadedProfile = response.data;
         // Backend returns userId as primary key for customers; keep customerId fallback for compatibility.
         setProfile({
+          ...loadedProfile,
+          userId: loadedProfile.userId ?? loadedProfile.customerId ?? Number(userIdFromToken),
+          customerId: loadedProfile.customerId ?? loadedProfile.userId ?? Number(userIdFromToken),
+        });
+        void syncLocationSelections({
           ...loadedProfile,
           userId: loadedProfile.userId ?? loadedProfile.customerId ?? Number(userIdFromToken),
           customerId: loadedProfile.customerId ?? loadedProfile.userId ?? Number(userIdFromToken),
@@ -193,6 +322,16 @@ export function AccountManagementPage() {
           return "Phone number is required";
         case "dateOfBirth":
           return "Date of birth is required";
+        case "addressLine1":
+          return "Address line 1 is required";
+        case "city":
+          return "City is required";
+        case "state":
+          return "State is required";
+        case "postalCode":
+          return "Postal code is required";
+        case "country":
+          return "Country is required";
         default:
           return "";
       }
@@ -223,6 +362,10 @@ export function AccountManagementPage() {
       }
     }
 
+    if (name === "postalCode" && value.trim().length > 20) {
+      return "Postal code cannot exceed 20 characters";
+    }
+
     return "";
   };
 
@@ -231,6 +374,82 @@ export function AccountManagementPage() {
     setCredentials((prev) => ({ ...prev, [name]: value }));
     setSuccess("");
     setCredentialsSuccess("");
+  };
+
+  const handleCountryChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const nextCountryName = event.target.value;
+
+    setSelectedCountryCode("");
+    setSelectedStateCode("");
+    setStateOptions([]);
+    setCityOptions([]);
+    setProfile((prev) => ({
+      ...prev,
+      country: nextCountryName,
+      state: "",
+      city: "",
+    }));
+    setSuccess("");
+    setCredentialsSuccess("");
+    setValidationErrors((prev) => ({
+      ...prev,
+      country: validateField("country", nextCountryName),
+      state: "",
+      city: "",
+    }));
+
+    const matchedCountry = await findCountryByName(nextCountryName);
+    if (!matchedCountry) {
+      return;
+    }
+
+    setSelectedCountryCode(matchedCountry.isoCode);
+    await loadStatesForCountry(matchedCountry.isoCode);
+  };
+
+  const handleStateChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const nextStateName = event.target.value;
+
+    setSelectedStateCode("");
+    setCityOptions([]);
+    setProfile((prev) => ({
+      ...prev,
+      state: nextStateName,
+      city: "",
+    }));
+    setSuccess("");
+    setCredentialsSuccess("");
+    setValidationErrors((prev) => ({
+      ...prev,
+      state: validateField("state", nextStateName),
+      city: "",
+    }));
+
+    if (!selectedCountryCode) {
+      return;
+    }
+
+    const matchedState = await findStateByName(selectedCountryCode, nextStateName);
+    if (!matchedState) {
+      return;
+    }
+
+    setSelectedStateCode(matchedState.isoCode);
+    await loadCitiesForState(selectedCountryCode, matchedState.isoCode);
+  };
+
+  const handleCityChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextCityName = event.target.value;
+    setProfile((prev) => ({
+      ...prev,
+      city: nextCityName,
+    }));
+    setSuccess("");
+    setCredentialsSuccess("");
+    setValidationErrors((prev) => ({
+      ...prev,
+      city: validateField("city", nextCityName),
+    }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -248,7 +467,7 @@ export function AccountManagementPage() {
     }
 
     // Validate critical fields on submit
-    const fieldsToValidate = ["firstName", "lastName", "phoneNumber", "dateOfBirth"];
+    const fieldsToValidate = ["firstName", "lastName", "phoneNumber", "dateOfBirth", "addressLine1", "city", "state", "postalCode", "country"];
     const newErrors: Record<string, string> = {};
     for (const field of fieldsToValidate) {
       const value = profile[field as keyof CustomerProfile] || "";
@@ -262,6 +481,26 @@ export function AccountManagementPage() {
       setValidationErrors(newErrors);
       setError("We found issues in your input. Please correct them to proceed.");
       return;
+    }
+
+    if (!selectedCountryCode) {
+      newErrors.country = "Please choose a valid country from the list.";
+    }
+
+    if (profile.state && !selectedStateCode) {
+      newErrors.state = "Please choose a valid state from the selected country.";
+    }
+
+    if (selectedCountryCode && selectedStateCode && cityOptions.length > 0) {
+      const selectedCity = await findCityByName(selectedCountryCode, selectedStateCode, profile.city);
+      if (!selectedCity) {
+        setValidationErrors((prev) => ({
+          ...prev,
+          city: "Please choose a city from the selected state.",
+        }));
+        setError("We found issues in your input. Please correct them to proceed.");
+        return;
+      }
     }
 
     const profileId = profile.userId || profile.customerId || Number(userIdFromToken || 0);
@@ -384,6 +623,7 @@ export function AccountManagementPage() {
 
               {loading && <p className="am-message">Loading profile...</p>}
               {error && <p className="am-message am-error">{error}</p>}
+              {locationError && <p className="am-message am-error">{locationError}</p>}
 
                <div className="am-row">
                  <div className="am-group">
@@ -403,10 +643,6 @@ export function AccountManagementPage() {
                    <label htmlFor="phone-number">Phone Number</label>
                    <input id="phone-number" name="phoneNumber" type="tel" value={profile.phoneNumber} onChange={handleChange} required disabled={loading || saving} />
                    {validationErrors.phoneNumber && <span className="am-validation-error">{validationErrors.phoneNumber}</span>}
-                 </div>
-                 <div className="am-group">
-                   <label htmlFor="country">Country</label>
-                   <input id="country" name="country" type="text" value={profile.country} onChange={handleChange} required disabled={loading || saving} />
                  </div>
                </div>
 
@@ -434,19 +670,63 @@ export function AccountManagementPage() {
 
               <div className="am-row">
                 <div className="am-group">
-                  <label htmlFor="city">City</label>
-                  <input id="city" name="city" type="text" value={profile.city} onChange={handleChange} required disabled={loading || saving} />
+                  <label htmlFor="country">Country</label>
+                  <SearchableDropdown
+                    id="country"
+                    name="country"
+                    value={profile.country}
+                    options={countryOptions.map((countryOption) => countryOption.name)}
+                    disabled={loading || saving || countriesLoading}
+                    loading={countriesLoading}
+                    placeholder={countriesLoading ? "Loading countries..." : "Type or choose country"}
+                    noOptionsText="No countries found"
+                    onChange={(nextValue) => {
+                      void handleCountryChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
+                    }}
+                  />
+                  {validationErrors.country && <span className="am-validation-error">{validationErrors.country}</span>}
                 </div>
                 <div className="am-group">
                   <label htmlFor="state">State</label>
-                  <input id="state" name="state" type="text" value={profile.state} onChange={handleChange} required disabled={loading || saving} />
+                  <SearchableDropdown
+                    id="state"
+                    name="state"
+                    value={profile.state}
+                    options={stateOptions.map((stateOption) => stateOption.name)}
+                    disabled={loading || saving || !selectedCountryCode || statesLoading}
+                    loading={statesLoading}
+                    placeholder={statesLoading ? "Loading states..." : "Type or choose state"}
+                    noOptionsText="No states found"
+                    onChange={(nextValue) => {
+                      void handleStateChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
+                    }}
+                  />
+                  {validationErrors.state && <span className="am-validation-error">{validationErrors.state}</span>}
                 </div>
               </div>
 
               <div className="am-row">
                 <div className="am-group">
+                  <label htmlFor="city">City</label>
+                  <SearchableDropdown
+                    id="city"
+                    name="city"
+                    value={profile.city}
+                    options={cityOptions.map((cityOption) => cityOption.name)}
+                    disabled={loading || saving || !selectedStateCode || citiesLoading}
+                    loading={citiesLoading}
+                    placeholder={citiesLoading ? "Loading cities..." : "Type or choose city"}
+                    noOptionsText="No cities found"
+                    onChange={(nextValue) => {
+                      handleCityChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
+                    }}
+                  />
+                  {validationErrors.city && <span className="am-validation-error">{validationErrors.city}</span>}
+                </div>
+                <div className="am-group">
                   <label htmlFor="postal-code">Postal Code</label>
-                  <input id="postal-code" name="postalCode" type="text" value={profile.postalCode} onChange={handleChange} required disabled={loading || saving} />
+                  <input id="postal-code" name="postalCode" type="text" value={profile.postalCode} onChange={handleChange} required disabled={loading || saving} maxLength={20} />
+                  {validationErrors.postalCode && <span className="am-validation-error">{validationErrors.postalCode}</span>}
                 </div>
               </div>
 
