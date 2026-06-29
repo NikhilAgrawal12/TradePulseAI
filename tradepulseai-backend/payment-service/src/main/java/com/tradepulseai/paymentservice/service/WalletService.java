@@ -109,13 +109,13 @@ public class WalletService {
         return wallet;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<WalletTransaction> getTransactions(Long userId) {
         Wallet wallet = getOrCreateWallet(userId);
         return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<WalletTransaction> getTransactionsPage(Long userId, int page, int size) {
         Wallet wallet = getOrCreateWallet(userId);
         return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId(), PageRequest.of(page, size));

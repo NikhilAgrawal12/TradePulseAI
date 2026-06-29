@@ -1,297 +1,252 @@
-# Architecture - Real-Time Stock Data Pipeline
+# Architecture
 
-## Overview
+This document describes the current TradePulseAI architecture based on the live codebase.
 
-TradePulseAI's data pipeline fetches stock prices from Polygon.io and delivers them through Kafka to both a PostgreSQL database (for analytics) and a WebSocket stream (for real-time frontend display).
+## 1. High-level topology
 
-## Complete Data Flow
+```text
+React Frontend
+    |
+    v
+API Gateway (4004)
+    |
+    +--> Auth Service (4005)
+    +--> Customer Service (4000)
+    +--> Stock Service (4003)
+    +--> Order Service (4006)
+    +--> Payment Service (4001)
 
-```
-┌─────────────────────────────────────┐
-│       Polygon.io API                │
-│  (Real-time stock prices)           │
-└──────────────┬──────────────────────┘
-               │
-               ↓ Every 12 seconds
-    ┌──────────────────────────────┐
-    │ PolygonStockIngestionScheduler│
-    │  - Fetches latest prices     │
-    │  - Calculates change %       │
-    │  - Creates market event      │
-    └──────────────┬───────────────┘
-                   │
-                   ↓
-    ┌──────────────────────────────┐
-    │ StockMarketKafkaPublisher    │
-    │ Publishes to Kafka           │
-    └──────────────┬───────────────┘
-                   │
-        ┌──────────▼──────────┐
-        │  Kafka Topic        │
-        │  "stocks"           │
-        └─────┬────────┬──────┘
-              │        │
-    ┌─────────▼──┐  ┌──▼──────────┐
-    │ Consumer    │  │ Consumer    │
-    │ Group 1:    │  │ Group 2:    │
-    │ stock-      │  │ stock-      │
-    │ service-db  │  │ service-ws  │
-    └─────┬───────┘  └──┬──────────┘
-          │             │
-    ┌─────▼──────────┐ ┌─▼────────────────┐
-    │ Persistence    │ │ WebSocket Bridge │
-    │ Consumer       │ │ Consumer         │
-    │                │ │                  │
-    │ Saves to DB    │ │ Broadcasts to    │
-    │                │ │ WebSocket        │
-    └─────┬──────────┘ └──┬───────────────┘
-          │               │
-    ┌─────▼──────────┐ ┌──▼──────────────┐
-    │ PostgreSQL     │ │ WebSocket       │
-    │ Database       │ │ /topic/stocks   │
-    │                │ │                 │
-    │  ✅ Persistence│ │  ✅ Real-time   │
-    │  ✅ Analytics  │ │  ✅ Display     │
-    └────────────────┘ └──┬──────────────┘
-                          │
-                    ┌─────▼─────────┐
-                    │  Frontend     │
-                    │  (React)      │
-                    │               │
-                    │  Stock Prices │
-                    │  Display      │
-                    └───────────────┘
+Order Service gRPC calls:
+    -> Payment Service (9002)
+    -> Stock Service (9003)
+    -> Customer Service / Portfolio Sync (9004)
+
+Eventing:
+Customer Service -> Kafka topic `customer` -> Analytics Service
 ```
 
-## Key Components
+## 2. Frontend architecture
 
-### 1. Polygon Ingestion
-**Service**: `PolygonStockIngestionScheduler`
+The frontend is a Vite + React + TypeScript SPA.
 
-Runs every 12 seconds to fetch latest stock prices from Polygon.io API:
-- Fetches previous close prices for each stock
-- Calculates percentage change from current price in database
-- Creates a `StockMarketEvent` with:
-  - Symbol
-  - Price
-  - Change Percent
-  - Volume
-  - Market Timestamp
-  - Source ("polygon")
+### Main route map
 
-### 2. Kafka Publishing
-**Service**: `StockMarketKafkaPublisher`
+- `/` — home / featured stocks
+- `/login` — login and forgot password flows
+- `/registration` — signup and customer registration
+- `/about`
+- `/analytics`
+- `/portfolio`
+- `/watchlist`
+- `/checkout`
+- `/payment`
+- `/orders`
+- `/account-management`
+- `/wallet`
+- `/stocks/:stockId/insights`
 
-Serializes the stock market event and publishes to the `stocks` Kafka topic:
-- Uses the symbol as the partition key for consistency
-- Messages are byte arrays of serialized StockMarketEvent objects
-- All messages go to a single topic
+### App-level state providers
 
-### 3. Database Persistence (Parallel Path 1)
-**Service**: `StockMarketKafkaPersistenceConsumer`
-**Consumer Group**: `stock-service-db`
+Mounted in `tradepulseai-frontend/src/main.tsx`:
 
-Listens to the Kafka topic and persists all data to PostgreSQL:
-- Reads serialized events from Kafka
-- Finds or creates the stock record
-- Updates price, change percent, volume, timestamp, and source
-- Saves to PostgreSQL `stocks` table
+- `CartProvider`
+- `OrdersProvider`
+- `WatchlistProvider`
+- `WalletProvider`
+- `MarketStatusProvider`
 
-**Why?** All stock data is persisted for:
-- Historical analysis
-- Trend tracking
-- Data recovery
-- Audit trail
+### Frontend runtime patterns
 
-### 4. WebSocket Broadcasting (Parallel Path 2)
-**Service**: `StockMarketKafkaWebSocketBridge`
-**Consumer Group**: `stock-service-ws`
+- protected requests send `Authorization: Bearer <jwt>`
+- frontend calls gateway-relative paths (`/api/...`, `/auth/...`)
+- axios startup configuration handles timeout defaults and `401`-driven sign-out
+- auth change propagation is same-tab and cross-tab
+- market status is shared globally and cached in memory + localStorage
+- featured stocks are streamed with SSE and cached in localStorage
 
-Listens to the Kafka topic and broadcasts to connected WebSocket clients:
-- Reads serialized events from Kafka
-- Deserializes to StockMarketEvent
-- Broadcasts to `/topic/stocks` WebSocket endpoint
-- All connected frontend clients receive updates in real-time
+## 3. Backend service ownership
 
-**Why?** Frontend clients need live price updates without polling.
+### API Gateway
 
-### 5. Frontend Reception
-**Component**: `connectStockLiveFeed()` in `stockLiveSocket.ts`
+Responsibilities:
 
-Establishes WebSocket connection to receive live updates:
-- Connects via STOMP protocol over WebSocket
-- Subscribes to `/topic/stocks` topic
-- Receives price updates from StockMarketKafkaWebSocketBridge
-- Updates React state to trigger UI re-render
+- edge entry point for frontend traffic
+- route dispatching to backend services
+- JWT validation by calling `auth-service`
+- authoritative user identity propagation through `X-User-Id`
 
-## Parallel Processing with Kafka Consumer Groups
+Important rule:
 
-Both consumers process the **same** Kafka messages independently:
+- the gateway strips client-supplied `X-User-Id` and replaces it with the validated user id from `auth-service`
 
-```
-One Kafka Message (AAPL price update)
-    ↓
-    ├─→ Received by Consumer Group "stock-service-db"
-    │   └─→ PersistenceConsumer saves to PostgreSQL
-    │       (Database updated)
-    │
-    └─→ Received by Consumer Group "stock-service-ws"
-        └─→ WebSocketBridgeConsumer broadcasts to frontend
-            (Frontend updated)
+### Auth Service
 
-Result: Both happen simultaneously!
-Consumer Groups are independent - if one fails, the other continues.
-```
+Responsibilities:
 
-## Data Types
+- user registration
+- login and JWT issuance
+- token validation
+- account credential reads and updates
+- forgot-password code and reset flow
 
-### StockMarketEvent (Kafka Message)
-```java
-public record StockMarketEvent(
-    String symbol,           // "AAPL"
-    BigDecimal price,        // 180.25
-    BigDecimal changePercent, // 2.45
-    long volume,            // 50000000
-    Instant marketTimestamp, // 2026-05-05T14:30:00Z
-    String source           // "polygon" or "test-endpoint"
-) {}
-```
+### Customer Service
 
-### Stock (Database Model)
-```java
-@Entity
-@Table(name = "stocks")
-public class Stock {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long stockId;
-    
-    @Column(unique = true)
-    private String symbol;
-    
-    private String name;
-    private String exchange;
-    private String market;
-    private String locale;
-    private Boolean active;
-    private BigDecimal price;        // Updated by consumers
-    private BigDecimal changePercent; // Updated by consumers
-    private Long volume;             // Updated by consumers
-    private Instant lastUpdated;     // Updated by consumers
-    private String source;           // "polygon", "mock-data", etc
-}
-```
+Responsibilities:
 
-## Data Flow Timing
+- customer profile CRUD
+- watchlist management
+- portfolio holdings and transaction history
+- portfolio sell flow
+- registration saga coordination with auth-service
+- customer Kafka event publishing
 
-```
-T+0ms:    Polygon API publishes AAPL price
-          
-T+10ms:   PolygonStockIngestionScheduler receives
+### Stock Service
 
-T+50ms:   StockMarketKafkaPublisher sends to Kafka
+Responsibilities:
 
-T+55ms:   Both consumer groups receive from Kafka
-          ├─ PersistenceConsumer saves to DB
-          └─ WebSocketBridge broadcasts to frontend
+- stock catalog and featured stocks
+- stock search
+- live featured-stock SSE stream
+- market status REST + SSE endpoints
+- market session caching
+- stock insights / metrics over historical OHLC data
+- fresh quote gRPC service for order-service
 
-T+60ms:   Frontend receives WebSocket message
+### Order Service
 
-T+65ms:   React state updates
+Responsibilities:
 
-T+70ms:   UI re-renders with new price
+- cart management
+- quote locking before payment
+- order completion orchestration
+- order history
+- payment invocation
+- portfolio sync invocation
 
-Total: ~70ms from API to user display
-```
+### Payment Service
 
-## Configuration
+Responsibilities:
 
-### Backend (application.properties)
+- wallet creation and balance management
+- deposits and withdrawals
+- purchase deduction for completed orders
+- wallet transaction history
+- payment records
+- payment gRPC service
 
-```properties
-# Polygon API
-polygon.api.base-url=https://api.polygon.io
-polygon.api.key=${POLYGON_API_KEY:}
-polygon.fetch.enabled=${POLYGON_FETCH_ENABLED:false}
-polygon.fetch.fixed-delay-ms=${POLYGON_FETCH_DELAY_MS:12000}
+### Analytics Service
 
-# Kafka
-spring.kafka.bootstrap-servers=localhost:9092
-stock.kafka.topic=stocks
-stock.kafka.consumer.persistence.group-id=stock-service-db
-stock.kafka.consumer.websocket.group-id=stock-service-ws
+Responsibilities today:
 
-# Database
-spring.datasource.url=jdbc:postgresql://localhost:5432/tradepulse_stock
-spring.jpa.hibernate.ddl-auto=update
-```
+- consumes protobuf customer events from Kafka
+- logs received events
 
-### Frontend
+It currently acts as the starting point of analytics/event processing.
 
-WebSocket URL is auto-detected from the current location:
-```typescript
-const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-const url = `${protocol}://${window.location.host}/ws/stocks`;
-```
+## 4. Key request flows
 
-## Features
+### A. Registration flow
 
-- ✅ **Real-time Updates**: WebSocket broadcasts with ~70ms latency
-- ✅ **Data Persistence**: All prices stored in PostgreSQL
-- ✅ **Parallel Processing**: Database and WebSocket consumers work independently
-- ✅ **Data Recovery**: Can restore from PostgreSQL on restart
-- ✅ **Scalability**: Easy to add new consumers for alerts, analytics, etc.
-- ✅ **Reliability**: Kafka ensures no messages are lost
-- ✅ **Development Support**: Mock data seeder works without API key
+1. Frontend posts to `/api/customers/register`
+2. Gateway routes to customer service without JWT requirement
+3. Customer service calls auth-service to create auth user
+4. Customer service stores customer profile
+5. Customer service publishes a customer event to Kafka
+6. Analytics service consumes the event
 
-## Testing
+### B. Login flow
 
-### Manual Test
-```bash
-# Publish test event
-curl -X POST http://localhost:4003/test/kafka/publish-stock-event \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "AAPL",
-    "price": 200,
-    "changePercent": 10,
-    "volume": 5000000
-  }'
-```
+1. Frontend posts to `/auth/login`
+2. Auth service verifies credentials
+3. Auth service returns JWT
+4. Frontend stores token in localStorage or sessionStorage
+5. Subsequent protected calls include bearer token
 
-Expected results:
-- Backend logs show publishing to Kafka
-- Database is updated with new price
-- Frontend WebSocket receives update
-- Stock card on frontend updates instantly
+### C. Protected API call flow
 
-### Verify Consumer Groups
-```bash
-docker exec -it tradepulse_kafka kafka-consumer-groups.sh \
-  --bootstrap-server localhost:9092 \
-  --list
+1. Frontend sends bearer token
+2. Gateway calls `/validate` on auth-service
+3. Auth service validates token and returns authenticated user id
+4. Gateway injects trusted `X-User-Id`
+5. Downstream services use that header for ownership-scoped operations
 
-# Should show:
-# stock-service-db
-# stock-service-ws
-```
+### D. Home page stock flow
 
-Check if messages are being processed (LAG should be 0):
-```bash
-docker exec -it tradepulse_kafka kafka-consumer-groups.sh \
-  --bootstrap-server localhost:9092 \
-  --group stock-service-db \
-  --describe
-```
+1. Frontend reads cached featured stocks if present
+2. Frontend connects to `/api/stocks/stream/featured`
+3. Stock service pushes stock updates via SSE
+4. Frontend keeps cache updated for fast reloads
 
-## Production Considerations
+### E. Market status flow
 
-- Use managed Kafka service (AWS MSK, Confluent Cloud)
-- Use external PostgreSQL database
-- Enable SSL/TLS for security
-- Monitor Kafka consumer lag to ensure messages are processed
-- Set up database backups
-- Configure alerts for consumer lag
-- Use separate Kafka clusters for reliability
-- Deploy multiple instances of both consumers for redundancy
+1. Frontend `MarketStatusProvider` reads in-memory/local cache if fresh
+2. Frontend fetches `/api/stocks/market-status`
+3. Frontend subscribes to `/api/stocks/stream/market-status`
+4. Stock service broadcasts backend-cached market-session state
+5. Frontend preserves current fresh values against transient fallback responses
+
+### F. Checkout and order completion flow
+
+1. Frontend locks quote through order-service
+2. Order-service resolves fresh quote data via stock-service gRPC
+3. Order-service persists the order
+4. Order-service triggers payment-service gRPC payment completion
+5. Order-service triggers customer-service gRPC portfolio sync
+6. Cart is cleared after successful completion
+
+## 5. Runtime integration styles
+
+### REST through gateway
+
+Used for all frontend-facing operations.
+
+### gRPC for internal synchronous orchestration
+
+Used for:
+
+- order payment completion
+- fresh stock quote lookup
+- completed-order portfolio synchronization
+
+### Kafka for asynchronous events
+
+Used for customer events from customer service to analytics service.
+
+### SSE for live UI data
+
+Used for:
+
+- featured stocks stream
+- market status stream
+
+## 6. Persistence model
+
+Each major service owns its own PostgreSQL database container in local Docker.
+
+- auth-service-db
+- cust-service-db
+- order-service-db
+- payment-service-db
+- stock-service-db
+
+This is a service-owned data model, not a shared-schema monolith.
+
+## 7. Current strengths
+
+- clear service ownership boundaries
+- frontend uses one gateway entry point
+- stock live-data concerns are isolated from order logic
+- order-service is the checkout orchestration boundary
+- service-specific databases reduce direct coupling
+- SSE is used where user-visible freshness matters
+- app-level market status and stock caches reduce avoidable loading states
+
+## 8. Planned next architecture upgrades
+
+- centralized metrics, tracing, and dashboards
+- edge rate limiting and abuse controls
+- refresh-token or shorter access-token strategy
+- stronger automated integration testing between services
+- analytics-service expansion beyond event logging
+- production-grade secrets management outside `.env`
 

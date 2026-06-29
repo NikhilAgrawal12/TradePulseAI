@@ -10,6 +10,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 @Component
 public class JwtValidationGatewayFilterFactory extends AbstractGatewayFilterFactory<Object> {
+    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String AUTHENTICATED_USER_ID_HEADER = "X-Authenticated-User-Id";
+
     private final WebClient webClient;
 
     public JwtValidationGatewayFilterFactory(WebClient.Builder webClientBuilder, @Value("${auth.service.url}")  String authServiceUrl) {
@@ -29,9 +32,24 @@ public class JwtValidationGatewayFilterFactory extends AbstractGatewayFilterFact
             return webClient.get()
                     .uri("/validate")
                     .header(HttpHeaders.AUTHORIZATION,token)
-                    .retrieve()  // Exception handling
+                    .retrieve()
                     .toBodilessEntity()
-                    .then(chain.filter(exchange));
+                    .flatMap(response -> {
+                        String authenticatedUserId = response.getHeaders().getFirst(AUTHENTICATED_USER_ID_HEADER);
+                        if (authenticatedUserId == null || authenticatedUserId.isBlank()) {
+                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                            return exchange.getResponse().setComplete();
+                        }
+
+                        var mutatedRequest = exchange.getRequest().mutate()
+                                .headers(headers -> {
+                                    headers.remove(USER_ID_HEADER);
+                                    headers.set(USER_ID_HEADER, authenticatedUserId);
+                                })
+                                .build();
+
+                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+                    });
         };
     }
 }

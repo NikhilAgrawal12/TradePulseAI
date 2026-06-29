@@ -34,6 +34,7 @@ import java.util.Optional;
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+    private static final String AUTHENTICATED_USER_ID_HEADER = "X-Authenticated-User-Id";
 
     private final AuthService authService;
     private final ForgotPasswordService forgotPasswordService;
@@ -67,9 +68,15 @@ public class AuthController {
         if(authHeader==null || !authHeader.startsWith("Bearer ")){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return authService.validateToken(authHeader.substring(7))
-                ? ResponseEntity.ok().build()
-                : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        try {
+            Long userId = authService.extractUserId(authHeader.substring(7));
+            return ResponseEntity.ok()
+                    .header(AUTHENTICATED_USER_ID_HEADER, String.valueOf(userId))
+                    .build();
+        } catch (JwtException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     @Operation(summary="Register a new user")

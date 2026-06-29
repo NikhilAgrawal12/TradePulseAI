@@ -47,15 +47,11 @@ public class WalletController {
 
     @PostMapping("/withdraw")
     @Operation(summary = "Withdraw money from wallet")
-    public ResponseEntity<?> withdraw(
+    public ResponseEntity<WalletResponseDTO> withdraw(
             @RequestHeader("X-User-Id") Long userId,
             @RequestBody WalletAmountRequest request) {
-        try {
-            Wallet wallet = walletService.withdraw(userId, request.getAmount());
-            return ResponseEntity.ok(toDTO(wallet));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
-        }
+        Wallet wallet = walletService.withdraw(userId, request.getAmount());
+        return ResponseEntity.ok(toDTO(wallet));
     }
 
     @GetMapping("/transactions")
@@ -107,7 +103,5 @@ public class WalletController {
     private Instant toUtcInstant(LocalDateTime value) {
         return value == null ? null : value.toInstant(ZoneOffset.UTC);
     }
-
-    public record ErrorResponse(String message) {}
 }
 

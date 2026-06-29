@@ -1,199 +1,166 @@
-# Quick Start Guide - TradePulseAI Real-Time Stock Data
+# Quick Start
 
-## Prerequisites
+This guide is for running TradePulseAI locally on Windows with Docker Desktop, Node.js, and Java.
 
-- Docker & Docker Compose
+## 1. Prerequisites
+
+### Required
+
+- Docker Desktop with Compose support
+- Node.js 20+
+- npm 10+
 - Java 21
-- Node.js 18+
-- Maven
+- Maven wrapper support via the included `mvnw.cmd`
 
-## Step 1: Start Infrastructure
+### Recommended
 
-Start PostgreSQL in the background:
+- IntelliJ IDEA for backend services
+- a PostgreSQL viewer such as DBeaver
+- Postman or Bruno for API checks
 
-```bash
-# From project root directory
-docker-compose up -d
+## 2. Repository layout
 
-# Verify services are running
-docker-compose ps
+- frontend: `tradepulseai-frontend/`
+- backend: `tradepulseai-backend/`
+- backend compose stack: `tradepulseai-backend/docker-compose.persistent.yml`
+- backend helper scripts: `tradepulseai-backend/scripts/`
 
-# Check logs
-docker-compose logs -f postgres-stock
+## 3. Backend environment variables
+
+Create `tradepulseai-backend/.env` before starting the backend stack.
+
+Minimum variables used by the compose file:
+
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DB`
+- `JWT_SECRET`
+- `MASSIVE_API_KEY`
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
+- `MAIL_FROM`
+- `MAIL_SMTP_AUTH`
+- `MAIL_SMTP_STARTTLS_ENABLE`
+- `MAIL_SMTP_STARTTLS_REQUIRED`
+- `MAIL_SMTP_CONNECTION_TIMEOUT`
+- `MAIL_SMTP_TIMEOUT`
+- `MAIL_SMTP_WRITE_TIMEOUT`
+
+## 4. Start the backend stack
+
+From the repository root, the normal local path is the PowerShell helper:
+
+```powershell
+Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+.\up-persistent.ps1
 ```
 
-**You should see:**
-- PostgreSQL running on port 5432
+Useful alternatives:
 
-## Step 2: Start Backend Service
-
-```bash
-cd tradepulseai-backend/stock-service
-mvn spring-boot:run
+```powershell
+Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+.\start-persistent.ps1
+.\stop-persistent.ps1
 ```
 
-**You should see:**
+Direct compose command:
+
+```powershell
+Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend"
+docker compose --env-file .env -p tradepulse-persistent -f docker-compose.persistent.yml up -d --build
 ```
-Started StockServiceApplication in X.XXX seconds
-```
 
-The backend will:
-- Create/update the database schema
-- Start the WebSocket server on /ws/stocks
-- Fetch stock data directly from Massive API and persist it into the database
+## 5. Start the frontend
 
-## Step 3: Start Frontend
-
-In a new terminal:
-
-```bash
-cd tradepulseai-frontend
+```powershell
+Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-frontend"
 npm install
 npm run dev
 ```
 
-**You should see:**
-```
-VITE v5.x.x ready in ... ms
+The Vite dev server proxies `/api` and `/auth` requests to `http://127.0.0.1:4004`.
 
-➜  Local:   http://localhost:5173/
-```
+## 6. Production-style frontend build
 
-## Step 4: Verify Everything Works
-
-### Check Backend API
-```bash
-curl http://localhost:4003/api/stocks
+```powershell
+Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-frontend"
+npm run build
 ```
 
-You'll see stock data with prices.
+## 7. Default ports
 
-### Check Frontend
-1. Open http://localhost:5173
-2. You should see 15 stock cards on the home page
-3. Open browser DevTools (F12) → Console
-4. Look for logs like:
-   ```
-   [useStocks] Using cached stocks: 15
-   [WebSocket] Connected to stock feed
-   ```
+- `4004` — API Gateway
+- `4005` — Auth Service
+- `4000` — Customer Service
+- `4001` — Payment Service
+- `4003` — Stock Service
+- `4006` — Order Service
+- `4002` — Analytics Service
+- `5000` to `5004` — PostgreSQL containers
+- `9002` — Payment gRPC
+- `9003` — Stock gRPC
+- `9004` — Portfolio sync gRPC
+- `9092` / `9094` — Kafka internal / external
 
-### Trigger Daily Refresh Manually (Optional)
+## 8. First-run verification checklist
 
-```bash
-curl -X POST http://localhost:4003/test/refresh/daily
+After the stack starts:
+
+1. Open the frontend home page
+2. Confirm featured stocks load
+3. Confirm market status appears without route-level flicker
+4. Register a test user
+5. Log in and verify protected features unlock
+6. Open wallet and deposit funds
+7. Add stocks to cart
+8. Lock quote / pay / verify order history
+9. Verify portfolio holdings update
+
+## 9. Useful health checks
+
+### Gateway routing
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4004/api/stocks/featured | Select-Object -ExpandProperty StatusCode
 ```
 
-This pulls latest data directly from Massive API, stores it in PostgreSQL, and pushes updates to WebSocket clients.
+### Market status
 
-## Step 5: Verify Data Persistence
-
-Test that data survives a database restart:
-
-1. Note a stock price (e.g., AAPL = $180.25)
-2. Restart the database:
-   ```bash
-   docker-compose restart postgres-stock
-   ```
-3. Refresh the frontend (F5)
-4. The price should still be there - data persisted!
-
-## ⚠️ Important: Preserving Data When Stopping Containers
-
-All services now use **Docker Named Volumes** to persist data:
-- **PostgreSQL** → `postgres_stock_data`
-
-### ✅ Correct Way to Stop & Restart (Data Preserved)
-```bash
-# Stop containers but keep volumes
-docker-compose stop
-
-# Start containers again - data is preserved!
-docker-compose start
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4004/api/stocks/market-status | Select-Object -ExpandProperty Content
 ```
 
-### ❌ Wrong Way (Data Lost)
-```bash
-# This REMOVES containers AND volumes - data is lost!
-docker-compose down
+### Featured cache readiness
 
-# If you accidentally did this, use the -v flag to avoid volume deletion:
-docker-compose down    # Don't use this unless you want to delete data
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4004/api/stocks/featured/health | Select-Object -ExpandProperty Content
 ```
 
-### Clean Up Everything (Delete Data)
-Only use this when you want to start fresh:
-```bash
-docker-compose down -v
-```
+## 10. Common startup problems
 
-## Common Commands
+### Frontend works but APIs fail
 
-Check backend health:
-```bash
-curl http://localhost:4003/actuator/health
-```
+Check that the gateway container is healthy and exposed on `4004`.
 
-View database:
-```bash
-docker exec -it tradepulse_postgres_stock psql -U postgres -d tradepulse_stock \
-  -c "SELECT symbol, price FROM stocks LIMIT 5;"
-```
+### Backend build fails from terminal with Java errors
 
-View backend logs:
-```bash
-docker-compose logs -f stock-service
-```
+Confirm `JAVA_HOME` points to a Java 21 installation.
 
-### Volume Management Commands
-View all volumes:
-```bash
-docker volume ls | grep tradepulse
-```
+### No market data appears
 
-Inspect a volume to see its location:
-```bash
-docker volume inspect tradepulse_postgres_stock_data
-```
+Check `MASSIVE_API_KEY` and stock-service logs.
 
-Check volume disk usage:
-```bash
-docker system df -v
-```
+### Registration email flow fails
 
-## Troubleshooting
+Check mail environment variables and auth-service logs.
 
-**No stocks showing?**
-- Check backend is running: `curl http://localhost:4003/api/stocks`
-- Check database has data: `docker-compose ps`
+## 11. Suggested local workflow
 
-**No frontend updates?**
-- Check WebSocket connection in browser console (F12) 
-- Look for: `[WebSocket] Connected to stock feed`
-- Trigger refresh endpoint: `curl -X POST http://localhost:4003/test/refresh/daily`
-
-**Data lost after DB restart?**
-- This shouldn't happen with PostgreSQL persistence
-- Check database connection in logs
-- Verify PostgreSQL container is running
-
-**WebSocket showing outdated prices?**
-- Check latest market rows directly: `docker exec -it tradepulse_postgres_stock psql -U postgres -d tradepulse_stock -c "SELECT s.symbol, smd.close_price, smd.market_timestamp FROM stock_market_data smd JOIN stocks s ON s.stock_id = smd.stock_id ORDER BY smd.market_timestamp DESC LIMIT 5;"`
-
-## Architecture: Daily Direct Ingestion
-
-### Data Flow
-```
-Massive API → Stock Service (daily scheduler) → PostgreSQL → WebSocket → Frontend
-```
-
-## Enable Live Polygon.io Data
-
-Set environment variables:
-```bash
-export POLYGON_API_KEY=your_api_key
-export POLYGON_FETCH_ENABLED=true
-```
-
-Then restart backend. Stock prices will be fetched by the daily scheduler.
+1. Start backend stack
+2. Run frontend in Vite dev mode
+3. Use browser devtools and service logs together
+4. Rebuild only the affected services when changing backend logic
+5. Run `npm run build` after frontend changes
 

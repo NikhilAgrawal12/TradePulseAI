@@ -124,10 +124,18 @@ export function subscribeToAuthChanges(listener: () => void): () => void {
     listener();
   };
 
+  const storageListener = (event: StorageEvent) => {
+    if (event.key === "authToken") {
+      listener();
+    }
+  };
+
   window.addEventListener(AUTH_CHANGED_EVENT, wrappedListener);
+  window.addEventListener("storage", storageListener);
 
   return () => {
     window.removeEventListener(AUTH_CHANGED_EVENT, wrappedListener);
+    window.removeEventListener("storage", storageListener);
   };
 }
 

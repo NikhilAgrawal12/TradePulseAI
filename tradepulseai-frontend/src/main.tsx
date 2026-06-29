@@ -6,8 +6,11 @@ import { OrdersProvider } from './context/OrdersContext'
 import { WatchlistProvider } from './context/WatchlistContext'
 import { WalletProvider } from './context/WalletContext'
 import { MarketStatusProvider } from './context/MarketStatusContext'
+import { configureHttpClient } from './utils/httpClient'
 import './index.css'
 import App from './App.tsx'
+
+configureHttpClient()
 
 
 createRoot(document.getElementById('root')!).render(
