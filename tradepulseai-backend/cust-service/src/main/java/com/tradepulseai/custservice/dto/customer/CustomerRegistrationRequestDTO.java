@@ -2,6 +2,7 @@ package com.tradepulseai.custservice.dto.customer;
 
 import com.tradepulseai.custservice.dto.validators.ValidDateOfBirth;
 import com.tradepulseai.custservice.dto.validators.ValidName;
+import com.tradepulseai.custservice.dto.validators.ValidPostalCode;
 import com.tradepulseai.custservice.dto.validators.ValidPhoneNumber;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -49,6 +50,7 @@ public class CustomerRegistrationRequestDTO {
 
     @NotBlank(message = "Postal code is required")
     @Size(max = 20, message = "Postal code cannot exceed 20 characters")
+    @ValidPostalCode(message = "Postal code must be 3-20 characters, include at least one digit, and use only letters, numbers, spaces, or hyphens")
     private String postalCode;
 
     @NotBlank(message = "Country is required")

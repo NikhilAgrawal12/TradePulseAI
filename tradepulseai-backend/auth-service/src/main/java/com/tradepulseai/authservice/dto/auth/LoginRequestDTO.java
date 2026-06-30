@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 public class LoginRequestDTO {
     @NotBlank(message="Email is required")
     @Email(message="Email should be a valid email address")
+    @Size(max = 255, message = "Email cannot exceed 255 characters")
     private String email;
 
     @NotBlank(message="Password is required")

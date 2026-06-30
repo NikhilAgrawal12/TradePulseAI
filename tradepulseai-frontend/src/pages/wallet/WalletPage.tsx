@@ -112,6 +112,9 @@ export function WalletPage() {
       <Header />
       <main className="wallet-page">
         <h1 className="wallet-page-title">My Wallet</h1>
+        <p className="wallet-disclaimer" role="note">
+          Development Mode: Wallet transactions use simulated funds to demonstrate application functionality. No real financial transactions are processed.
+        </p>
 
         {/* Balance Card */}
         <div className="wallet-balance-card">
@@ -215,19 +218,21 @@ export function WalletPage() {
           )}
 
           {!txLoading && txTotalPages > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+            <div className="pagination-controls">
               <button
+                className="pagination-button"
                 type="button"
                 onClick={() => setTxPage((current) => Math.max(current - 1, 0))}
                 disabled={txPage === 0 || txLoading}
               >
                 Previous
               </button>
-              <span>
+              <span className="pagination-label">
                 Page {txPage + 1} of {Math.max(txTotalPages, 1)} ({txTotalElements} transactions)
               </span>
               {txLoading && <span aria-live="polite">Loading page…</span>}
               <button
+                className="pagination-button"
                 type="button"
                 onClick={() => setTxPage((current) => (current + 1 < txTotalPages ? current + 1 : current))}
                 disabled={txPage + 1 >= txTotalPages || txLoading}

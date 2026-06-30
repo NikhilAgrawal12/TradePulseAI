@@ -21,6 +21,7 @@ const VALIDATION_PATTERNS = {
   password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/,
   phoneNumber: /^\+?[0-9\- ]{7,15}$/,
   name: /^[A-Za-z '\-]{1,100}$/,
+  postalCode: /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9\- ]{2,19}$/,
 };
 
 // Validation messages
@@ -28,12 +29,14 @@ const VALIDATION_MESSAGES = {
   password: "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character",
   phoneNumber: "Phone number must be 7-15 digits, optionally starting with +, and can contain spaces or hyphens",
   name: "Name can only contain letters, spaces, hyphens, and apostrophes (1-100 characters)",
+  postalCode: "Postal code must be 3-20 characters, include at least one digit, and use only letters, numbers, spaces, or hyphens",
 };
 
 export function RegistrationPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -163,8 +166,13 @@ export function RegistrationPage() {
       }
     }
 
-    if (name === "postalCode" && value.trim().length > 20) {
-      return "Postal code cannot exceed 20 characters";
+    if (name === "postalCode") {
+      if (value.trim().length > 20) {
+        return "Postal code cannot exceed 20 characters";
+      }
+      if (!VALIDATION_PATTERNS.postalCode.test(value.trim())) {
+        return VALIDATION_MESSAGES.postalCode;
+      }
     }
 
     return "";
@@ -180,10 +188,10 @@ export function RegistrationPage() {
       }));
     }
 
-    const error = validateField(name, value);
+    // Validation is submit-driven; clear stale message while editing this field.
     setValidationErrors((prev) => ({
       ...prev,
-      [name]: error,
+      [name]: "",
     }));
   };
 
@@ -202,7 +210,7 @@ export function RegistrationPage() {
     }));
     setValidationErrors((prev) => ({
       ...prev,
-      country: validateField("country", nextCountryName),
+      country: "",
       state: "",
       city: "",
     }));
@@ -265,7 +273,7 @@ export function RegistrationPage() {
     }));
     setValidationErrors((prev) => ({
       ...prev,
-      state: validateField("state", nextStateName),
+      state: "",
       city: "",
     }));
 
@@ -290,12 +298,13 @@ export function RegistrationPage() {
     }));
     setValidationErrors((prev) => ({
       ...prev,
-      city: validateField("city", nextCityName),
+      city: "",
     }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setHasSubmitted(true);
     setError("");
     setLoading(true);
 
@@ -412,7 +421,7 @@ export function RegistrationPage() {
           {error && <div className="registration-error">{error}</div>}
           {locationError && <div className="registration-error">{locationError}</div>}
 
-          <form className="registration-form" onSubmit={handleSubmit}>
+          <form className="registration-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label htmlFor="first-name">First Name</label>
               <input
@@ -425,7 +434,7 @@ export function RegistrationPage() {
                 onChange={handleFieldChange}
                 pattern="^[A-Za-z '\-]{1,100}$"
               />
-              {validationErrors.firstName && <span className="validation-error">{validationErrors.firstName}</span>}
+              {hasSubmitted && validationErrors.firstName && <span className="validation-error">{validationErrors.firstName}</span>}
             </div>
 
             <div className="form-group">
@@ -440,7 +449,7 @@ export function RegistrationPage() {
                 onChange={handleFieldChange}
                 pattern="^[A-Za-z '\-]{1,100}$"
               />
-              {validationErrors.lastName && <span className="validation-error">{validationErrors.lastName}</span>}
+              {hasSubmitted && validationErrors.lastName && <span className="validation-error">{validationErrors.lastName}</span>}
             </div>
 
             <div className="form-group">
@@ -454,7 +463,7 @@ export function RegistrationPage() {
                 disabled={loading}
                 onChange={handleFieldChange}
               />
-              {validationErrors.email && <span className="validation-error">{validationErrors.email}</span>}
+              {hasSubmitted && validationErrors.email && <span className="validation-error">{validationErrors.email}</span>}
             </div>
 
             <div className="form-group">
@@ -469,7 +478,7 @@ export function RegistrationPage() {
                 disabled={loading}
                 onChange={handleFieldChange}
               />
-              {validationErrors.phoneNumber && <span className="validation-error">{validationErrors.phoneNumber}</span>}
+              {hasSubmitted && validationErrors.phoneNumber && <span className="validation-error">{validationErrors.phoneNumber}</span>}
             </div>
 
             <div className="form-group">
@@ -483,7 +492,7 @@ export function RegistrationPage() {
                 disabled={loading}
                 onChange={handleFieldChange}
               />
-              {validationErrors.dateOfBirth && <span className="validation-error">{validationErrors.dateOfBirth}</span>}
+              {hasSubmitted && validationErrors.dateOfBirth && <span className="validation-error">{validationErrors.dateOfBirth}</span>}
             </div>
 
             <div className="form-group">
@@ -497,7 +506,7 @@ export function RegistrationPage() {
                 disabled={loading}
                 onChange={handleFieldChange}
               />
-              {validationErrors.addressLine1 && <span className="validation-error">{validationErrors.addressLine1}</span>}
+              {hasSubmitted && validationErrors.addressLine1 && <span className="validation-error">{validationErrors.addressLine1}</span>}
             </div>
 
             <div className="form-group">
@@ -526,7 +535,7 @@ export function RegistrationPage() {
                   void handleCountryChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
                 }}
               />
-              {validationErrors.country && <span className="validation-error">{validationErrors.country}</span>}
+              {hasSubmitted && validationErrors.country && <span className="validation-error">{validationErrors.country}</span>}
             </div>
 
             <div className="form-group">
@@ -544,7 +553,7 @@ export function RegistrationPage() {
                   void handleStateChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
                 }}
               />
-              {validationErrors.state && <span className="validation-error">{validationErrors.state}</span>}
+              {hasSubmitted && validationErrors.state && <span className="validation-error">{validationErrors.state}</span>}
             </div>
 
             <div className="form-group">
@@ -562,7 +571,7 @@ export function RegistrationPage() {
                   handleCityChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
                 }}
               />
-              {validationErrors.city && <span className="validation-error">{validationErrors.city}</span>}
+              {hasSubmitted && validationErrors.city && <span className="validation-error">{validationErrors.city}</span>}
             </div>
 
             <div className="form-group">
@@ -577,8 +586,9 @@ export function RegistrationPage() {
                 value={locationValues.postalCode}
                 onChange={handleFieldChange}
                 maxLength={20}
+                pattern="^(?=.*\d)[A-Za-z0-9][A-Za-z0-9\- ]{2,19}$"
               />
-              {validationErrors.postalCode && <span className="validation-error">{validationErrors.postalCode}</span>}
+              {hasSubmitted && validationErrors.postalCode && <span className="validation-error">{validationErrors.postalCode}</span>}
             </div>
 
             <div className="form-group">
@@ -604,7 +614,7 @@ export function RegistrationPage() {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
-              {validationErrors.password && <span className="validation-error">{validationErrors.password}</span>}
+              {hasSubmitted && validationErrors.password && <span className="validation-error">{validationErrors.password}</span>}
             </div>
 
             <div className="form-group">
@@ -630,7 +640,7 @@ export function RegistrationPage() {
                   {showConfirmPassword ? "Hide" : "Show"}
                 </button>
               </div>
-              {validationErrors.confirmPassword && <span className="validation-error">{validationErrors.confirmPassword}</span>}
+              {hasSubmitted && validationErrors.confirmPassword && <span className="validation-error">{validationErrors.confirmPassword}</span>}
             </div>
 
             <button type="submit" className="registration-submit-btn" disabled={loading}>

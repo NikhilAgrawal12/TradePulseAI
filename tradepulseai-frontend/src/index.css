@@ -117,3 +117,32 @@ select:focus,
 input:focus {
     outline: 2px solid var(--green-600);
 }
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.pagination-button {
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--green-700) 0%, var(--green-500) 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(21, 128, 61, 0.22);
+}
+
+.pagination-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.pagination-label {
+    color: var(--text-muted);
+    font-weight: 600;
+}

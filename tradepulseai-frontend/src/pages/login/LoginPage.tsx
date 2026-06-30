@@ -7,20 +7,27 @@ import "./LoginPage.css";
 
 // Validation patterns
 const VALIDATION_PATTERNS = {
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z\d\s]).{8,}$/,
 };
 
 // Validation messages
 const VALIDATION_MESSAGES = {
+  email: "Email must be valid",
   password: "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character",
 };
+
+const FORGOT_CODE_TTL_SECONDS = 80;
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loginValidationErrors, setLoginValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmResetPassword, setShowConfirmResetPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotStep, setForgotStep] = useState<"email" | "code" | "reset">("email");
   const [forgotEmail, setForgotEmail] = useState("");
@@ -35,6 +42,24 @@ export function LoginPage() {
   useEffect(() => {
     document.title = "Login | TradePulseAI";
   }, []);
+
+  const validateLogin = (email: string, password: string): Record<string, string> => {
+    const errors: Record<string, string> = {};
+
+    if (!email.trim()) {
+      errors.email = "Email is required";
+    } else if (!VALIDATION_PATTERNS.email.test(email)) {
+      errors.email = VALIDATION_MESSAGES.email;
+    }
+
+    if (!password.trim()) {
+      errors.password = "Password is required";
+    } else if (password.length < 8) {
+      errors.password = "Password must be at least 8 characters";
+    }
+
+    return errors;
+  };
 
   useEffect(() => {
     if (!showForgotPassword || forgotStep !== "code" || secondsLeft <= 0) {
@@ -59,11 +84,19 @@ export function LoginPage() {
     event.preventDefault();
     setError("");
     setInfoMessage("");
+    setLoginValidationErrors({});
     setLoading(true);
 
     const formData = new FormData(event.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+
+    const validationErrors = validateLogin(email, password);
+    if (Object.keys(validationErrors).length > 0) {
+      setLoginValidationErrors(validationErrors);
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await axios.post("/auth/login", { email, password });
@@ -161,12 +194,11 @@ export function LoginPage() {
     try {
       const response = await axios.post("/auth/forgot-password/request-code", { email });
       const message = response.data?.message as string | undefined;
-      const ttlSeconds = Number(response.data?.expiresInSeconds ?? 120);
       const maxAttempts = Number(response.data?.maxAttempts ?? 3);
 
       setForgotEmail(email);
       setForgotStep("code");
-      setSecondsLeft(Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 120);
+      setSecondsLeft(FORGOT_CODE_TTL_SECONDS);
       setAttemptsRemaining(Number.isFinite(maxAttempts) && maxAttempts > 0 ? maxAttempts : 3);
       setForgotPasswordMessage(message ?? "Verification code sent to your email.");
     } catch (err) {
@@ -183,6 +215,38 @@ export function LoginPage() {
         }
       } else {
         setForgotPasswordError("Unable to reset password right now. Please try again.");
+      }
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!forgotEmail || forgotPasswordLoading || attemptsRemaining <= 0) {
+      return;
+    }
+
+    setForgotPasswordError("");
+    setForgotPasswordMessage("");
+    setInfoMessage("");
+    setForgotPasswordLoading(true);
+
+    setSecondsLeft(FORGOT_CODE_TTL_SECONDS);
+
+    try {
+      const response = await axios.post("/auth/forgot-password/request-code", { email: forgotEmail });
+      const message = response.data?.message as string | undefined;
+      setForgotPasswordMessage(message ?? "A new verification code was sent to your email.");
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const message = err.response?.data?.message;
+        if (typeof message === "string" && message.trim().length > 0) {
+          setForgotPasswordError(message);
+        } else {
+          setForgotPasswordError("Unable to resend code right now. Please try again.");
+        }
+      } else {
+        setForgotPasswordError("Unable to resend code right now. Please try again.");
       }
     } finally {
       setForgotPasswordLoading(false);
@@ -296,9 +360,20 @@ export function LoginPage() {
           {infoMessage && <div className="login-info">{infoMessage}</div>}
 
           {!showForgotPassword && (
-            <form className="login-form" onSubmit={handleSubmit}>
+            <form className="login-form" onSubmit={handleSubmit} noValidate>
               <label htmlFor="email">Email</label>
-              <input id="email" type="email" name="email" autoComplete="username" required disabled={loading} />
+              <input
+                id="email"
+                type="email"
+                name="email"
+                autoComplete="username"
+                required
+                disabled={loading}
+                onChange={() => {
+                  setLoginValidationErrors((prev) => ({ ...prev, email: "" }));
+                }}
+              />
+              {loginValidationErrors.email && <span className="validation-error">{loginValidationErrors.email}</span>}
 
               <label htmlFor="password">Password</label>
               <div className="password-input-row">
@@ -309,6 +384,9 @@ export function LoginPage() {
                   autoComplete="current-password"
                   required
                   disabled={loading}
+                  onChange={() => {
+                    setLoginValidationErrors((prev) => ({ ...prev, password: "" }));
+                  }}
                 />
                 <button
                   type="button"
@@ -320,6 +398,7 @@ export function LoginPage() {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
+              {loginValidationErrors.password && <span className="validation-error">{loginValidationErrors.password}</span>}
 
               <div className="login-actions-row">
                 <button type="button" className="forgot-link" onClick={openForgotFlow} disabled={loading || forgotPasswordLoading}>
@@ -362,6 +441,7 @@ export function LoginPage() {
                   <p className="forgot-code-intro">
                     Enter the 4-digit code sent to <strong>{forgotEmail}</strong>.
                   </p>
+                  <p className="forgot-code-intro">If you can't see the code, please check spam.</p>
                   <div className="forgot-code-meta" role="status" aria-live="polite">
                     <span>Time left: {secondsLeft}s</span>
                     <span>Attempts left: {attemptsRemaining}</span>
@@ -382,6 +462,16 @@ export function LoginPage() {
                     <button type="submit" className="forgot-submit-btn" disabled={forgotPasswordLoading}>
                       {forgotPasswordLoading ? "Verifying..." : "Verify code"}
                     </button>
+                    <button
+                      type="button"
+                      className="forgot-link"
+                      onClick={() => {
+                        void handleResendCode();
+                      }}
+                      disabled={forgotPasswordLoading || attemptsRemaining <= 0}
+                    >
+                      {attemptsRemaining <= 0 ? "No attempts left" : "Send code again"}
+                    </button>
                   </form>
                 </>
               )}
@@ -392,15 +482,26 @@ export function LoginPage() {
                    <form className="forgot-password-form" onSubmit={handleResetPasswordSubmit}>
                      <div className="form-group">
                        <label htmlFor="new-password">New password</label>
-                       <input
-                         id="new-password"
-                         type="password"
-                         name="new-password"
-                         autoComplete="new-password"
-                         minLength={8}
-                         required
-                         disabled={forgotPasswordLoading}
-                       />
+                        <div className="password-input-row">
+                          <input
+                            id="new-password"
+                            type={showNewPassword ? "text" : "password"}
+                            name="new-password"
+                            autoComplete="new-password"
+                            minLength={8}
+                            required
+                            disabled={forgotPasswordLoading}
+                          />
+                          <button
+                            type="button"
+                            className="password-visibility-btn"
+                            onClick={() => setShowNewPassword((current) => !current)}
+                            disabled={forgotPasswordLoading}
+                            aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                          >
+                            {showNewPassword ? "Hide" : "Show"}
+                          </button>
+                        </div>
                        {resetPasswordValidationErrors["new-password"] && (
                          <span className="validation-error">{resetPasswordValidationErrors["new-password"]}</span>
                        )}
@@ -408,15 +509,26 @@ export function LoginPage() {
 
                      <div className="form-group">
                        <label htmlFor="confirm-password">Confirm password</label>
-                       <input
-                         id="confirm-password"
-                         type="password"
-                         name="confirm-password"
-                         autoComplete="new-password"
-                         minLength={8}
-                         required
-                         disabled={forgotPasswordLoading}
-                       />
+                        <div className="password-input-row">
+                          <input
+                            id="confirm-password"
+                            type={showConfirmResetPassword ? "text" : "password"}
+                            name="confirm-password"
+                            autoComplete="new-password"
+                            minLength={8}
+                            required
+                            disabled={forgotPasswordLoading}
+                          />
+                          <button
+                            type="button"
+                            className="password-visibility-btn"
+                            onClick={() => setShowConfirmResetPassword((current) => !current)}
+                            disabled={forgotPasswordLoading}
+                            aria-label={showConfirmResetPassword ? "Hide confirm password" : "Show confirm password"}
+                          >
+                            {showConfirmResetPassword ? "Hide" : "Show"}
+                          </button>
+                        </div>
                        {resetPasswordValidationErrors["confirm-password"] && (
                          <span className="validation-error">{resetPasswordValidationErrors["confirm-password"]}</span>
                        )}

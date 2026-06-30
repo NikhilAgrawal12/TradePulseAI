@@ -21,11 +21,13 @@ import "./AccountManagementPage.css";
 const VALIDATION_PATTERNS = {
   phoneNumber: /^\+?[0-9\- ]{7,15}$/,
   name: /^[A-Za-z\s'-]{1,100}$/,
+  postalCode: /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9\- ]{2,19}$/,
 };
 
 const VALIDATION_MESSAGES = {
   phoneNumber: "Phone number must be 7-15 digits, optionally starting with +, and can contain spaces or hyphens",
   name: "Name can only contain letters, spaces, hyphens, and apostrophes (1-100 characters)",
+  postalCode: "Postal code must be 3-20 characters, include at least one digit, and use only letters, numbers, spaces, or hyphens",
 };
 
 type CustomerProfile = {
@@ -80,6 +82,7 @@ export function AccountManagementPage() {
   const [profile, setProfile] = useState<CustomerProfile>(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasSubmittedProfile, setHasSubmittedProfile] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [credentials, setCredentials] = useState<CredentialsForm>({ email: "" });
@@ -304,10 +307,9 @@ export function AccountManagementPage() {
     setSuccess("");
     setCredentialsSuccess("");
 
-    const fieldError = validateField(name, value);
     setValidationErrors((prev) => ({
       ...prev,
-      [name]: fieldError,
+      [name]: "",
     }));
   };
 
@@ -362,8 +364,13 @@ export function AccountManagementPage() {
       }
     }
 
-    if (name === "postalCode" && value.trim().length > 20) {
-      return "Postal code cannot exceed 20 characters";
+    if (name === "postalCode") {
+      if (value.trim().length > 20) {
+        return "Postal code cannot exceed 20 characters";
+      }
+      if (!VALIDATION_PATTERNS.postalCode.test(value.trim())) {
+        return VALIDATION_MESSAGES.postalCode;
+      }
     }
 
     return "";
@@ -393,7 +400,7 @@ export function AccountManagementPage() {
     setCredentialsSuccess("");
     setValidationErrors((prev) => ({
       ...prev,
-      country: validateField("country", nextCountryName),
+      country: "",
       state: "",
       city: "",
     }));
@@ -421,7 +428,7 @@ export function AccountManagementPage() {
     setCredentialsSuccess("");
     setValidationErrors((prev) => ({
       ...prev,
-      state: validateField("state", nextStateName),
+      state: "",
       city: "",
     }));
 
@@ -448,12 +455,13 @@ export function AccountManagementPage() {
     setCredentialsSuccess("");
     setValidationErrors((prev) => ({
       ...prev,
-      city: validateField("city", nextCityName),
+      city: "",
     }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setHasSubmittedProfile(true);
 
     // Every save attempt starts with a clean feedback state to avoid stale banners.
     setError("");
@@ -596,6 +604,8 @@ export function AccountManagementPage() {
                 <p>Update your account credentials and personal details.</p>
               </div>
 
+              {error && <p className="am-message am-error">{error}</p>}
+
               <div className="am-security-block">
                 <h3>Account Credentials</h3>
                 <div className="am-security-form">
@@ -622,19 +632,18 @@ export function AccountManagementPage() {
               </div>
 
               {loading && <p className="am-message">Loading profile...</p>}
-              {error && <p className="am-message am-error">{error}</p>}
               {locationError && <p className="am-message am-error">{locationError}</p>}
 
                <div className="am-row">
                  <div className="am-group">
                    <label htmlFor="first-name">First Name</label>
                    <input id="first-name" name="firstName" type="text" value={profile.firstName} onChange={handleChange} required disabled={loading || saving} />
-                   {validationErrors.firstName && <span className="am-validation-error">{validationErrors.firstName}</span>}
+                   {hasSubmittedProfile && validationErrors.firstName && <span className="am-validation-error">{validationErrors.firstName}</span>}
                  </div>
                  <div className="am-group">
                    <label htmlFor="last-name">Last Name</label>
                    <input id="last-name" name="lastName" type="text" value={profile.lastName} onChange={handleChange} required disabled={loading || saving} />
-                   {validationErrors.lastName && <span className="am-validation-error">{validationErrors.lastName}</span>}
+                   {hasSubmittedProfile && validationErrors.lastName && <span className="am-validation-error">{validationErrors.lastName}</span>}
                  </div>
                </div>
 
@@ -642,7 +651,7 @@ export function AccountManagementPage() {
                  <div className="am-group">
                    <label htmlFor="phone-number">Phone Number</label>
                    <input id="phone-number" name="phoneNumber" type="tel" value={profile.phoneNumber} onChange={handleChange} required disabled={loading || saving} />
-                   {validationErrors.phoneNumber && <span className="am-validation-error">{validationErrors.phoneNumber}</span>}
+                   {hasSubmittedProfile && validationErrors.phoneNumber && <span className="am-validation-error">{validationErrors.phoneNumber}</span>}
                  </div>
                </div>
 
@@ -650,7 +659,7 @@ export function AccountManagementPage() {
                  <div className="am-group">
                    <label htmlFor="date-of-birth">Date Of Birth</label>
                    <input id="date-of-birth" name="dateOfBirth" type="date" value={profile.dateOfBirth} onChange={handleChange} required disabled={loading || saving} />
-                   {validationErrors.dateOfBirth && <span className="am-validation-error">{validationErrors.dateOfBirth}</span>}
+                   {hasSubmittedProfile && validationErrors.dateOfBirth && <span className="am-validation-error">{validationErrors.dateOfBirth}</span>}
                  </div>
                </div>
 
@@ -684,7 +693,7 @@ export function AccountManagementPage() {
                       void handleCountryChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
                     }}
                   />
-                  {validationErrors.country && <span className="am-validation-error">{validationErrors.country}</span>}
+                  {hasSubmittedProfile && validationErrors.country && <span className="am-validation-error">{validationErrors.country}</span>}
                 </div>
                 <div className="am-group">
                   <label htmlFor="state">State</label>
@@ -701,7 +710,7 @@ export function AccountManagementPage() {
                       void handleStateChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
                     }}
                   />
-                  {validationErrors.state && <span className="am-validation-error">{validationErrors.state}</span>}
+                  {hasSubmittedProfile && validationErrors.state && <span className="am-validation-error">{validationErrors.state}</span>}
                 </div>
               </div>
 
@@ -721,12 +730,12 @@ export function AccountManagementPage() {
                       handleCityChange({ target: { value: nextValue } } as ChangeEvent<HTMLInputElement>);
                     }}
                   />
-                  {validationErrors.city && <span className="am-validation-error">{validationErrors.city}</span>}
+                  {hasSubmittedProfile && validationErrors.city && <span className="am-validation-error">{validationErrors.city}</span>}
                 </div>
                 <div className="am-group">
                   <label htmlFor="postal-code">Postal Code</label>
                   <input id="postal-code" name="postalCode" type="text" value={profile.postalCode} onChange={handleChange} required disabled={loading || saving} maxLength={20} />
-                  {validationErrors.postalCode && <span className="am-validation-error">{validationErrors.postalCode}</span>}
+                  {hasSubmittedProfile && validationErrors.postalCode && <span className="am-validation-error">{validationErrors.postalCode}</span>}
                 </div>
               </div>
 

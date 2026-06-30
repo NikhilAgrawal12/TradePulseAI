@@ -118,14 +118,15 @@ export function OrdersPage() {
           )}
 
           {!loading && !error && totalPages > 0 && (
-            <div className="orders-pagination" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
-              <button type="button" onClick={() => setPage((current) => Math.max(current - 1, 0))} disabled={page === 0}>
+            <div className="orders-pagination pagination-controls">
+              <button className="pagination-button" type="button" onClick={() => setPage((current) => Math.max(current - 1, 0))} disabled={page === 0}>
                 Previous
               </button>
-              <span>
+              <span className="pagination-label">
                 Page {page + 1} of {Math.max(totalPages, 1)} ({totalElements} orders)
               </span>
               <button
+                className="pagination-button"
                 type="button"
                 onClick={() => setPage((current) => (current + 1 < totalPages ? current + 1 : current))}
                 disabled={page + 1 >= totalPages}
