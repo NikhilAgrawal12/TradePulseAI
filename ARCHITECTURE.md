@@ -2,6 +2,10 @@
 
 This document describes the current TradePulseAI architecture based on the live codebase.
 
+Deep dives:
+- `DATA_FLOW_MASSIVE_TO_FRONTEND.md` for exact market-data ingestion and UI streaming path
+- `SAGA_AND_CONSISTENCY.md` for registration saga and cross-service consistency model
+
 ## 1. High-level topology
 
 ```text

@@ -34,7 +34,7 @@ TradePulseAI is a stock-trading simulation platform with a React frontend and a 
 
 ## Documentation map
 
-This repository now uses a smaller documentation set based on the live code:
+This repository now uses a 10-document set based on the live code:
 
 1. `README.md` — project overview and document map
 2. `QUICK_START.md` — local setup and verification steps
@@ -44,6 +44,8 @@ This repository now uses a smaller documentation set based on the live code:
 6. `FRONTEND_ARCHITECTURE.md` — routes, contexts, state, and streaming behavior
 7. `API_SURFACE.md` — gateway routes, auth model, SSE, and gRPC contracts
 8. `OPERATIONS_RUNBOOK.md` — deployment, operations, env vars, and support procedures
+9. `DATA_FLOW_MASSIVE_TO_FRONTEND.md` — exact market-data path from Massive -> stock-service -> gateway -> frontend
+10. `SAGA_AND_CONSISTENCY.md` — registration saga, checkout orchestration, compensation, and consistency boundaries
 
 ## Recommended reading order
 
@@ -54,6 +56,8 @@ If you are new to the project, read in this order:
 3. `ARCHITECTURE.md`
 4. `DATABASE_DESIGN.md`
 5. `API_SURFACE.md`
+6. `DATA_FLOW_MASSIVE_TO_FRONTEND.md`
+7. `SAGA_AND_CONSISTENCY.md`
 
 ## Production-readiness notes
 
