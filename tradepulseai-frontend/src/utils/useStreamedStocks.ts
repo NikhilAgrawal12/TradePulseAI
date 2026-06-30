@@ -40,11 +40,8 @@ function writeCachedStocks(stocks: Stock[]): void {
 
 /**
  * Hook that combines:
- * 1. Server-Sent Events for featured stocks (no search)
- * 2. On-demand search endpoint when user searches
- *
- * This avoids constantly sending all 800 stocks - only featured stocks are streamed.
- * Search results are fetched on-demand from the 800-stock cache.
+ * 1. Immediate initial fetch (featured or search results)
+ * 2. Server-Sent Events for live updates in both modes
  */
 export function useStreamedStocks() {
   const [stocks, setStocks] = useState<Stock[]>(() => readCachedStocks());
@@ -52,12 +49,32 @@ export function useStreamedStocks() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const stocksCount = stocks.length;
+  const searchRequestSerial = useRef(0);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadInitialFeaturedStocks = async () => {
-      if (searchTerm.trim()) {
+    const loadInitialStocks = async () => {
+      const query = searchTerm.trim();
+
+      if (query) {
+        const requestId = ++searchRequestSerial.current;
+        try {
+          const response = await axios.get<Stock[]>("/api/stocks/search", {
+            params: { query },
+          });
+          if (!mounted || requestId !== searchRequestSerial.current) {
+            return;
+          }
+
+          const data = Array.isArray(response.data) ? normalizeStocks(response.data) : [];
+          setStocks(data);
+          setError(null);
+        } catch {
+          if (mounted && requestId === searchRequestSerial.current && stocksCount === 0) {
+            setError("Unable to load stock data right now.");
+          }
+        }
         return;
       }
 
@@ -80,12 +97,12 @@ export function useStreamedStocks() {
       }
     };
 
-    void loadInitialFeaturedStocks();
+    void loadInitialStocks();
 
     return () => {
       mounted = false;
     };
-  }, [searchTerm]);
+  }, [searchTerm, stocksCount]);
 
   // SSE connection for featured stocks
   useEffect(() => {
