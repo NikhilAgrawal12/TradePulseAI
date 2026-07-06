@@ -17,6 +17,7 @@ function normalizeStocks(rawStocks: Stock[]): Stock[] {
   }));
 }
 
+
 function readCachedStocks(): Stock[] {
   try {
     const raw = window.localStorage.getItem(LAST_STOCKS_CACHE_KEY);

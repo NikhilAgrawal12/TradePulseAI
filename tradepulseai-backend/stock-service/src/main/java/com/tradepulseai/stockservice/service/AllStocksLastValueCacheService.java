@@ -13,6 +13,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -33,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 @Order(5)
@@ -43,7 +43,6 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     private static final String MASSIVE_DELAYED_WS_URL = "wss://delayed.massive.com/stocks";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int SUBSCRIPTION_CHUNK_SIZE = 200;
-    private static final int PERSIST_FLUSH_INTERVAL_SECONDS = 2;
 
     private final StockRepository stockRepository;
     private final AllStocksLastValueCacheRepository allStocksLastValueCacheRepository;
@@ -56,17 +55,10 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         t.setDaemon(true);
         return t;
     });
-    private final ScheduledExecutorService persistExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "all-stocks-cache-persist");
-        t.setDaemon(true);
-        return t;
-    });
-    private final AtomicBoolean reconnectQueued = new AtomicBoolean(false);
 
     private volatile WebSocket webSocket;
     private volatile Map<String, Stock> stockBySymbol = Map.of();
     private final Map<Long, AllStocksLastValueCache> cacheByStockId = new ConcurrentHashMap<>();
-    private final java.util.Set<Long> dirtyStockIds = ConcurrentHashMap.newKeySet();
 
     public AllStocksLastValueCacheService(
             StockRepository stockRepository,
@@ -80,7 +72,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments args) {
+    public void run(@NonNull ApplicationArguments args) {
         if (massiveApiKey == null || massiveApiKey.isBlank()) {
             log.warn("All-stocks websocket cache disabled because massive.api.key is missing.");
             return;
@@ -88,14 +80,8 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
         loadStocks();
         warmInMemoryCache();
-        // Removed: startPersistenceLoop() - now saving immediately on each update
         connect();
         log.info("All-stocks websocket cache started for {} symbols.", stockBySymbol.size());
-    }
-
-    private void startPersistenceLoop() {
-        // DEPRECATED: Removed in favor of immediate saves on each update for true real-time performance
-        // Previously batch-saved every 2 seconds, now data is saved immediately when received
     }
 
     private void loadStocks() {
@@ -137,13 +123,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     }
 
     private void queueReconnect() {
-        if (!reconnectQueued.compareAndSet(false, true)) {
-            return;
-        }
-        scheduler.schedule(() -> {
-            reconnectQueued.set(false);
-            connect();
-        }, 2, TimeUnit.SECONDS);
+        scheduler.schedule(this::connect, 2, TimeUnit.SECONDS);
     }
 
     private void sendAuth(WebSocket socket) {
@@ -176,10 +156,10 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
                     continue;
                 }
                 JsonNode evNode = event.get("ev");
-                String ev = evNode != null && !evNode.isNull() ? evNode.asText() : "";
+                String ev = evNode != null && !evNode.isNull() ? evNode.textValue() : "";
                 if ("status".equals(ev)) {
                     JsonNode statusNode = event.get("status");
-                    String status = statusNode != null && !statusNode.isNull() ? statusNode.asText() : "";
+                    String status = statusNode != null && !statusNode.isNull() ? statusNode.textValue() : "";
                     if ("connected".equals(status)) {
                         sendAuth(socket);
                     } else if ("auth_success".equals(status)) {
@@ -201,7 +181,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     private synchronized void upsertAggregate(JsonNode event) {
         JsonNode symbolNode = event.get("sym");
-        String symbol = normalizeSymbol(symbolNode != null && !symbolNode.isNull() ? symbolNode.asText() : null);
+        String symbol = normalizeSymbol(symbolNode != null && !symbolNode.isNull() ? symbolNode.textValue() : null);
         if (symbol == null) {
             return;
         }
@@ -245,35 +225,6 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         }
 
         eventPublisher.publishEvent(new StockCacheUpdatedEvent(stock.getStockId()));
-    }
-
-    private void flushDirtyEntries() {
-        if (dirtyStockIds.isEmpty()) {
-            return;
-        }
-
-        List<Long> idsToFlush = new ArrayList<>(dirtyStockIds);
-        dirtyStockIds.removeAll(idsToFlush);
-
-        List<AllStocksLastValueCache> entriesToSave = idsToFlush.stream()
-                .map(cacheByStockId::get)
-                .filter(java.util.Objects::nonNull)
-                .toList();
-
-        if (entriesToSave.isEmpty()) {
-            return;
-        }
-
-        try {
-            allStocksLastValueCacheRepository.saveAll(entriesToSave);
-        } catch (Exception ex) {
-            idsToFlush.forEach(dirtyStockIds::add);
-            log.warn("Failed to flush {} all-stocks cache entries: {}", entriesToSave.size(), ex.getMessage());
-        }
-    }
-
-    public Map<Long, AllStocksLastValueCache> getCacheSnapshotByStockId() {
-        return new HashMap<>(cacheByStockId);
     }
 
     public Collection<AllStocksLastValueCache> getCacheSnapshotValues() {
@@ -324,7 +275,6 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     @PreDestroy
     public void shutdown() {
-        // flushDirtyEntries() no longer needed - data is saved immediately on each update
         try {
             if (webSocket != null) {
                 webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "shutdown").join();
@@ -332,7 +282,6 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         } catch (Exception ignored) {
         }
         scheduler.shutdownNow();
-        persistExecutor.shutdownNow();
     }
 
     private final class MassiveWebSocketListener implements WebSocket.Listener {

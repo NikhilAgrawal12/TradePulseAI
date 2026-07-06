@@ -17,6 +17,7 @@ function normalizeStocks(rawStocks: Stock[]): Stock[] {
   }));
 }
 
+
 export function useStocks() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
