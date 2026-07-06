@@ -2,11 +2,13 @@ package com.tradepulseai.stockservice.controller;
 
 import com.tradepulseai.stockservice.dto.market.MarketStatusResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockInsightsResponseDTO;
+import com.tradepulseai.stockservice.dto.stock.StockPredictionResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.service.FeaturedStockRefreshService;
 import com.tradepulseai.stockservice.service.FeaturedStockSSEService;
 import com.tradepulseai.stockservice.service.MarketStatusCacheService;
 import com.tradepulseai.stockservice.service.StockInsightsService;
+import com.tradepulseai.stockservice.service.MlPredictionService;
 import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,17 +35,20 @@ public class StockController {
     private final FeaturedStockSSEService featuredStockSSEService;
     private final MarketStatusCacheService marketStatusCacheService;
     private final StockInsightsService stockInsightsService;
+    private final MlPredictionService mlPredictionService;
 
     public StockController(StockService stockService,
                           FeaturedStockRefreshService featuredStockRefreshService,
                           FeaturedStockSSEService featuredStockSSEService,
                           MarketStatusCacheService marketStatusCacheService,
-                          StockInsightsService stockInsightsService) {
+                          StockInsightsService stockInsightsService,
+                          MlPredictionService mlPredictionService) {
         this.stockService = stockService;
         this.featuredStockRefreshService = featuredStockRefreshService;
         this.featuredStockSSEService = featuredStockSSEService;
         this.marketStatusCacheService = marketStatusCacheService;
         this.stockInsightsService = stockInsightsService;
+        this.mlPredictionService = mlPredictionService;
     }
 
     @GetMapping
@@ -85,6 +90,12 @@ public class StockController {
     @Operation(summary = "Get detailed analytics and chart-ready insights for a stock")
     public ResponseEntity<StockInsightsResponseDTO> getStockInsights(@PathVariable Long id) {
         return ResponseEntity.ok(stockInsightsService.getInsights(id));
+    }
+
+    @GetMapping("/{id}/prediction")
+    @Operation(summary = "Get ML buy/sell prediction for a stock")
+    public ResponseEntity<StockPredictionResponseDTO> getStockPrediction(@PathVariable Long id) {
+        return ResponseEntity.ok(mlPredictionService.getPredictionByStockId(id));
     }
 
     @GetMapping("/symbol/{symbol}")

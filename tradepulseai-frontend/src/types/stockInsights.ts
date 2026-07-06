@@ -87,3 +87,18 @@ export type StockInsights = {
   monthlyReturnsHeatmap: MonthlyReturnHeatmapCell[];
   history: StockHistoryPoint[];
 };
+
+export type StockPrediction = {
+  stockId: number;
+  symbol: string;
+  action: "BUY" | "SELL" | "HOLD";
+  confidence: number;
+  probabilityBuy: number;
+  probabilitySell: number;
+  horizonDays: number;
+  modelName: string;
+  modelVersion: string;
+  generatedAt: string;
+  reasoning: string[];
+};
+

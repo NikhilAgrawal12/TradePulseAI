@@ -13,5 +13,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleStockNotFoundException(StockNotFoundException ex) {
         return ResponseEntity.status(404).body(Map.of("message", ex.getMessage()));
     }
+
+    @ExceptionHandler(PredictionUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handlePredictionUnavailableException(PredictionUnavailableException ex) {
+        return ResponseEntity.status(503).body(Map.of("message", ex.getMessage()));
+    }
 }
 

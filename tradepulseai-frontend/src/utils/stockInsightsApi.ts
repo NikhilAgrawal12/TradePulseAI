@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StockInsights, StockHistoryPoint } from "../types/stockInsights";
+import type { StockInsights, StockHistoryPoint, StockPrediction } from "../types/stockInsights";
 import { toMoney } from "./money";
 
 function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {
@@ -81,3 +81,9 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
     history: data.history.map(normalizePoint),
   };
 }
+
+export async function fetchStockPrediction(stockId: string): Promise<StockPrediction> {
+  const response = await axios.get<StockPrediction>(`/api/stocks/${stockId}/prediction`);
+  return response.data;
+}
+

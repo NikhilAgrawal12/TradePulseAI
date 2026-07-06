@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Header } from "../../components/Header.tsx";
-import type { MonthlyReturnHeatmapCell, StockHistoryPoint, StockInsights } from "../../types/stockInsights";
+import type { MonthlyReturnHeatmapCell, StockHistoryPoint, StockInsights, StockPrediction } from "../../types/stockInsights";
 import type { Stock } from "../../types/stock";
-import { fetchStockInsights } from "../../utils/stockInsightsApi";
+import { fetchStockInsights, fetchStockPrediction } from "../../utils/stockInsightsApi";
 import { formatMoney, formatPercent, formatSignedCurrency } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./StockInsightsPage.css";
@@ -395,6 +395,48 @@ function VolumeLegend() {
   );
 }
 
+function MlProbabilityDonut({ buyProbability, sellProbability }: { buyProbability: number; sellProbability: number }) {
+  const buy = Math.max(0, Math.min(1, buyProbability));
+  const sell = Math.max(0, Math.min(1, sellProbability));
+  const buyPct = Math.round(buy * 1000) / 10;
+  const sellPct = Math.round(sell * 1000) / 10;
+
+  return (
+    <div className="ml-probability-wrap">
+      <div
+        className="ml-probability-donut"
+        style={{
+          background: `conic-gradient(#16a34a 0 ${buyPct}%, #dc2626 ${buyPct}% 100%)`,
+        }}
+      >
+        <div className="ml-probability-inner">
+          <strong>{buyPct}%</strong>
+          <span>BUY</span>
+        </div>
+      </div>
+      <div className="ml-probability-legend">
+        <div><i className="ml-dot buy" /> BUY {buyPct}%</div>
+        <div><i className="ml-dot sell" /> SELL {sellPct}%</div>
+      </div>
+    </div>
+  );
+}
+
+function MlConfidenceBar({ confidence }: { confidence: number }) {
+  const pct = Math.max(0, Math.min(100, confidence * 100));
+  return (
+    <div className="ml-confidence-block">
+      <div className="ml-confidence-head">
+        <span>Confidence</span>
+        <strong>{formatPercent(pct, false)}%</strong>
+      </div>
+      <div className="ml-confidence-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+        <div className="ml-confidence-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 
 function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoint[]; lines: LineDefinition[]; valueFormatter?: (value: number) => string }) {
    const width = 900;
@@ -628,6 +670,7 @@ function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] })
 export function StockInsightsPage() {
    const { stockId } = useParams();
    const [insights, setInsights] = useState<StockInsights | null>(null);
+   const [prediction, setPrediction] = useState<StockPrediction | null>(null);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
    const [selectedRange, setSelectedRange] = useState<RangeKey>("1M");
@@ -658,11 +701,15 @@ export function StockInsightsPage() {
 
        try {
          setLoading(true);
-         const nextInsights = await fetchStockInsights(stockId);
+          const [nextInsights, nextPrediction] = await Promise.all([
+            fetchStockInsights(stockId),
+            fetchStockPrediction(stockId).catch(() => null),
+          ]);
          if (!mounted) {
            return;
          }
          setInsights(nextInsights);
+          setPrediction(nextPrediction);
          setError(null);
        } catch {
          if (!mounted) {
@@ -818,6 +865,48 @@ export function StockInsightsPage() {
                   ]}
                 />
               </MetricSection>
+
+              <section className="insights-ml-section-card">
+                <div className="insights-ml-head">
+                  <h3>Machine Learning Signal</h3>
+                  <p>Model summary and confidence for the next trading window.</p>
+                </div>
+
+                {prediction ? (
+                  <div className="insights-ml-grid">
+                    <div className="insights-ml-primary">
+                      <div className="insights-ml-action-row">
+                        <span>Action</span>
+                        <strong
+                          className={`insights-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}
+                        >
+                          {prediction.action}
+                        </strong>
+                      </div>
+                      <MlConfidenceBar confidence={prediction.confidence} />
+                      <div className="insights-ml-meta-row">
+                        <span className="insights-ml-meta-pill">
+                          <small>Horizon</small>
+                          <strong>{prediction.horizonDays} trading days</strong>
+                        </span>
+                        <span className="insights-ml-meta-pill">
+                          <small>Model</small>
+                          <strong>{prediction.modelName}</strong>
+                        </span>
+                        <span className="insights-ml-meta-pill subtle">
+                          <small>Updated</small>
+                          <strong>{formatDateLabel(prediction.generatedAt)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="insights-ml-visual">
+                      <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="insights-state-card error"><p>ML prediction is currently unavailable.</p></div>
+                )}
+              </section>
 
               <MetricSection title="52-Week Metrics">
                 <MetricGrid

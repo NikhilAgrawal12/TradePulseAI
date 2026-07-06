@@ -1,7 +1,6 @@
 services:
   kafka:
     image: bitnamilegacy/kafka:4.0.0-debian-12-r10
-    container_name: kafka
     environment:
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -17,7 +16,6 @@ services:
 
   auth-service-db:
     image: postgres:latest
-    container_name: auth-service-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -36,7 +34,6 @@ services:
 
   cust-service-db:
     image: postgres:latest
-    container_name: cust-service-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -55,7 +52,6 @@ services:
 
   order-service-db:
     image: postgres:latest
-    container_name: order-service-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -74,7 +70,6 @@ services:
 
   payment-service-db:
     image: postgres:latest
-    container_name: payment-service-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -93,7 +88,6 @@ services:
 
   stock-service-db:
     image: postgres:latest
-    container_name: stock-service-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -113,7 +107,6 @@ services:
   auth-service:
     build: ./auth-service
     image: auth-service:latest
-    container_name: auth-service
     depends_on:
       auth-service-db:
         condition: service_healthy
@@ -141,7 +134,6 @@ services:
   payment-service:
     build: ./payment-service
     image: payment-service:latest
-    container_name: payment-service
     depends_on:
       payment-service-db:
         condition: service_healthy
@@ -157,10 +149,11 @@ services:
   stock-service:
     build: ./stock-service
     image: stock-service:latest
-    container_name: stock-service
     depends_on:
       stock-service-db:
         condition: service_healthy
+      ml-service:
+        condition: service_started
     environment:
       MASSIVE_API_KEY: ${MASSIVE_API_KEY}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -170,6 +163,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
+      ML_SERVICE_BASE_URL: http://ml-service:4010/v1
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:4003/stocks/market-status >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -182,7 +176,6 @@ services:
   cust-service:
     build: ./cust-service
     image: cust-service:latest
-    container_name: cust-service
     depends_on:
       cust-service-db:
         condition: service_healthy
@@ -205,7 +198,6 @@ services:
   order-service:
     build: ./order-service
     image: order-service-latest
-    container_name: order-service
     depends_on:
       order-service-db:
         condition: service_healthy
@@ -233,16 +225,36 @@ services:
   analytics-service:
     build: ./analytics-service
     image: analytics-service:latest
-    container_name: analytics-service
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks:
+      - tradepulse
+
+  ml-service:
+    build: ./ml-service
+    image: ml-service:latest
+    depends_on:
+      stock-service-db:
+        condition: service_healthy
+    environment:
+      ML_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@stock-service-db:5432/${POSTGRES_DB}
+      ML_MODEL_PATH: /ml-model/tradepulse_model.joblib
+      ML_SERVICE_PORT: 4010
+      ML_DEFAULT_DAYS_BACK: 180
+      ML_DEFAULT_HORIZON_DAYS: 5
+      ML_DEFAULT_POSITIVE_RETURN_THRESHOLD: 0.0
+      ML_MAX_TRAINING_STOCKS: 100
+      ML_MAX_TRAINING_ROWS: 30000
+      ML_TRAIN_ON_STARTUP: true
+      ML_RETRAIN_INTERVAL_HOURS: 168
+    volumes:
+      - ml_model_data:/ml-model
     networks:
       - tradepulse
 
   api-gateway:
     build: ./api-gateway
     image: api-gateway:latest
-    container_name: api-gateway
     depends_on:
       auth-service:
         condition: service_started
@@ -270,3 +282,4 @@ volumes:
   payment_db_data:
   stock_db_data:
   kafka_data:
+  ml_model_data:
