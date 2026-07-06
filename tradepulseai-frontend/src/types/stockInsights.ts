@@ -100,5 +100,10 @@ export type StockPrediction = {
   modelVersion: string;
   generatedAt: string;
   reasoning: string[];
+  cvF1?: number | null;
+  testF1?: number | null;
+  testBalancedAccuracy?: number | null;
+  testPrecision?: number | null;
+  testRecall?: number | null;
 };
 

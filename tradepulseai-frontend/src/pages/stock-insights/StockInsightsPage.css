@@ -235,6 +235,34 @@
   border-color: rgba(148, 163, 184, 0.28);
 }
 
+.insights-ml-quality-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.insights-ml-quality-card {
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.insights-ml-quality-card span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #526487;
+}
+
+.insights-ml-quality-card strong {
+  color: #1f2a44;
+  font-size: 0.93rem;
+}
+
 .ml-probability-wrap {
   display: grid;
   place-items: center;
@@ -650,6 +678,10 @@
   }
 
   .insights-ml-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-ml-quality-grid {
     grid-template-columns: 1fr;
   }
 

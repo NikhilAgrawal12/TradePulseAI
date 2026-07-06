@@ -66,6 +66,8 @@ def _persist_trained_model(trained: Any) -> None:
             "cv_f1": top_metric["cv_f1"],
             "test_f1": top_metric["test_f1"],
             "test_balanced_accuracy": top_metric["test_balanced_accuracy"],
+            "test_precision": top_metric["test_precision"],
+            "test_recall": top_metric["test_recall"],
         }
     )
 
@@ -222,6 +224,7 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         raise HTTPException(status_code=404, detail=f"No historical rows found for stock_id={stock_id}")
 
     prediction_row = build_prediction_row(history)
+    model_metrics = repository.fetch_model_metrics(str(state["model_version"])) if state["model_version"] else None
     signal = predict_action(
         estimator=state["estimator"],
         prediction_row=prediction_row,
@@ -254,6 +257,11 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         modelVersion=str(state["model_version"]),
         generatedAt=datetime.now(timezone.utc).isoformat(),
         reasoning=signal["reasoning"],
+        cvF1=(model_metrics["cv_f1"] if model_metrics else None),
+        testF1=(model_metrics["test_f1"] if model_metrics else None),
+        testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),
+        testPrecision=(model_metrics["test_precision"] if model_metrics else None),
+        testRecall=(model_metrics["test_recall"] if model_metrics else None),
     )
 
 

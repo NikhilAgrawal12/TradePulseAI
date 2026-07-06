@@ -30,6 +30,8 @@ class StockDataRepository:
                     """
                 )
             )
+            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_precision DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_recall DOUBLE PRECISION"))
             connection.execute(
                 text(
                     """
@@ -144,6 +146,8 @@ class StockDataRepository:
                         cv_f1,
                         test_f1,
                         test_balanced_accuracy,
+                        test_precision,
+                        test_recall,
                         created_at
                     )
                     VALUES (
@@ -155,6 +159,8 @@ class StockDataRepository:
                         :cv_f1,
                         :test_f1,
                         :test_balanced_accuracy,
+                        :test_precision,
+                        :test_recall,
                         :created_at
                     )
                     ON CONFLICT (model_version)
@@ -166,6 +172,8 @@ class StockDataRepository:
                         cv_f1 = EXCLUDED.cv_f1,
                         test_f1 = EXCLUDED.test_f1,
                         test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
+                        test_precision = EXCLUDED.test_precision,
+                        test_recall = EXCLUDED.test_recall,
                         created_at = EXCLUDED.created_at
                     """
                 ),
@@ -174,6 +182,27 @@ class StockDataRepository:
                     "created_at": datetime.now(timezone.utc),
                 },
             )
+
+    def fetch_model_metrics(self, model_version: str) -> dict[str, float | None] | None:
+        query = text(
+            """
+            SELECT cv_f1, test_f1, test_balanced_accuracy, test_precision, test_recall
+            FROM ml_model_registry
+            WHERE model_version = :model_version
+            """
+        )
+        frame = pd.read_sql_query(query, self._engine, params={"model_version": model_version})
+        if frame.empty:
+            return None
+
+        row = frame.iloc[0]
+        return {
+            "cv_f1": float(row["cv_f1"]) if pd.notna(row["cv_f1"]) else None,
+            "test_f1": float(row["test_f1"]) if pd.notna(row["test_f1"]) else None,
+            "test_balanced_accuracy": float(row["test_balanced_accuracy"]) if pd.notna(row["test_balanced_accuracy"]) else None,
+            "test_precision": float(row["test_precision"]) if pd.notna(row["test_precision"]) else None,
+            "test_recall": float(row["test_recall"]) if pd.notna(row["test_recall"]) else None,
+        }
 
     def save_prediction(self, payload: dict[str, Any]) -> None:
         with self._engine.begin() as connection:

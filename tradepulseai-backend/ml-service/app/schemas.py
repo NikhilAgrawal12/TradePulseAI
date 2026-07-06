@@ -36,5 +36,10 @@ class PredictionResponse(BaseModel):
     modelVersion: str
     generatedAt: str
     reasoning: list[str]
+    cvF1: float | None = None
+    testF1: float | None = None
+    testBalancedAccuracy: float | None = None
+    testPrecision: float | None = None
+    testRecall: float | None = None
 
 

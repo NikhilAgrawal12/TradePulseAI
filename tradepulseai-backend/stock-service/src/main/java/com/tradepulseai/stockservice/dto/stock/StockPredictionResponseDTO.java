@@ -13,7 +13,12 @@ public record StockPredictionResponseDTO(
         String modelName,
         String modelVersion,
         String generatedAt,
-        List<String> reasoning
+        List<String> reasoning,
+        Double cvF1,
+        Double testF1,
+        Double testBalancedAccuracy,
+        Double testPrecision,
+        Double testRecall
 ) {
 }
 

@@ -898,6 +898,24 @@ export function StockInsightsPage() {
                           <strong>{formatDateLabel(prediction.generatedAt)}</strong>
                         </span>
                       </div>
+                      <div className="insights-ml-quality-grid">
+                        <div className="insights-ml-quality-card">
+                          <span>Balanced Accuracy</span>
+                          <strong>{prediction.testBalancedAccuracy == null ? "--" : `${formatPercent(prediction.testBalancedAccuracy * 100, false)}%`}</strong>
+                        </div>
+                        <div className="insights-ml-quality-card">
+                          <span>Precision</span>
+                          <strong>{prediction.testPrecision == null ? "--" : `${formatPercent(prediction.testPrecision * 100, false)}%`}</strong>
+                        </div>
+                        <div className="insights-ml-quality-card">
+                          <span>Recall</span>
+                          <strong>{prediction.testRecall == null ? "--" : `${formatPercent(prediction.testRecall * 100, false)}%`}</strong>
+                        </div>
+                        <div className="insights-ml-quality-card">
+                          <span>F1 Score</span>
+                          <strong>{prediction.testF1 == null ? "--" : `${formatPercent(prediction.testF1 * 100, false)}%`}</strong>
+                        </div>
+                      </div>
                     </div>
                     <div className="insights-ml-visual">
                       <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
