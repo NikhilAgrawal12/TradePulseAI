@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from app.ml_pipeline import build_prediction_row, train_and_select_model
+from app.ml_pipeline import _split_train_test_by_date, build_prediction_row, train_and_select_model
 
 
 def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
@@ -54,6 +54,25 @@ def test_training_selects_model() -> None:
     }
     assert bundle.trained_rows > 600
     assert len(bundle.metrics) == 5
+    top_metric = bundle.metrics[0]
+    assert 0.0 <= float(top_metric["test_action_rate"]) <= 1.0
+    assert 0.0 <= float(top_metric["test_hold_rate"]) <= 1.0
+    assert abs(float(top_metric["test_action_rate"]) + float(top_metric["test_hold_rate"]) - 1.0) < 1e-9
+
+
+def test_temporal_split_uses_unique_trading_dates() -> None:
+    frame = synthetic_frame(rows_per_stock=80, stocks=3)
+    bundle_input = frame.sort_values(["trading_date", "stock_id"]).reset_index(drop=True)
+
+    train_df, test_df = _split_train_test_by_date(bundle_input)
+
+    train_dates = set(pd.to_datetime(train_df["trading_date"]).dt.normalize())
+    test_dates = set(pd.to_datetime(test_df["trading_date"]).dt.normalize())
+
+    assert train_dates
+    assert test_dates
+    assert train_dates.isdisjoint(test_dates)
+    assert max(train_dates) < min(test_dates)
 
 
 def test_prediction_row_contains_latest_stock_record() -> None:

@@ -11,7 +11,7 @@ import joblib
 from fastapi import FastAPI, HTTPException
 
 from app.data import StockDataRepository
-from app.ml_pipeline import build_prediction_row, predict_action, train_and_select_model
+from app.ml_pipeline import ACTION_THRESHOLD, build_prediction_row, predict_action, train_and_select_model
 from app.schemas import PredictionResponse, TrainRequest, TrainResponse
 from app.settings import settings
 
@@ -25,6 +25,7 @@ state: dict[str, Any] = {
     "model_version": None,
     "horizon_days": None,
     "positive_return_threshold": None,
+    "decision_threshold": ACTION_THRESHOLD,
     "training_status": "pending",
     "training_error": None,
     "last_trained_at": None,
@@ -43,6 +44,7 @@ def _persist_trained_model(trained: Any) -> None:
         "model_version": trained.model_version,
         "horizon_days": trained.horizon_days,
         "positive_return_threshold": trained.positive_return_threshold,
+        "decision_threshold": trained.decision_threshold,
     }
     _save_model_to_disk(artifact)
 
@@ -51,6 +53,7 @@ def _persist_trained_model(trained: Any) -> None:
     state["model_version"] = trained.model_version
     state["horizon_days"] = trained.horizon_days
     state["positive_return_threshold"] = trained.positive_return_threshold
+    state["decision_threshold"] = trained.decision_threshold
     state["training_status"] = "trained"
     state["training_error"] = None
     state["last_trained_at"] = datetime.now(timezone.utc).isoformat()
@@ -62,12 +65,15 @@ def _persist_trained_model(trained: Any) -> None:
             "model_name": trained.selected_model,
             "horizon_days": trained.horizon_days,
             "positive_return_threshold": trained.positive_return_threshold,
+            "decision_threshold": trained.decision_threshold,
             "trained_rows": trained.trained_rows,
             "cv_f1": top_metric["cv_f1"],
             "test_f1": top_metric["test_f1"],
             "test_balanced_accuracy": top_metric["test_balanced_accuracy"],
             "test_precision": top_metric["test_precision"],
             "test_recall": top_metric["test_recall"],
+            "test_action_rate": top_metric["test_action_rate"],
+            "test_hold_rate": top_metric["test_hold_rate"],
         }
     )
 
@@ -134,6 +140,7 @@ def _load_model_from_disk() -> bool:
     state["model_version"] = artifact["model_version"]
     state["horizon_days"] = artifact["horizon_days"]
     state["positive_return_threshold"] = artifact["positive_return_threshold"]
+    state["decision_threshold"] = float(artifact.get("decision_threshold", ACTION_THRESHOLD))
     state["training_status"] = "loaded"
     state["training_error"] = None
     return True
@@ -181,6 +188,7 @@ def health() -> dict[str, Any]:
         "training_status": state["training_status"],
         "training_error": state["training_error"],
         "last_trained_at": state["last_trained_at"],
+        "decision_threshold": state["decision_threshold"],
     }
 
 
@@ -208,6 +216,8 @@ def train_model(payload: TrainRequest) -> TrainResponse:
                 "test_balanced_accuracy": row["test_balanced_accuracy"],
                 "test_precision": row["test_precision"],
                 "test_recall": row["test_recall"],
+                "test_action_rate": row["test_action_rate"],
+                "test_hold_rate": row["test_hold_rate"],
             }
             for row in trained.metrics
         ],
@@ -229,6 +239,7 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         estimator=state["estimator"],
         prediction_row=prediction_row,
         horizon_days=int(state["horizon_days"]),
+        decision_threshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
     )
 
     symbol = str(prediction_row.iloc[0]["symbol"])
@@ -257,11 +268,17 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         modelVersion=str(state["model_version"]),
         generatedAt=datetime.now(timezone.utc).isoformat(),
         reasoning=signal["reasoning"],
+        decisionThreshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
+        confidenceEdge=signal["confidence_edge"],
+        probabilityGap=signal["probability_gap"],
+        convictionLabel=signal["conviction_label"],
         cvF1=(model_metrics["cv_f1"] if model_metrics else None),
         testF1=(model_metrics["test_f1"] if model_metrics else None),
         testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),
         testPrecision=(model_metrics["test_precision"] if model_metrics else None),
         testRecall=(model_metrics["test_recall"] if model_metrics else None),
+        testActionRate=(model_metrics["test_action_rate"] if model_metrics else None),
+        testHoldRate=(model_metrics["test_hold_rate"] if model_metrics else None),
     )
 
 

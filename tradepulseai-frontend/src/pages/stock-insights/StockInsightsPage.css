@@ -120,6 +120,11 @@
   padding: 16px;
 }
 
+.insights-ml-visual {
+  display: grid;
+  gap: 14px;
+}
+
 .insights-ml-action-row {
   display: flex;
   align-items: center;
@@ -169,36 +174,83 @@
   border-color: #93c5fd;
 }
 
-.ml-confidence-block {
+.ml-signal-breakdown {
   margin-bottom: 12px;
+  display: grid;
+  gap: 10px;
 }
 
-.ml-confidence-head {
+.ml-signal-headline {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
 }
 
-.ml-confidence-head span {
+.ml-signal-headline span {
   color: #4b5f86;
 }
 
-.ml-confidence-head strong {
+.ml-signal-headline strong {
   color: #1d4ed8;
 }
 
-.ml-confidence-track {
+.ml-signal-row {
+  display: grid;
+  gap: 6px;
+}
+
+.ml-signal-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ml-signal-row-head span {
+  color: #4b5f86;
+  font-size: 0.85rem;
+}
+
+.ml-signal-row-head strong {
+  color: #1f2a44;
+  font-size: 0.88rem;
+}
+
+.ml-signal-track {
+  position: relative;
   height: 12px;
   border-radius: 999px;
-  background: #dbeafe;
+  background: #e2e8f0;
   overflow: hidden;
 }
 
-.ml-confidence-fill {
+.ml-signal-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #60a5fa 0%, #2563eb 100%);
+}
+
+.ml-signal-fill.buy {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+}
+
+.ml-signal-fill.sell {
+  background: linear-gradient(90deg, #f87171 0%, #dc2626 100%);
+}
+
+.ml-signal-threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #1e3a8a;
+  opacity: 0.85;
+}
+
+.ml-signal-note {
+  margin: 0;
+  color: #526487;
+  font-size: 0.8rem;
 }
 
 .insights-ml-meta-row {
@@ -267,6 +319,33 @@
   display: grid;
   place-items: center;
   gap: 12px;
+}
+
+.insights-ml-side-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.insights-ml-side-card {
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.insights-ml-side-card span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #526487;
+}
+
+.insights-ml-side-card strong {
+  color: #1f2a44;
+  font-size: 0.93rem;
 }
 
 .ml-probability-donut {
@@ -682,6 +761,10 @@
   }
 
   .insights-ml-quality-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-ml-side-grid {
     grid-template-columns: 1fr;
   }
 

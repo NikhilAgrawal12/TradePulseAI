@@ -422,19 +422,53 @@ function MlProbabilityDonut({ buyProbability, sellProbability }: { buyProbabilit
   );
 }
 
-function MlConfidenceBar({ confidence }: { confidence: number }) {
-  const pct = Math.max(0, Math.min(100, confidence * 100));
+function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
+  const buyPct = Math.max(0, Math.min(100, prediction.probabilityBuy * 100));
+  const sellPct = Math.max(0, Math.min(100, prediction.probabilitySell * 100));
+  const thresholdPct = Math.max(0, Math.min(100, prediction.decisionThreshold * 100));
+  const thresholdLeft = `${thresholdPct}%`;
+
   return (
-    <div className="ml-confidence-block">
-      <div className="ml-confidence-head">
-        <span>Confidence</span>
-        <strong>{formatPercent(pct, false)}%</strong>
+    <div className="ml-signal-breakdown">
+      <div className="ml-signal-headline">
+        <span>Signal Strength</span>
+        <strong>{prediction.confidenceEdge > 0 ? `+${formatPercent(prediction.confidenceEdge * 100, false)}% edge` : "No actionable edge"}</strong>
       </div>
-      <div className="ml-confidence-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
-        <div className="ml-confidence-fill" style={{ width: `${pct}%` }} />
+
+      <div className="ml-signal-row">
+        <div className="ml-signal-row-head">
+          <span>BUY probability</span>
+          <strong>{formatPercent(buyPct, false)}%</strong>
+        </div>
+        <div className="ml-signal-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(buyPct)}>
+          <div className="ml-signal-fill buy" style={{ width: `${buyPct}%` }} />
+          <i className="ml-signal-threshold" style={{ left: thresholdLeft }} />
+        </div>
       </div>
+
+      <div className="ml-signal-row">
+        <div className="ml-signal-row-head">
+          <span>SELL probability</span>
+          <strong>{formatPercent(sellPct, false)}%</strong>
+        </div>
+        <div className="ml-signal-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sellPct)}>
+          <div className="ml-signal-fill sell" style={{ width: `${sellPct}%` }} />
+          <i className="ml-signal-threshold" style={{ left: thresholdLeft }} />
+        </div>
+      </div>
+
+      <p className="ml-signal-note">
+        Threshold: {formatPercent(thresholdPct, false)}%. {prediction.action === "HOLD" ? "Neither side crossed threshold, so signal is HOLD." : `${prediction.action} crossed threshold.`}
+      </p>
     </div>
   );
+}
+
+function convictionTone(label: StockPrediction["convictionLabel"]): string {
+  if (label === "HIGH") return "High conviction";
+  if (label === "MEDIUM") return "Medium conviction";
+  if (label === "LOW") return "Low conviction";
+  return "Neutral setup";
 }
 
 
@@ -883,7 +917,7 @@ export function StockInsightsPage() {
                           {prediction.action}
                         </strong>
                       </div>
-                      <MlConfidenceBar confidence={prediction.confidence} />
+                      <MlSignalBreakdown prediction={prediction} />
                       <div className="insights-ml-meta-row">
                         <span className="insights-ml-meta-pill">
                           <small>Horizon</small>
@@ -900,25 +934,55 @@ export function StockInsightsPage() {
                       </div>
                       <div className="insights-ml-quality-grid">
                         <div className="insights-ml-quality-card">
-                          <span>Balanced Accuracy</span>
+                          <span>Trade Balanced Accuracy</span>
                           <strong>{prediction.testBalancedAccuracy == null ? "--" : `${formatPercent(prediction.testBalancedAccuracy * 100, false)}%`}</strong>
                         </div>
                         <div className="insights-ml-quality-card">
-                          <span>Precision</span>
+                          <span>Trade Precision</span>
                           <strong>{prediction.testPrecision == null ? "--" : `${formatPercent(prediction.testPrecision * 100, false)}%`}</strong>
                         </div>
                         <div className="insights-ml-quality-card">
-                          <span>Recall</span>
+                          <span>Trade Recall</span>
                           <strong>{prediction.testRecall == null ? "--" : `${formatPercent(prediction.testRecall * 100, false)}%`}</strong>
                         </div>
                         <div className="insights-ml-quality-card">
-                          <span>F1 Score</span>
+                          <span>Trade F1 Score</span>
                           <strong>{prediction.testF1 == null ? "--" : `${formatPercent(prediction.testF1 * 100, false)}%`}</strong>
+                        </div>
+                        <div className="insights-ml-quality-card">
+                          <span>Action Rate</span>
+                          <strong>{prediction.testActionRate == null ? "--" : `${formatPercent(prediction.testActionRate * 100, false)}%`}</strong>
+                        </div>
+                        <div className="insights-ml-quality-card">
+                          <span>Hold Rate</span>
+                          <strong>{prediction.testHoldRate == null ? "--" : `${formatPercent(prediction.testHoldRate * 100, false)}%`}</strong>
                         </div>
                       </div>
                     </div>
                     <div className="insights-ml-visual">
                       <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
+                      <div className="insights-ml-side-grid">
+                        <div className="insights-ml-side-card">
+                          <span>Action</span>
+                          <strong>{prediction.action}</strong>
+                        </div>
+                        <div className="insights-ml-side-card">
+                          <span>Conviction</span>
+                          <strong>{convictionTone(prediction.convictionLabel)}</strong>
+                        </div>
+                        <div className="insights-ml-side-card">
+                          <span>Edge vs Threshold</span>
+                          <strong>{formatPercent(prediction.confidenceEdge * 100, false)}%</strong>
+                        </div>
+                        <div className="insights-ml-side-card">
+                          <span>BUY/SELL Gap</span>
+                          <strong>{formatPercent(prediction.probabilityGap * 100, false)}%</strong>
+                        </div>
+                        <div className="insights-ml-side-card">
+                          <span>Decision Threshold</span>
+                          <strong>{formatPercent(prediction.decisionThreshold * 100, false)}%</strong>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (

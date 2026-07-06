@@ -14,6 +14,8 @@ class ModelMetrics(BaseModel):
     test_balanced_accuracy: float
     test_precision: float
     test_recall: float
+    test_action_rate: float
+    test_hold_rate: float
 
 
 class TrainResponse(BaseModel):
@@ -36,10 +38,16 @@ class PredictionResponse(BaseModel):
     modelVersion: str
     generatedAt: str
     reasoning: list[str]
+    decisionThreshold: float
+    confidenceEdge: float
+    probabilityGap: float
+    convictionLabel: str
     cvF1: float | None = None
     testF1: float | None = None
     testBalancedAccuracy: float | None = None
     testPrecision: float | None = None
     testRecall: float | None = None
+    testActionRate: float | None = None
+    testHoldRate: float | None = None
 
 

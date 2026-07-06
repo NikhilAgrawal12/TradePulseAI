@@ -100,10 +100,16 @@ export type StockPrediction = {
   modelVersion: string;
   generatedAt: string;
   reasoning: string[];
+  decisionThreshold: number;
+  confidenceEdge: number;
+  probabilityGap: number;
+  convictionLabel: "HIGH" | "MEDIUM" | "LOW" | "NEUTRAL";
   cvF1?: number | null;
   testF1?: number | null;
   testBalancedAccuracy?: number | null;
   testPrecision?: number | null;
   testRecall?: number | null;
+  testActionRate?: number | null;
+  testHoldRate?: number | null;
 };
 

@@ -14,11 +14,17 @@ public record StockPredictionResponseDTO(
         String modelVersion,
         String generatedAt,
         List<String> reasoning,
+        Double decisionThreshold,
+        Double confidenceEdge,
+        Double probabilityGap,
+        String convictionLabel,
         Double cvF1,
         Double testF1,
         Double testBalancedAccuracy,
         Double testPrecision,
-        Double testRecall
+        Double testRecall,
+        Double testActionRate,
+        Double testHoldRate
 ) {
 }
 

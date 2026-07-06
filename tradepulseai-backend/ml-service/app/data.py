@@ -21,6 +21,7 @@ class StockDataRepository:
                         model_name VARCHAR(100) NOT NULL,
                         horizon_days INTEGER NOT NULL,
                         positive_return_threshold DOUBLE PRECISION NOT NULL,
+                        decision_threshold DOUBLE PRECISION NOT NULL DEFAULT 0.55,
                         trained_rows INTEGER NOT NULL,
                         cv_f1 DOUBLE PRECISION NOT NULL,
                         test_f1 DOUBLE PRECISION NOT NULL,
@@ -32,6 +33,9 @@ class StockDataRepository:
             )
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_precision DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_recall DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_action_rate DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_hold_rate DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS decision_threshold DOUBLE PRECISION DEFAULT 0.55"))
             connection.execute(
                 text(
                     """
@@ -142,12 +146,15 @@ class StockDataRepository:
                         model_name,
                         horizon_days,
                         positive_return_threshold,
+                        decision_threshold,
                         trained_rows,
                         cv_f1,
                         test_f1,
                         test_balanced_accuracy,
                         test_precision,
                         test_recall,
+                        test_action_rate,
+                        test_hold_rate,
                         created_at
                     )
                     VALUES (
@@ -155,12 +162,15 @@ class StockDataRepository:
                         :model_name,
                         :horizon_days,
                         :positive_return_threshold,
+                        :decision_threshold,
                         :trained_rows,
                         :cv_f1,
                         :test_f1,
                         :test_balanced_accuracy,
                         :test_precision,
                         :test_recall,
+                        :test_action_rate,
+                        :test_hold_rate,
                         :created_at
                     )
                     ON CONFLICT (model_version)
@@ -168,12 +178,15 @@ class StockDataRepository:
                         model_name = EXCLUDED.model_name,
                         horizon_days = EXCLUDED.horizon_days,
                         positive_return_threshold = EXCLUDED.positive_return_threshold,
+                        decision_threshold = EXCLUDED.decision_threshold,
                         trained_rows = EXCLUDED.trained_rows,
                         cv_f1 = EXCLUDED.cv_f1,
                         test_f1 = EXCLUDED.test_f1,
                         test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
                         test_precision = EXCLUDED.test_precision,
                         test_recall = EXCLUDED.test_recall,
+                        test_action_rate = EXCLUDED.test_action_rate,
+                        test_hold_rate = EXCLUDED.test_hold_rate,
                         created_at = EXCLUDED.created_at
                     """
                 ),
@@ -186,7 +199,7 @@ class StockDataRepository:
     def fetch_model_metrics(self, model_version: str) -> dict[str, float | None] | None:
         query = text(
             """
-            SELECT cv_f1, test_f1, test_balanced_accuracy, test_precision, test_recall
+            SELECT cv_f1, test_f1, test_balanced_accuracy, test_precision, test_recall, test_action_rate, test_hold_rate
             FROM ml_model_registry
             WHERE model_version = :model_version
             """
@@ -202,6 +215,8 @@ class StockDataRepository:
             "test_balanced_accuracy": float(row["test_balanced_accuracy"]) if pd.notna(row["test_balanced_accuracy"]) else None,
             "test_precision": float(row["test_precision"]) if pd.notna(row["test_precision"]) else None,
             "test_recall": float(row["test_recall"]) if pd.notna(row["test_recall"]) else None,
+            "test_action_rate": float(row["test_action_rate"]) if pd.notna(row["test_action_rate"]) else None,
+            "test_hold_rate": float(row["test_hold_rate"]) if pd.notna(row["test_hold_rate"]) else None,
         }
 
     def save_prediction(self, payload: dict[str, Any]) -> None:

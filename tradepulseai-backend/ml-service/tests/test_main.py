@@ -13,6 +13,7 @@ def _reset_state() -> None:
             "model_version": None,
             "horizon_days": None,
             "positive_return_threshold": None,
+            "decision_threshold": 0.55,
             "training_status": "pending",
             "training_error": None,
             "last_trained_at": None,
@@ -91,8 +92,17 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
         model_version = "v20260706000000"
         horizon_days = 5
         positive_return_threshold = 0.0
+        decision_threshold = 0.55
         trained_rows = 1234
-        metrics = [{"cv_f1": 0.6, "test_f1": 0.7, "test_balanced_accuracy": 0.65}]
+        metrics = [{
+            "cv_f1": 0.6,
+            "test_f1": 0.7,
+            "test_balanced_accuracy": 0.65,
+            "test_precision": 0.68,
+            "test_recall": 0.72,
+            "test_action_rate": 0.81,
+            "test_hold_rate": 0.19,
+        }]
 
     def _train_ok(*_args, **_kwargs):
         main._persist_trained_model(_Trained())
