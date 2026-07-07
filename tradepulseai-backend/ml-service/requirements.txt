@@ -1,7 +1,7 @@
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
 pandas==2.3.1
-numpy==2.3.1
+numpy==1.26.4
 scikit-learn==1.7.0
 imbalanced-learn==0.14.0
 sqlalchemy==2.0.41
@@ -11,4 +11,6 @@ pydantic==2.11.7
 pytest==8.4.1
 httpx==0.28.1
 xgboost==2.1.1
+statsmodels==0.14.2
+tensorflow-cpu==2.17.0
 

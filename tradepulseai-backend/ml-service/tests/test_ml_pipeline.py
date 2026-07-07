@@ -49,11 +49,10 @@ def test_training_selects_model() -> None:
         "logistic_regression",
         "random_forest",
         "gradient_boosting",
-        "extra_trees",
         "xgboost",
     }
     assert bundle.trained_rows > 600
-    assert len(bundle.metrics) == 5
+    assert len(bundle.metrics) >= 4
     top_metric = bundle.metrics[0]
     assert 0.0 <= float(top_metric["test_action_rate"]) <= 1.0
     assert 0.0 <= float(top_metric["test_hold_rate"]) <= 1.0

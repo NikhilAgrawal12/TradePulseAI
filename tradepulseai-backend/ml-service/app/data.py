@@ -36,6 +36,30 @@ class StockDataRepository:
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_action_rate DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_hold_rate DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS decision_threshold DOUBLE PRECISION DEFAULT 0.55"))
+
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS ml_model_candidates (
+                        candidate_id BIGSERIAL PRIMARY KEY,
+                        model_version VARCHAR(64) NOT NULL,
+                        model_name VARCHAR(100) NOT NULL,
+                        model_rank INTEGER NOT NULL,
+                        is_selected BOOLEAN NOT NULL DEFAULT FALSE,
+                        cv_f1 DOUBLE PRECISION NOT NULL,
+                        test_f1 DOUBLE PRECISION NOT NULL,
+                        test_balanced_accuracy DOUBLE PRECISION NOT NULL,
+                        test_precision DOUBLE PRECISION,
+                        test_recall DOUBLE PRECISION,
+                        test_action_rate DOUBLE PRECISION,
+                        test_hold_rate DOUBLE PRECISION,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        UNIQUE (model_version, model_name)
+                    )
+                    """
+                )
+            )
+
             connection.execute(
                 text(
                     """
@@ -196,6 +220,78 @@ class StockDataRepository:
                 },
             )
 
+    def save_model_candidates(self, model_version: str, metrics: list[dict[str, Any]], selected_model: str) -> None:
+        if not metrics:
+            return
+
+        created_at = datetime.now(timezone.utc)
+        rows = [
+            {
+                "model_version": model_version,
+                "model_name": str(metric["model_name"]),
+                "model_rank": index + 1,
+                "is_selected": str(metric["model_name"]) == selected_model,
+                "cv_f1": float(metric["cv_f1"]),
+                "test_f1": float(metric["test_f1"]),
+                "test_balanced_accuracy": float(metric["test_balanced_accuracy"]),
+                "test_precision": float(metric["test_precision"]),
+                "test_recall": float(metric["test_recall"]),
+                "test_action_rate": float(metric["test_action_rate"]),
+                "test_hold_rate": float(metric["test_hold_rate"]),
+                "created_at": created_at,
+            }
+            for index, metric in enumerate(metrics)
+        ]
+
+        with self._engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO ml_model_candidates (
+                        model_version,
+                        model_name,
+                        model_rank,
+                        is_selected,
+                        cv_f1,
+                        test_f1,
+                        test_balanced_accuracy,
+                        test_precision,
+                        test_recall,
+                        test_action_rate,
+                        test_hold_rate,
+                        created_at
+                    )
+                    VALUES (
+                        :model_version,
+                        :model_name,
+                        :model_rank,
+                        :is_selected,
+                        :cv_f1,
+                        :test_f1,
+                        :test_balanced_accuracy,
+                        :test_precision,
+                        :test_recall,
+                        :test_action_rate,
+                        :test_hold_rate,
+                        :created_at
+                    )
+                    ON CONFLICT (model_version, model_name)
+                    DO UPDATE SET
+                        model_rank = EXCLUDED.model_rank,
+                        is_selected = EXCLUDED.is_selected,
+                        cv_f1 = EXCLUDED.cv_f1,
+                        test_f1 = EXCLUDED.test_f1,
+                        test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
+                        test_precision = EXCLUDED.test_precision,
+                        test_recall = EXCLUDED.test_recall,
+                        test_action_rate = EXCLUDED.test_action_rate,
+                        test_hold_rate = EXCLUDED.test_hold_rate,
+                        created_at = EXCLUDED.created_at
+                    """
+                ),
+                rows,
+            )
+
     def fetch_model_metrics(self, model_version: str) -> dict[str, float | None] | None:
         query = text(
             """
@@ -253,4 +349,3 @@ class StockDataRepository:
                     "generated_at": datetime.now(timezone.utc),
                 },
             )
-

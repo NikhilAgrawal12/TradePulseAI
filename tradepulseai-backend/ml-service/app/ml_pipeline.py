@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -18,6 +18,20 @@ from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, RobustScaler
 from xgboost import XGBClassifier
+
+try:
+    from statsmodels.tsa.arima.model import ARIMA  # type: ignore[import-not-found]
+
+    HAS_ARIMA = True
+except Exception:
+    HAS_ARIMA = False
+
+try:
+    import tensorflow as tf  # type: ignore[import-not-found]
+
+    HAS_TENSORFLOW = True
+except Exception:
+    HAS_TENSORFLOW = False
 
 
 NUMERIC_FEATURES = [
@@ -211,8 +225,22 @@ def _evaluate_trade_policy(
 ) -> dict[str, float]:
     probabilities = estimator.predict_proba(x_test)
     probability_sell, probability_buy = _get_probability_columns(estimator, probabilities)
+    return _compute_trade_policy_metrics(
+        probability_sell=probability_sell,
+        probability_buy=probability_buy,
+        y_true=y_test.to_numpy(dtype=int),
+        decision_threshold=decision_threshold,
+    )
+
+
+def _compute_trade_policy_metrics(
+    probability_sell: np.ndarray,
+    probability_buy: np.ndarray,
+    y_true: np.ndarray,
+    decision_threshold: float,
+) -> dict[str, float]:
     predicted_actions, _ = _derive_actions_from_probabilities(probability_sell, probability_buy, decision_threshold)
-    actual_actions = np.where(y_test.to_numpy(dtype=int) == 1, ACTION_BUY, ACTION_SELL)
+    actual_actions = np.where(y_true == 1, ACTION_BUY, ACTION_SELL)
 
     acted_mask = predicted_actions != ACTION_HOLD
     action_rate = float(np.mean(acted_mask))
@@ -240,6 +268,172 @@ def _evaluate_trade_policy(
         "test_recall": macro_recall,
         "test_action_rate": action_rate,
         "test_hold_rate": hold_rate,
+    }
+
+
+def _build_experimental_benchmarks(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    decision_threshold: float,
+) -> list[dict[str, float | str]]:
+    rows: list[dict[str, float | str]] = []
+
+    if HAS_ARIMA:
+        arima_metric = _evaluate_arima_benchmark(train_df=train_df, test_df=test_df, decision_threshold=decision_threshold)
+        if arima_metric is not None:
+            rows.append(arima_metric)
+
+    if HAS_TENSORFLOW:
+        lstm_metric = _evaluate_lstm_benchmark(train_df=train_df, test_df=test_df, decision_threshold=decision_threshold)
+        if lstm_metric is not None:
+            rows.append(lstm_metric)
+
+    return rows
+
+
+def _evaluate_arima_benchmark(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    decision_threshold: float,
+) -> dict[str, float | str] | None:
+    y_true_parts: list[np.ndarray] = []
+    buy_parts: list[np.ndarray] = []
+
+    for stock_id, train_stock in train_df.groupby("stock_id"):
+        test_stock = test_df[test_df["stock_id"] == stock_id].sort_values("trading_date")
+        if test_stock.empty:
+            continue
+
+        train_series = train_stock.sort_values("trading_date")["forward_return"].dropna().astype(float)
+        if len(train_series) < 60:
+            continue
+
+        try:
+            fit = ARIMA(train_series, order=(2, 0, 1)).fit()
+            forecast = np.asarray(fit.forecast(steps=len(test_stock)), dtype=float)
+        except Exception:
+            continue
+
+        # Convert return forecasts to class probabilities.
+        logits = np.clip(forecast * 20.0, -12.0, 12.0)
+        probability_buy = 1.0 / (1.0 + np.exp(-logits))
+        y_true_parts.append(test_stock["target"].astype(int).to_numpy())
+        buy_parts.append(probability_buy)
+
+    if not y_true_parts:
+        return None
+
+    y_true = np.concatenate(y_true_parts)
+    probability_buy = np.clip(np.concatenate(buy_parts), 0.0, 1.0)
+    probability_sell = 1.0 - probability_buy
+    metrics = _compute_trade_policy_metrics(probability_sell, probability_buy, y_true, decision_threshold)
+    return {
+        "model_name": "arima",
+        "cv_f1": float(metrics["test_f1"]),
+        "test_f1": float(metrics["test_f1"]),
+        "test_balanced_accuracy": float(metrics["test_balanced_accuracy"]),
+        "test_precision": float(metrics["test_precision"]),
+        "test_recall": float(metrics["test_recall"]),
+        "test_action_rate": float(metrics["test_action_rate"]),
+        "test_hold_rate": float(metrics["test_hold_rate"]),
+    }
+
+
+def _evaluate_lstm_benchmark(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    decision_threshold: float,
+) -> dict[str, float | str] | None:
+    if train_df.empty or test_df.empty:
+        return None
+
+    train_core_df, valid_df = _split_train_test_by_date(train_df, train_fraction=0.85)
+    if train_core_df.empty or valid_df.empty:
+        return None
+
+    numeric_core = train_core_df[NUMERIC_FEATURES].copy()
+    numeric_valid = valid_df[NUMERIC_FEATURES].copy()
+    numeric_test = test_df[NUMERIC_FEATURES].copy()
+
+    core_medians = numeric_core.median(numeric_only=True)
+    core_means = numeric_core.fillna(core_medians).mean(numeric_only=True)
+    core_stds = numeric_core.fillna(core_medians).std(numeric_only=True).replace(0, 1.0)
+
+    def _normalize(frame: pd.DataFrame) -> np.ndarray:
+        filled = frame.fillna(core_medians)
+        scaled = (filled - core_means) / core_stds
+        return scaled.to_numpy(dtype=np.float32)
+
+    x_core = _normalize(numeric_core)
+    x_valid = _normalize(numeric_valid)
+    x_test = _normalize(numeric_test)
+    y_core = train_core_df["target"].astype(np.float32).to_numpy()
+    y_valid = valid_df["target"].astype(int).to_numpy()
+    y_test = test_df["target"].astype(int).to_numpy()
+
+    if len(np.unique(y_core)) < 2:
+        return None
+
+    tf.keras.utils.set_random_seed(42)
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.Input(shape=(1, x_core.shape[1])),
+            tf.keras.layers.LSTM(32, dropout=0.2),
+            tf.keras.layers.Dense(16, activation="relu"),
+            tf.keras.layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss="binary_crossentropy")
+
+    core_counts = np.bincount(y_core.astype(int), minlength=2)
+    class_weight = {
+        0: float(len(y_core) / max(2.0 * core_counts[0], 1.0)),
+        1: float(len(y_core) / max(2.0 * core_counts[1], 1.0)),
+    }
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2, restore_best_weights=True),
+    ]
+    model.fit(
+        x_core.reshape((-1, 1, x_core.shape[1])),
+        y_core,
+        validation_data=(x_valid.reshape((-1, 1, x_valid.shape[1])), y_valid.astype(np.float32)),
+        epochs=12,
+        batch_size=128,
+        class_weight=class_weight,
+        shuffle=False,
+        verbose=0,
+        callbacks=callbacks,
+    )
+
+    valid_probability_buy = model.predict(x_valid.reshape((-1, 1, x_valid.shape[1])), verbose=0).reshape(-1)
+    valid_probability_buy = np.clip(valid_probability_buy.astype(float), 0.0, 1.0)
+    valid_probability_sell = 1.0 - valid_probability_buy
+
+    best_threshold = float(decision_threshold)
+    valid_metrics = _compute_trade_policy_metrics(valid_probability_sell, valid_probability_buy, y_valid, best_threshold)
+    best_score = _score_trade_policy(valid_metrics)
+    for threshold in _build_threshold_candidates(pd.Series(y_valid, dtype=int)):
+        candidate_threshold = float(threshold)
+        candidate_metrics = _compute_trade_policy_metrics(valid_probability_sell, valid_probability_buy, y_valid, candidate_threshold)
+        candidate_score = _score_trade_policy(candidate_metrics)
+        if candidate_score > best_score:
+            best_score = candidate_score
+            best_threshold = candidate_threshold
+
+    probability_buy = model.predict(x_test.reshape((-1, 1, x_test.shape[1])), verbose=0).reshape(-1)
+    probability_buy = np.clip(probability_buy.astype(float), 0.0, 1.0)
+    probability_sell = 1.0 - probability_buy
+
+    metrics = _compute_trade_policy_metrics(probability_sell, probability_buy, y_test, best_threshold)
+    return {
+        "model_name": "lstm",
+        "cv_f1": float(valid_metrics["test_f1"]),
+        "test_f1": float(metrics["test_f1"]),
+        "test_balanced_accuracy": float(metrics["test_balanced_accuracy"]),
+        "test_precision": float(metrics["test_precision"]),
+        "test_recall": float(metrics["test_recall"]),
+        "test_action_rate": float(metrics["test_action_rate"]),
+        "test_hold_rate": float(metrics["test_hold_rate"]),
     }
 
 
@@ -355,16 +549,6 @@ def train_and_select_model(
             },
         ),
         (
-            "extra_trees",
-            ExtraTreesClassifier(random_state=42),
-            {
-                "model__n_estimators": [120, 180, 250],
-                "model__max_depth": [6, 10, None],
-                "model__min_samples_leaf": [1, 3, 5],
-                "model__class_weight": [None, "balanced"],
-            },
-        ),
-        (
             "xgboost",
             XGBClassifier(
                 objective="binary:logistic",
@@ -435,6 +619,11 @@ def train_and_select_model(
     winner = ranked[0]
 
     model_version = datetime.now(timezone.utc).strftime("v%Y%m%d%H%M%S")
+    experimental_metrics = _build_experimental_benchmarks(
+        train_df=train_df,
+        test_df=test_df,
+        decision_threshold=float(winner["decision_threshold"]),
+    )
     return TrainedModelBundle(
         estimator=winner["estimator"],
         metrics=[
@@ -449,7 +638,8 @@ def train_and_select_model(
                 "test_hold_rate": float(item["test_hold_rate"]),
             }
             for item in ranked
-        ],
+        ]
+        + experimental_metrics,
         selected_model=str(winner["model_name"]),
         model_version=model_version,
         horizon_days=horizon_days,

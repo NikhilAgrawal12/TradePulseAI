@@ -76,6 +76,11 @@ def _persist_trained_model(trained: Any) -> None:
             "test_hold_rate": top_metric["test_hold_rate"],
         }
     )
+    repository.save_model_candidates(
+        model_version=trained.model_version,
+        metrics=trained.metrics,
+        selected_model=trained.selected_model,
+    )
 
 
 def _train_model(days_back: int, horizon_days: int, positive_return_threshold: float) -> Any:

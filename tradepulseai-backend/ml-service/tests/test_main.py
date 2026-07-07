@@ -144,3 +144,67 @@ def test_startup_background_training_handles_missing_data(monkeypatch) -> None:
     assert health["training_status"] == "waiting_for_data"
     assert "No stock rows" in health["training_error"]
 
+
+def test_persist_trained_model_saves_candidate_metrics(monkeypatch) -> None:
+    _reset_state()
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(main, "_save_model_to_disk", lambda payload: None)
+    monkeypatch.setattr(main.repository, "save_model_registry", lambda payload: captured.setdefault("registry", payload))
+    monkeypatch.setattr(
+        main.repository,
+        "save_model_candidates",
+        lambda model_version, metrics, selected_model: captured.setdefault(
+            "candidates",
+            {
+                "model_version": model_version,
+                "metrics": metrics,
+                "selected_model": selected_model,
+            },
+        ),
+    )
+
+    trained = SimpleNamespace(
+        estimator=object(),
+        selected_model="logistic_regression",
+        model_version="v20260707010101",
+        horizon_days=5,
+        positive_return_threshold=0.0,
+        decision_threshold=0.55,
+        trained_rows=1234,
+        metrics=[
+            {
+                "model_name": "logistic_regression",
+                "cv_f1": 0.6,
+                "test_f1": 0.7,
+                "test_balanced_accuracy": 0.65,
+                "test_precision": 0.66,
+                "test_recall": 0.64,
+                "test_action_rate": 0.7,
+                "test_hold_rate": 0.3,
+            },
+            {
+                "model_name": "xgboost",
+                "cv_f1": 0.58,
+                "test_f1": 0.61,
+                "test_balanced_accuracy": 0.6,
+                "test_precision": 0.62,
+                "test_recall": 0.59,
+                "test_action_rate": 0.75,
+                "test_hold_rate": 0.25,
+            },
+        ],
+    )
+
+    main._persist_trained_model(trained)
+
+    assert "registry" in captured
+    assert "candidates" in captured
+    candidate_payload = captured["candidates"]
+    assert isinstance(candidate_payload, dict)
+    assert candidate_payload["model_version"] == "v20260707010101"
+    assert candidate_payload["selected_model"] == "logistic_regression"
+    assert len(candidate_payload["metrics"]) == 2
+
+
