@@ -949,14 +949,6 @@ export function StockInsightsPage() {
                           <span>Trade F1 Score</span>
                           <strong>{prediction.testF1 == null ? "--" : `${formatPercent(prediction.testF1 * 100, false)}%`}</strong>
                         </div>
-                        <div className="insights-ml-quality-card">
-                          <span>Action Rate</span>
-                          <strong>{prediction.testActionRate == null ? "--" : `${formatPercent(prediction.testActionRate * 100, false)}%`}</strong>
-                        </div>
-                        <div className="insights-ml-quality-card">
-                          <span>Hold Rate</span>
-                          <strong>{prediction.testHoldRate == null ? "--" : `${formatPercent(prediction.testHoldRate * 100, false)}%`}</strong>
-                        </div>
                       </div>
                     </div>
                     <div className="insights-ml-visual">

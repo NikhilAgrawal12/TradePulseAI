@@ -11,7 +11,7 @@ import joblib
 from fastapi import FastAPI, HTTPException
 
 from app.data import StockDataRepository
-from app.ml_pipeline import ACTION_THRESHOLD, build_prediction_row, predict_action, train_and_select_model
+from app.ml_pipeline import ACTION_THRESHOLD, FIXED_RETURN_THRESHOLD, build_prediction_row, predict_action, train_and_select_model
 from app.schemas import PredictionResponse, TrainRequest, TrainResponse
 from app.settings import settings
 
@@ -25,6 +25,7 @@ state: dict[str, Any] = {
     "model_version": None,
     "horizon_days": None,
     "positive_return_threshold": None,
+    "neutral_return_band": None,
     "decision_threshold": ACTION_THRESHOLD,
     "training_status": "pending",
     "training_error": None,
@@ -44,6 +45,7 @@ def _persist_trained_model(trained: Any) -> None:
         "model_version": trained.model_version,
         "horizon_days": trained.horizon_days,
         "positive_return_threshold": trained.positive_return_threshold,
+        "neutral_return_band": float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band)),
         "decision_threshold": trained.decision_threshold,
     }
     _save_model_to_disk(artifact)
@@ -53,6 +55,7 @@ def _persist_trained_model(trained: Any) -> None:
     state["model_version"] = trained.model_version
     state["horizon_days"] = trained.horizon_days
     state["positive_return_threshold"] = trained.positive_return_threshold
+    state["neutral_return_band"] = float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band))
     state["decision_threshold"] = trained.decision_threshold
     state["training_status"] = "trained"
     state["training_error"] = None
@@ -72,8 +75,6 @@ def _persist_trained_model(trained: Any) -> None:
             "test_balanced_accuracy": top_metric["test_balanced_accuracy"],
             "test_precision": top_metric["test_precision"],
             "test_recall": top_metric["test_recall"],
-            "test_action_rate": top_metric["test_action_rate"],
-            "test_hold_rate": top_metric["test_hold_rate"],
         }
     )
     repository.save_model_candidates(
@@ -83,7 +84,7 @@ def _persist_trained_model(trained: Any) -> None:
     )
 
 
-def _train_model(days_back: int, horizon_days: int, positive_return_threshold: float) -> Any:
+def _train_model(days_back: int, horizon_days: int, positive_return_threshold: float, neutral_return_band: float) -> Any:
     with training_lock:
         training_frame = repository.fetch_training_data(
             days_back=days_back,
@@ -97,6 +98,7 @@ def _train_model(days_back: int, horizon_days: int, positive_return_threshold: f
             frame=training_frame,
             horizon_days=horizon_days,
             positive_return_threshold=positive_return_threshold,
+            neutral_return_band=neutral_return_band,
         )
         _persist_trained_model(trained)
         return trained
@@ -107,7 +109,8 @@ def _run_startup_training() -> None:
         _train_model(
             days_back=settings.default_days_back,
             horizon_days=settings.default_horizon_days,
-            positive_return_threshold=settings.default_positive_return_threshold,
+            positive_return_threshold=FIXED_RETURN_THRESHOLD,
+            neutral_return_band=FIXED_RETURN_THRESHOLD,
         )
     except ValueError as error:
         state["training_status"] = "waiting_for_data"
@@ -127,7 +130,8 @@ def _run_scheduled_training() -> None:
             _train_model(
                 days_back=settings.default_days_back,
                 horizon_days=settings.default_horizon_days,
-                positive_return_threshold=settings.default_positive_return_threshold,
+                positive_return_threshold=FIXED_RETURN_THRESHOLD,
+                neutral_return_band=FIXED_RETURN_THRESHOLD,
             )
         except Exception:
             # Keep scheduler alive even when one retraining run fails.
@@ -145,6 +149,7 @@ def _load_model_from_disk() -> bool:
     state["model_version"] = artifact["model_version"]
     state["horizon_days"] = artifact["horizon_days"]
     state["positive_return_threshold"] = artifact["positive_return_threshold"]
+    state["neutral_return_band"] = float(artifact.get("neutral_return_band", getattr(settings, "default_neutral_return_band", 0.02)))
     state["decision_threshold"] = float(artifact.get("decision_threshold", ACTION_THRESHOLD))
     state["training_status"] = "loaded"
     state["training_error"] = None
@@ -190,6 +195,8 @@ def health() -> dict[str, Any]:
         "model_loaded": state["estimator"] is not None,
         "model_name": state["model_name"],
         "model_version": state["model_version"],
+        "positive_return_threshold": state["positive_return_threshold"],
+        "neutral_return_band": state["neutral_return_band"],
         "training_status": state["training_status"],
         "training_error": state["training_error"],
         "last_trained_at": state["last_trained_at"],
@@ -203,7 +210,8 @@ def train_model(payload: TrainRequest) -> TrainResponse:
         trained = _train_model(
             days_back=payload.days_back,
             horizon_days=payload.horizon_days,
-            positive_return_threshold=payload.positive_return_threshold,
+            positive_return_threshold=FIXED_RETURN_THRESHOLD,
+            neutral_return_band=FIXED_RETURN_THRESHOLD,
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
@@ -213,19 +221,18 @@ def train_model(payload: TrainRequest) -> TrainResponse:
         trained_rows=trained.trained_rows,
         horizon_days=trained.horizon_days,
         positive_return_threshold=trained.positive_return_threshold,
-        metrics=[
-            {
-                "model_name": row["model_name"],
-                "cv_f1": row["cv_f1"],
-                "test_f1": row["test_f1"],
-                "test_balanced_accuracy": row["test_balanced_accuracy"],
-                "test_precision": row["test_precision"],
-                "test_recall": row["test_recall"],
-                "test_action_rate": row["test_action_rate"],
-                "test_hold_rate": row["test_hold_rate"],
-            }
-            for row in trained.metrics
-        ],
+        neutral_return_band=float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band)),
+         metrics=[
+             {
+                 "model_name": row["model_name"],
+                 "cv_f1": row["cv_f1"],
+                 "test_f1": row["test_f1"],
+                 "test_balanced_accuracy": row["test_balanced_accuracy"],
+                 "test_precision": row["test_precision"],
+                 "test_recall": row["test_recall"],
+             }
+             for row in trained.metrics
+         ],
     )
 
 
@@ -275,16 +282,14 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         reasoning=signal["reasoning"],
         decisionThreshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
         confidenceEdge=signal["confidence_edge"],
-        probabilityGap=signal["probability_gap"],
-        convictionLabel=signal["conviction_label"],
-        cvF1=(model_metrics["cv_f1"] if model_metrics else None),
-        testF1=(model_metrics["test_f1"] if model_metrics else None),
-        testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),
-        testPrecision=(model_metrics["test_precision"] if model_metrics else None),
-        testRecall=(model_metrics["test_recall"] if model_metrics else None),
-        testActionRate=(model_metrics["test_action_rate"] if model_metrics else None),
-        testHoldRate=(model_metrics["test_hold_rate"] if model_metrics else None),
-    )
+         probabilityGap=signal["probability_gap"],
+         convictionLabel=signal["conviction_label"],
+         cvF1=(model_metrics["cv_f1"] if model_metrics else None),
+         testF1=(model_metrics["test_f1"] if model_metrics else None),
+         testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),
+         testPrecision=(model_metrics["test_precision"] if model_metrics else None),
+         testRecall=(model_metrics["test_recall"] if model_metrics else None),
+     )
 
 
 

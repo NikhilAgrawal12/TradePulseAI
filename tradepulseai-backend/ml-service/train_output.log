@@ -1,0 +1,17 @@
+Fetching training data...
+Loaded 25199 rows. Starting training...
+============================================================
+Training complete in 622.2s
+Selected model : gradient_boosting
+Model version  : v20260709174627
+Trained rows   : 25199
+============================================================
+
+Model                        CV F1  Test F1  Bal Acc  Precision   Recall
+---------------------------------------------------------------------------
+gradient_boosting           0.5084   0.5328   0.5433     0.5526   0.5433
+random_forest               0.5031   0.5085   0.5423     0.5700   0.5423
+xgboost                     0.5046   0.4969   0.5063     0.5073   0.5063
+logistic_regression         0.5010   0.3624   0.5005     0.5124   0.5005
+============================================================
+Results saved to C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\ml-service\fresh_metrics.json

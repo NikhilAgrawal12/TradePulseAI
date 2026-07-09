@@ -33,8 +33,6 @@ class StockDataRepository:
             )
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_precision DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_recall DOUBLE PRECISION"))
-            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_action_rate DOUBLE PRECISION"))
-            connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_hold_rate DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS decision_threshold DOUBLE PRECISION DEFAULT 0.55"))
 
             connection.execute(
@@ -47,15 +45,13 @@ class StockDataRepository:
                         model_rank INTEGER NOT NULL,
                         is_selected BOOLEAN NOT NULL DEFAULT FALSE,
                         cv_f1 DOUBLE PRECISION NOT NULL,
-                        test_f1 DOUBLE PRECISION NOT NULL,
-                        test_balanced_accuracy DOUBLE PRECISION NOT NULL,
-                        test_precision DOUBLE PRECISION,
-                        test_recall DOUBLE PRECISION,
-                        test_action_rate DOUBLE PRECISION,
-                        test_hold_rate DOUBLE PRECISION,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        UNIQUE (model_version, model_name)
-                    )
+                         test_f1 DOUBLE PRECISION NOT NULL,
+                         test_balanced_accuracy DOUBLE PRECISION NOT NULL,
+                         test_precision DOUBLE PRECISION,
+                         test_recall DOUBLE PRECISION,
+                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                         UNIQUE (model_version, model_name)
+                     )
                     """
                 )
             )
@@ -171,47 +167,41 @@ class StockDataRepository:
                         horizon_days,
                         positive_return_threshold,
                         decision_threshold,
-                        trained_rows,
-                        cv_f1,
-                        test_f1,
-                        test_balanced_accuracy,
-                        test_precision,
-                        test_recall,
-                        test_action_rate,
-                        test_hold_rate,
-                        created_at
-                    )
-                    VALUES (
-                        :model_version,
-                        :model_name,
-                        :horizon_days,
-                        :positive_return_threshold,
-                        :decision_threshold,
-                        :trained_rows,
-                        :cv_f1,
-                        :test_f1,
-                        :test_balanced_accuracy,
-                        :test_precision,
-                        :test_recall,
-                        :test_action_rate,
-                        :test_hold_rate,
-                        :created_at
-                    )
-                    ON CONFLICT (model_version)
-                    DO UPDATE SET
-                        model_name = EXCLUDED.model_name,
-                        horizon_days = EXCLUDED.horizon_days,
-                        positive_return_threshold = EXCLUDED.positive_return_threshold,
-                        decision_threshold = EXCLUDED.decision_threshold,
-                        trained_rows = EXCLUDED.trained_rows,
-                        cv_f1 = EXCLUDED.cv_f1,
-                        test_f1 = EXCLUDED.test_f1,
-                        test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
-                        test_precision = EXCLUDED.test_precision,
-                        test_recall = EXCLUDED.test_recall,
-                        test_action_rate = EXCLUDED.test_action_rate,
-                        test_hold_rate = EXCLUDED.test_hold_rate,
-                        created_at = EXCLUDED.created_at
+                         trained_rows,
+                         cv_f1,
+                         test_f1,
+                         test_balanced_accuracy,
+                         test_precision,
+                         test_recall,
+                         created_at
+                     )
+                     VALUES (
+                         :model_version,
+                         :model_name,
+                         :horizon_days,
+                         :positive_return_threshold,
+                         :decision_threshold,
+                         :trained_rows,
+                         :cv_f1,
+                         :test_f1,
+                         :test_balanced_accuracy,
+                         :test_precision,
+                         :test_recall,
+                         :created_at
+                     )
+                     ON CONFLICT (model_version)
+                     DO UPDATE SET
+                         model_name = EXCLUDED.model_name,
+                         horizon_days = EXCLUDED.horizon_days,
+                         positive_return_threshold = EXCLUDED.positive_return_threshold,
+                         decision_threshold = EXCLUDED.decision_threshold,
+                         trained_rows = EXCLUDED.trained_rows,
+                         cv_f1 = EXCLUDED.cv_f1,
+                         test_f1 = EXCLUDED.test_f1,
+                         test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
+                         test_precision = EXCLUDED.test_precision,
+                         test_recall = EXCLUDED.test_recall,
+                         created_at = EXCLUDED.created_at
                     """
                 ),
                 {
@@ -226,66 +216,58 @@ class StockDataRepository:
 
         created_at = datetime.now(timezone.utc)
         rows = [
-            {
-                "model_version": model_version,
-                "model_name": str(metric["model_name"]),
-                "model_rank": index + 1,
-                "is_selected": str(metric["model_name"]) == selected_model,
-                "cv_f1": float(metric["cv_f1"]),
-                "test_f1": float(metric["test_f1"]),
-                "test_balanced_accuracy": float(metric["test_balanced_accuracy"]),
-                "test_precision": float(metric["test_precision"]),
-                "test_recall": float(metric["test_recall"]),
-                "test_action_rate": float(metric["test_action_rate"]),
-                "test_hold_rate": float(metric["test_hold_rate"]),
-                "created_at": created_at,
-            }
-            for index, metric in enumerate(metrics)
-        ]
+             {
+                 "model_version": model_version,
+                 "model_name": str(metric["model_name"]),
+                 "model_rank": index + 1,
+                 "is_selected": str(metric["model_name"]) == selected_model,
+                 "cv_f1": float(metric["cv_f1"]),
+                 "test_f1": float(metric["test_f1"]),
+                 "test_balanced_accuracy": float(metric["test_balanced_accuracy"]),
+                 "test_precision": float(metric["test_precision"]),
+                 "test_recall": float(metric["test_recall"]),
+                 "created_at": created_at,
+             }
+             for index, metric in enumerate(metrics)
+         ]
 
         with self._engine.begin() as connection:
             connection.execute(
                 text(
                     """
-                    INSERT INTO ml_model_candidates (
-                        model_version,
-                        model_name,
-                        model_rank,
-                        is_selected,
-                        cv_f1,
-                        test_f1,
-                        test_balanced_accuracy,
-                        test_precision,
-                        test_recall,
-                        test_action_rate,
-                        test_hold_rate,
-                        created_at
-                    )
-                    VALUES (
-                        :model_version,
-                        :model_name,
-                        :model_rank,
-                        :is_selected,
-                        :cv_f1,
-                        :test_f1,
-                        :test_balanced_accuracy,
-                        :test_precision,
-                        :test_recall,
-                        :test_action_rate,
-                        :test_hold_rate,
-                        :created_at
-                    )
-                    ON CONFLICT (model_version, model_name)
-                    DO UPDATE SET
-                        model_rank = EXCLUDED.model_rank,
-                        is_selected = EXCLUDED.is_selected,
-                        cv_f1 = EXCLUDED.cv_f1,
-                        test_f1 = EXCLUDED.test_f1,
-                        test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
-                        test_precision = EXCLUDED.test_precision,
-                        test_recall = EXCLUDED.test_recall,
-                        test_action_rate = EXCLUDED.test_action_rate,
-                        test_hold_rate = EXCLUDED.test_hold_rate,
+                     INSERT INTO ml_model_candidates (
+                         model_version,
+                         model_name,
+                         model_rank,
+                         is_selected,
+                         cv_f1,
+                         test_f1,
+                         test_balanced_accuracy,
+                         test_precision,
+                         test_recall,
+                         created_at
+                     )
+                     VALUES (
+                         :model_version,
+                         :model_name,
+                         :model_rank,
+                         :is_selected,
+                         :cv_f1,
+                         :test_f1,
+                         :test_balanced_accuracy,
+                         :test_precision,
+                         :test_recall,
+                         :created_at
+                     )
+                     ON CONFLICT (model_version, model_name)
+                     DO UPDATE SET
+                         model_rank = EXCLUDED.model_rank,
+                         is_selected = EXCLUDED.is_selected,
+                         cv_f1 = EXCLUDED.cv_f1,
+                         test_f1 = EXCLUDED.test_f1,
+                         test_balanced_accuracy = EXCLUDED.test_balanced_accuracy,
+                         test_precision = EXCLUDED.test_precision,
+                         test_recall = EXCLUDED.test_recall,
                         created_at = EXCLUDED.created_at
                     """
                 ),
@@ -295,7 +277,7 @@ class StockDataRepository:
     def fetch_model_metrics(self, model_version: str) -> dict[str, float | None] | None:
         query = text(
             """
-            SELECT cv_f1, test_f1, test_balanced_accuracy, test_precision, test_recall, test_action_rate, test_hold_rate
+            SELECT cv_f1, test_f1, test_balanced_accuracy, test_precision, test_recall
             FROM ml_model_registry
             WHERE model_version = :model_version
             """
@@ -311,8 +293,6 @@ class StockDataRepository:
             "test_balanced_accuracy": float(row["test_balanced_accuracy"]) if pd.notna(row["test_balanced_accuracy"]) else None,
             "test_precision": float(row["test_precision"]) if pd.notna(row["test_precision"]) else None,
             "test_recall": float(row["test_recall"]) if pd.notna(row["test_recall"]) else None,
-            "test_action_rate": float(row["test_action_rate"]) if pd.notna(row["test_action_rate"]) else None,
-            "test_hold_rate": float(row["test_hold_rate"]) if pd.notna(row["test_hold_rate"]) else None,
         }
 
     def save_prediction(self, payload: dict[str, Any]) -> None:

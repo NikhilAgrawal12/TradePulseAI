@@ -1,0 +1,40 @@
+{
+  "trained_rows": 25199,
+  "seconds": 622.2,
+  "selected_model": "gradient_boosting",
+  "model_version": "v20260709174627",
+  "metrics": [
+    {
+      "model_name": "gradient_boosting",
+      "cv_f1": 0.5084102895743862,
+      "test_f1": 0.5328003377260302,
+      "test_balanced_accuracy": 0.5432874989748777,
+      "test_precision": 0.5525977384562093,
+      "test_recall": 0.5432874989748777
+    },
+    {
+      "model_name": "random_forest",
+      "cv_f1": 0.5030611617037595,
+      "test_f1": 0.5084982683387305,
+      "test_balanced_accuracy": 0.5423042034361024,
+      "test_precision": 0.5699882756132757,
+      "test_recall": 0.5423042034361024
+    },
+    {
+      "model_name": "xgboost",
+      "cv_f1": 0.5046126337423655,
+      "test_f1": 0.496936646473806,
+      "test_balanced_accuracy": 0.5063102980489167,
+      "test_precision": 0.5073040349880618,
+      "test_recall": 0.5063102980489167
+    },
+    {
+      "model_name": "logistic_regression",
+      "cv_f1": 0.5009851643175346,
+      "test_f1": 0.36238773224855453,
+      "test_balanced_accuracy": 0.5004888606933612,
+      "test_precision": 0.512371095078004,
+      "test_recall": 0.5004888606933612
+    }
+  ]
+}

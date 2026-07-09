@@ -109,7 +109,5 @@ export type StockPrediction = {
   testBalancedAccuracy?: number | null;
   testPrecision?: number | null;
   testRecall?: number | null;
-  testActionRate?: number | null;
-  testHoldRate?: number | null;
 };
 

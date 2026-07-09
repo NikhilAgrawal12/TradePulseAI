@@ -42,7 +42,7 @@ def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
 
 def test_training_selects_model() -> None:
     frame = synthetic_frame()
-    bundle = train_and_select_model(frame, horizon_days=5, positive_return_threshold=0.0)
+    bundle = train_and_select_model(frame, horizon_days=5, positive_return_threshold=0.0, neutral_return_band=0.0)
 
     assert bundle.estimator is not None
     assert bundle.selected_model in {
@@ -54,9 +54,6 @@ def test_training_selects_model() -> None:
     assert bundle.trained_rows > 600
     assert len(bundle.metrics) >= 4
     top_metric = bundle.metrics[0]
-    assert 0.0 <= float(top_metric["test_action_rate"]) <= 1.0
-    assert 0.0 <= float(top_metric["test_hold_rate"]) <= 1.0
-    assert abs(float(top_metric["test_action_rate"]) + float(top_metric["test_hold_rate"]) - 1.0) < 1e-9
 
 
 def test_temporal_split_uses_unique_trading_dates() -> None:

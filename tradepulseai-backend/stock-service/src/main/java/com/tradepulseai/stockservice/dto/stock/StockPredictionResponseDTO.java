@@ -22,9 +22,7 @@ public record StockPredictionResponseDTO(
         Double testF1,
         Double testBalancedAccuracy,
         Double testPrecision,
-        Double testRecall,
-        Double testActionRate,
-        Double testHoldRate
+        Double testRecall
 ) {
 }
 

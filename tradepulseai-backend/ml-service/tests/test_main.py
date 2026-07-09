@@ -100,8 +100,6 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
             "test_balanced_accuracy": 0.65,
             "test_precision": 0.68,
             "test_recall": 0.72,
-            "test_action_rate": 0.81,
-            "test_hold_rate": 0.19,
         }]
 
     def _train_ok(*_args, **_kwargs):
@@ -174,26 +172,22 @@ def test_persist_trained_model_saves_candidate_metrics(monkeypatch) -> None:
         decision_threshold=0.55,
         trained_rows=1234,
         metrics=[
-            {
-                "model_name": "logistic_regression",
-                "cv_f1": 0.6,
-                "test_f1": 0.7,
-                "test_balanced_accuracy": 0.65,
-                "test_precision": 0.66,
-                "test_recall": 0.64,
-                "test_action_rate": 0.7,
-                "test_hold_rate": 0.3,
-            },
-            {
-                "model_name": "xgboost",
-                "cv_f1": 0.58,
-                "test_f1": 0.61,
-                "test_balanced_accuracy": 0.6,
-                "test_precision": 0.62,
-                "test_recall": 0.59,
-                "test_action_rate": 0.75,
-                "test_hold_rate": 0.25,
-            },
+             {
+                 "model_name": "logistic_regression",
+                 "cv_f1": 0.6,
+                 "test_f1": 0.7,
+                 "test_balanced_accuracy": 0.65,
+                 "test_precision": 0.66,
+                 "test_recall": 0.64,
+             },
+             {
+                 "model_name": "xgboost",
+                 "cv_f1": 0.58,
+                 "test_f1": 0.61,
+                 "test_balanced_accuracy": 0.6,
+                 "test_precision": 0.62,
+                 "test_recall": 0.59,
+             },
         ],
     )
 

@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.compose import ColumnTransformer
+from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.feature_selection import SelectFromModel
+from sklearn.feature_selection import SelectFromModel, SelectKBest, mutual_info_classif
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
@@ -45,29 +46,33 @@ NUMERIC_FEATURES = [
     "sma_200",
     "volatility_30d",
     "volatility_90d",
-    "daily_return_percent",
     "return_1d",
     "return_5d",
     "return_10d",
     "return_20d",
+    "momentum_20d",
+    "rsi_14",
+    "macd",
+    "macd_signal",
     "rolling_vol_10d",
     "rolling_vol_20d",
     "volume_change_5d",
     "price_vs_sma20",
     "price_vs_sma50",
     "price_vs_sma200",
+    "sma20_vs_sma50",
+    "sma50_vs_sma200",
     "high_low_spread",
     "close_open_spread",
 ]
-CATEGORICAL_FEATURES = ["market"]
+CATEGORICAL_FEATURES: list[str] = []
 
 ACTION_BUY = "BUY"
 ACTION_SELL = "SELL"
 ACTION_HOLD = "HOLD"
-ACTION_THRESHOLD = 0.55
-MIN_ACTION_RATE = 0.35
-MAX_ACTION_RATE = 0.9
-TARGET_ACTION_RATE = 0.65
+ACTION_THRESHOLD = 0.50
+FIXED_RETURN_THRESHOLD = 0.01
+LSTM_SEQUENCE_LENGTH = 20
 
 
 @dataclass
@@ -78,11 +83,23 @@ class TrainedModelBundle:
     model_version: str
     horizon_days: int
     positive_return_threshold: float
+    neutral_return_band: float
     decision_threshold: float
     trained_rows: int
 
 
-def _engineer_features(frame: pd.DataFrame, horizon_days: int, positive_return_threshold: float) -> pd.DataFrame:
+def _engineer_features(
+    frame: pd.DataFrame,
+    horizon_days: int,
+    positive_return_threshold: float,
+    neutral_return_band: float,
+) -> pd.DataFrame:
+    # Thresholds are intentionally fixed to +/-1% to keep label semantics stable across runs.
+    _ = positive_return_threshold
+    _ = neutral_return_band
+    positive_return_threshold = FIXED_RETURN_THRESHOLD
+    neutral_return_band = FIXED_RETURN_THRESHOLD
+
     data = frame.copy()
     data["trading_date"] = pd.to_datetime(data["trading_date"])
     data = data.sort_values(["stock_id", "trading_date"]).reset_index(drop=True)
@@ -93,25 +110,46 @@ def _engineer_features(frame: pd.DataFrame, horizon_days: int, positive_return_t
     data["return_5d"] = grouped["close_price"].pct_change(5)
     data["return_10d"] = grouped["close_price"].pct_change(10)
     data["return_20d"] = grouped["close_price"].pct_change(20)
+    data["momentum_20d"] = grouped["close_price"].pct_change(20)
 
-    data["rolling_vol_10d"] = grouped["daily_return_percent"].transform(lambda s: s.rolling(10).std())
-    data["rolling_vol_20d"] = grouped["daily_return_percent"].transform(lambda s: s.rolling(20).std())
+    price_delta = grouped["close_price"].diff()
+    gains = price_delta.clip(lower=0.0)
+    losses = (-price_delta).clip(lower=0.0)
+    avg_gain = gains.groupby(data["stock_id"]).transform(lambda s: s.rolling(14).mean())
+    avg_loss = losses.groupby(data["stock_id"]).transform(lambda s: s.rolling(14).mean())
+    relative_strength = avg_gain / avg_loss.replace(0.0, np.nan)
+    data["rsi_14"] = 100.0 - (100.0 / (1.0 + relative_strength))
+
+    ema_12 = grouped["close_price"].transform(lambda s: s.ewm(span=12, adjust=False).mean())
+    ema_26 = grouped["close_price"].transform(lambda s: s.ewm(span=26, adjust=False).mean())
+    data["macd"] = ema_12 - ema_26
+    data["macd_signal"] = data.groupby("stock_id")["macd"].transform(lambda s: s.ewm(span=9, adjust=False).mean())
+
+    data["rolling_vol_10d"] = grouped["return_1d"].transform(lambda s: s.rolling(10).std())
+    data["rolling_vol_20d"] = grouped["return_1d"].transform(lambda s: s.rolling(20).std())
     data["volume_change_5d"] = grouped["volume"].pct_change(5)
 
     data["price_vs_sma20"] = (data["close_price"] - data["sma_20"]) / data["sma_20"].replace(0, np.nan)
     data["price_vs_sma50"] = (data["close_price"] - data["sma_50"]) / data["sma_50"].replace(0, np.nan)
     data["price_vs_sma200"] = (data["close_price"] - data["sma_200"]) / data["sma_200"].replace(0, np.nan)
+    data["sma20_vs_sma50"] = (data["sma_20"] - data["sma_50"]) / data["sma_50"].replace(0, np.nan)
+    data["sma50_vs_sma200"] = (data["sma_50"] - data["sma_200"]) / data["sma_200"].replace(0, np.nan)
     data["high_low_spread"] = (data["high_price"] - data["low_price"]) / data["close_price"].replace(0, np.nan)
     data["close_open_spread"] = (data["close_price"] - data["open_price"]) / data["open_price"].replace(0, np.nan)
 
     data["forward_return"] = grouped["close_price"].shift(-horizon_days) / data["close_price"] - 1.0
-    data["target"] = (data["forward_return"] > positive_return_threshold).astype(int)
+    # Keep only meaningful moves; drop neutral returns between -1% and +1%.
+    data["target"] = np.where(
+        data["forward_return"] > positive_return_threshold,
+        1,
+        np.where(data["forward_return"] < -neutral_return_band, 0, np.nan),
+    )
 
     return data.replace([np.inf, -np.inf], np.nan)
 
 
 def build_prediction_row(frame: pd.DataFrame) -> pd.DataFrame:
-    engineered = _engineer_features(frame, horizon_days=5, positive_return_threshold=0.0)
+    engineered = _engineer_features(frame, horizon_days=5, positive_return_threshold=0.0, neutral_return_band=0.0)
     latest = engineered.sort_values("trading_date").tail(1)
     return latest[NUMERIC_FEATURES + CATEGORICAL_FEATURES + ["stock_id", "symbol", "trading_date"]].copy()
 
@@ -126,25 +164,25 @@ def _build_preprocessor(scale_numeric: bool) -> ColumnTransformer:
             *numeric_steps,
         ]
     )
-    categorical_pipeline = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-        ]
-    )
-    return ColumnTransformer(
-        transformers=[
-            ("num", numeric_pipeline, NUMERIC_FEATURES),
-            ("cat", categorical_pipeline, CATEGORICAL_FEATURES),
-        ],
-        remainder="drop",
-    )
+    transformers: list[tuple[str, Any, list[str]]] = [("num", numeric_pipeline, NUMERIC_FEATURES)]
+    if CATEGORICAL_FEATURES:
+        categorical_pipeline = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+            ]
+        )
+        transformers.append(("cat", categorical_pipeline, CATEGORICAL_FEATURES))
+
+    return ColumnTransformer(transformers=transformers, remainder="drop")
 
 
 def _build_logistic_pipeline(model: Any) -> ImbPipeline:
     return ImbPipeline(
         steps=[
             ("preprocessor", _build_preprocessor(scale_numeric=True)),
+            ("feature_filter", SelectKBest(score_func=mutual_info_classif, k="all")),
+            ("reduce_dim", "passthrough"),
             ("feature_select", SelectFromModel(LogisticRegression(max_iter=600, solver="liblinear", penalty="l1", C=0.7))),
             ("model", model),
         ]
@@ -155,9 +193,19 @@ def _build_tree_pipeline(model: Any) -> ImbPipeline:
     return ImbPipeline(
         steps=[
             ("preprocessor", _build_preprocessor(scale_numeric=False)),
+            ("feature_filter", SelectKBest(score_func=mutual_info_classif, k="all")),
             ("model", model),
         ]
     )
+
+
+def _max_search_iterations(param_grid: dict[str, list[Any]], requested_n_iter: int) -> int:
+    total_combinations = 1
+    for values in param_grid.values():
+        total_combinations *= max(len(values), 1)
+        if total_combinations >= requested_n_iter:
+            return requested_n_iter
+    return max(1, int(total_combinations))
 
 
 def _get_probability_columns(estimator: Any, probabilities: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -243,8 +291,6 @@ def _compute_trade_policy_metrics(
     actual_actions = np.where(y_true == 1, ACTION_BUY, ACTION_SELL)
 
     acted_mask = predicted_actions != ACTION_HOLD
-    action_rate = float(np.mean(acted_mask))
-    hold_rate = float(1.0 - action_rate)
 
     if not np.any(acted_mask):
         return {
@@ -252,8 +298,6 @@ def _compute_trade_policy_metrics(
             "test_balanced_accuracy": 0.0,
             "test_precision": 0.0,
             "test_recall": 0.0,
-            "test_action_rate": action_rate,
-            "test_hold_rate": hold_rate,
         }
 
     y_true_trade = actual_actions[acted_mask]
@@ -266,8 +310,6 @@ def _compute_trade_policy_metrics(
         "test_balanced_accuracy": macro_recall,
         "test_precision": float(precision_score(y_true_trade, y_pred_trade, average="macro", labels=labels, zero_division=0)),
         "test_recall": macro_recall,
-        "test_action_rate": action_rate,
-        "test_hold_rate": hold_rate,
     }
 
 
@@ -334,8 +376,6 @@ def _evaluate_arima_benchmark(
         "test_balanced_accuracy": float(metrics["test_balanced_accuracy"]),
         "test_precision": float(metrics["test_precision"]),
         "test_recall": float(metrics["test_recall"]),
-        "test_action_rate": float(metrics["test_action_rate"]),
-        "test_hold_rate": float(metrics["test_hold_rate"]),
     }
 
 
@@ -352,24 +392,61 @@ def _evaluate_lstm_benchmark(
         return None
 
     numeric_core = train_core_df[NUMERIC_FEATURES].copy()
-    numeric_valid = valid_df[NUMERIC_FEATURES].copy()
-    numeric_test = test_df[NUMERIC_FEATURES].copy()
 
     core_medians = numeric_core.median(numeric_only=True)
     core_means = numeric_core.fillna(core_medians).mean(numeric_only=True)
     core_stds = numeric_core.fillna(core_medians).std(numeric_only=True).replace(0, 1.0)
 
-    def _normalize(frame: pd.DataFrame) -> np.ndarray:
-        filled = frame.fillna(core_medians)
-        scaled = (filled - core_means) / core_stds
-        return scaled.to_numpy(dtype=np.float32)
+    def _normalize_frame(frame: pd.DataFrame) -> pd.DataFrame:
+        normalized = frame.copy()
+        filled = normalized[NUMERIC_FEATURES].fillna(core_medians)
+        normalized.loc[:, NUMERIC_FEATURES] = ((filled - core_means) / core_stds).astype(np.float32)
+        return normalized
 
-    x_core = _normalize(numeric_core)
-    x_valid = _normalize(numeric_valid)
-    x_test = _normalize(numeric_test)
-    y_core = train_core_df["target"].astype(np.float32).to_numpy()
-    y_valid = valid_df["target"].astype(int).to_numpy()
-    y_test = test_df["target"].astype(int).to_numpy()
+    def _build_sequences(frame: pd.DataFrame, sequence_length: int) -> tuple[np.ndarray, np.ndarray]:
+        sequence_parts: list[np.ndarray] = []
+        target_parts: list[float] = []
+        for _, stock_frame in frame.groupby("stock_id"):
+            ordered = stock_frame.sort_values("trading_date")
+            features = ordered[NUMERIC_FEATURES].to_numpy(dtype=np.float32)
+            targets = ordered["target"].to_numpy(dtype=np.float32)
+            if len(ordered) < sequence_length:
+                continue
+            for end_index in range(sequence_length - 1, len(ordered)):
+                start_index = end_index - sequence_length + 1
+                sequence_parts.append(features[start_index : end_index + 1])
+                target_parts.append(float(targets[end_index]))
+
+        if not sequence_parts:
+            empty_sequences = np.empty((0, sequence_length, len(NUMERIC_FEATURES)), dtype=np.float32)
+            empty_targets = np.empty((0,), dtype=np.float32)
+            return empty_sequences, empty_targets
+
+        return np.stack(sequence_parts), np.asarray(target_parts, dtype=np.float32)
+
+    normalized_core = _normalize_frame(train_core_df)
+    normalized_valid = _normalize_frame(valid_df)
+    normalized_test = _normalize_frame(test_df)
+
+    sequence_length = LSTM_SEQUENCE_LENGTH
+    x_core, y_core = _build_sequences(normalized_core, sequence_length)
+    x_valid, y_valid = _build_sequences(normalized_valid, sequence_length)
+    x_test, y_test = _build_sequences(normalized_test, sequence_length)
+
+    if len(y_core) == 0 or len(y_valid) == 0 or len(y_test) == 0:
+        # Smaller windows can collapse validation/test per-stock history; back off sequence length.
+        for fallback_length in (15, 12, 10, 5):
+            if fallback_length >= sequence_length:
+                continue
+            x_core, y_core = _build_sequences(normalized_core, fallback_length)
+            x_valid, y_valid = _build_sequences(normalized_valid, fallback_length)
+            x_test, y_test = _build_sequences(normalized_test, fallback_length)
+            if len(y_core) > 0 and len(y_valid) > 0 and len(y_test) > 0:
+                sequence_length = fallback_length
+                break
+
+    if len(y_core) == 0 or len(y_valid) == 0 or len(y_test) == 0:
+        return None
 
     if len(np.unique(y_core)) < 2:
         return None
@@ -377,7 +454,7 @@ def _evaluate_lstm_benchmark(
     tf.keras.utils.set_random_seed(42)
     model = tf.keras.Sequential(
         [
-            tf.keras.layers.Input(shape=(1, x_core.shape[1])),
+            tf.keras.layers.Input(shape=(sequence_length, x_core.shape[2])),
             tf.keras.layers.LSTM(32, dropout=0.2),
             tf.keras.layers.Dense(16, activation="relu"),
             tf.keras.layers.Dense(1, activation="sigmoid"),
@@ -394,88 +471,98 @@ def _evaluate_lstm_benchmark(
         tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2, restore_best_weights=True),
     ]
     model.fit(
-        x_core.reshape((-1, 1, x_core.shape[1])),
+        x_core,
         y_core,
-        validation_data=(x_valid.reshape((-1, 1, x_valid.shape[1])), y_valid.astype(np.float32)),
-        epochs=12,
-        batch_size=128,
+        validation_data=(x_valid, y_valid.astype(np.float32)),
+        epochs=6,
+        batch_size=256,
         class_weight=class_weight,
         shuffle=False,
         verbose=0,
         callbacks=callbacks,
     )
 
-    valid_probability_buy = model.predict(x_valid.reshape((-1, 1, x_valid.shape[1])), verbose=0).reshape(-1)
+    valid_probability_buy = model.predict(x_valid, verbose=0).reshape(-1)
     valid_probability_buy = np.clip(valid_probability_buy.astype(float), 0.0, 1.0)
     valid_probability_sell = 1.0 - valid_probability_buy
 
+    def _threshold_objective(metrics: dict[str, float]) -> tuple[float, float, float, float]:
+        return (
+            float(metrics["test_f1"]),
+            float(metrics["test_balanced_accuracy"]),
+            float(metrics["test_precision"]),
+            float(_score_trade_policy(metrics)),
+        )
+
     best_threshold = float(decision_threshold)
     valid_metrics = _compute_trade_policy_metrics(valid_probability_sell, valid_probability_buy, y_valid, best_threshold)
-    best_score = _score_trade_policy(valid_metrics)
+    best_objective = _threshold_objective(valid_metrics)
+    best_valid_metrics = valid_metrics
     for threshold in _build_threshold_candidates(pd.Series(y_valid, dtype=int)):
         candidate_threshold = float(threshold)
         candidate_metrics = _compute_trade_policy_metrics(valid_probability_sell, valid_probability_buy, y_valid, candidate_threshold)
-        candidate_score = _score_trade_policy(candidate_metrics)
-        if candidate_score > best_score:
-            best_score = candidate_score
+        candidate_objective = _threshold_objective(candidate_metrics)
+        if candidate_objective > best_objective:
+            best_objective = candidate_objective
             best_threshold = candidate_threshold
+            best_valid_metrics = candidate_metrics
 
-    probability_buy = model.predict(x_test.reshape((-1, 1, x_test.shape[1])), verbose=0).reshape(-1)
+    probability_buy = model.predict(x_test, verbose=0).reshape(-1)
     probability_buy = np.clip(probability_buy.astype(float), 0.0, 1.0)
     probability_sell = 1.0 - probability_buy
 
     metrics = _compute_trade_policy_metrics(probability_sell, probability_buy, y_test, best_threshold)
     return {
         "model_name": "lstm",
-        "cv_f1": float(valid_metrics["test_f1"]),
+        "cv_f1": float(best_valid_metrics["test_f1"]),
         "test_f1": float(metrics["test_f1"]),
         "test_balanced_accuracy": float(metrics["test_balanced_accuracy"]),
         "test_precision": float(metrics["test_precision"]),
         "test_recall": float(metrics["test_recall"]),
-        "test_action_rate": float(metrics["test_action_rate"]),
-        "test_hold_rate": float(metrics["test_hold_rate"]),
     }
 
 
 def _score_trade_policy(metrics: dict[str, float]) -> float:
-    action_rate = float(metrics["test_action_rate"])
-    if action_rate < MIN_ACTION_RATE:
-        coverage_penalty = 0.8 * (action_rate / max(MIN_ACTION_RATE, 1e-9))
-    elif action_rate > MAX_ACTION_RATE:
-        coverage_penalty = 0.85
-    else:
-        coverage_penalty = 1.0 - (abs(action_rate - TARGET_ACTION_RATE) / max(TARGET_ACTION_RATE, 1e-9)) * 0.1
-
     quality_score = (
-        float(metrics["test_f1"]) * 0.55
-        + float(metrics["test_precision"]) * 0.25
-        + float(metrics["test_balanced_accuracy"]) * 0.2
+        float(metrics["test_f1"]) * 0.6
+        + float(metrics["test_balanced_accuracy"]) * 0.25
+        + float(metrics["test_precision"]) * 0.15
     )
-    return quality_score * coverage_penalty
+    return quality_score
 
 
 def _build_threshold_candidates(y_valid: pd.Series) -> list[float]:
     positive_rate = float(y_valid.mean()) if len(y_valid) else 0.5
-    lower_bound = max(0.52, min(ACTION_THRESHOLD, positive_rate + 0.01))
-    upper_bound = min(0.75, max(lower_bound + 0.1, positive_rate + 0.2))
-    grid = np.linspace(lower_bound, upper_bound, num=7)
+    lower_bound = max(0.35, positive_rate - 0.20)
+    upper_bound = min(0.60, max(lower_bound + 0.15, positive_rate + 0.15))
+    grid = np.linspace(lower_bound, upper_bound, num=11)
     candidates = {float(round(value, 3)) for value in grid}
+    candidates.update({0.4, 0.45, 0.5, 0.55, 0.6})
     candidates.add(ACTION_THRESHOLD)
     return sorted(candidates)
 
 
 def _tune_decision_threshold(estimator: Any, x_valid: pd.DataFrame, y_valid: pd.Series) -> tuple[float, dict[str, float]]:
+    def _threshold_objective(metrics: dict[str, float]) -> tuple[float, float, float, float]:
+        # Prioritize class-balance quality first; use F1/precision as tie-breakers.
+        return (
+            float(metrics["test_balanced_accuracy"]),
+            float(metrics["test_f1"]),
+            float(metrics["test_precision"]),
+            float(_score_trade_policy(metrics)),
+        )
+
     best_threshold = ACTION_THRESHOLD
     best_metrics = _evaluate_trade_policy(estimator, x_valid, y_valid, ACTION_THRESHOLD)
-    best_score = _score_trade_policy(best_metrics)
+    best_objective = _threshold_objective(best_metrics)
 
     for threshold in _build_threshold_candidates(y_valid):
         metrics = _evaluate_trade_policy(estimator, x_valid, y_valid, float(threshold))
-        score = _score_trade_policy(metrics)
-        if score > best_score:
+        objective = _threshold_objective(metrics)
+        if objective > best_objective:
             best_threshold = float(threshold)
             best_metrics = metrics
-            best_score = score
+            best_objective = objective
 
     return best_threshold, best_metrics
 
@@ -484,15 +571,35 @@ def train_and_select_model(
     frame: pd.DataFrame,
     horizon_days: int,
     positive_return_threshold: float,
+    neutral_return_band: float,
 ) -> TrainedModelBundle:
-    engineered = _engineer_features(frame, horizon_days=horizon_days, positive_return_threshold=positive_return_threshold)
+    # Keep training labels fixed to +/-1% regardless of request payload.
+    _ = positive_return_threshold
+    _ = neutral_return_band
+    positive_return_threshold = FIXED_RETURN_THRESHOLD
+    neutral_return_band = FIXED_RETURN_THRESHOLD
+
+    engineered = _engineer_features(
+        frame,
+        horizon_days=horizon_days,
+        positive_return_threshold=positive_return_threshold,
+        neutral_return_band=neutral_return_band,
+    )
     dataset = engineered.dropna(subset=NUMERIC_FEATURES + ["target"]).copy()
+    dataset["target"] = dataset["target"].astype(int)
     dataset = dataset.sort_values(["market", "stock_id", "trading_date"]).reset_index(drop=True)
 
     if len(dataset) < 600:
         raise ValueError("Not enough clean rows for training. Need at least 600 rows after preprocessing.")
     if dataset["target"].nunique() < 2:
         raise ValueError("Training data has only one target class. Adjust threshold or widen training window.")
+
+    class_counts = dataset["target"].value_counts()
+    if int(class_counts.min()) < 150:
+        raise ValueError(
+            "Training labels are too imbalanced after neutral-band filtering. "
+            "Increase days_back or reduce threshold/band."
+        )
 
     dataset = dataset.sort_values(["trading_date", "stock_id", "market"]).reset_index(drop=True)
     train_df, test_df = _split_train_test_by_date(dataset)
@@ -524,7 +631,14 @@ def train_and_select_model(
             "logistic_regression",
             LogisticRegression(max_iter=800, solver="liblinear"),
             {
-                "model__C": [0.2, 0.5, 1.0, 2.0],
+                "feature_filter__k": [10, 15, 20, "all"],
+                "reduce_dim": [
+                    "passthrough",
+                    PCA(n_components=0.95, svd_solver="full", random_state=42),
+                    PCA(n_components=0.9, svd_solver="full", random_state=42),
+                ],
+                "model__C": [0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 4.0],
+                "model__penalty": ["l1", "l2"],
                 "model__class_weight": [None, "balanced"],
             },
         ),
@@ -532,9 +646,12 @@ def train_and_select_model(
             "random_forest",
             RandomForestClassifier(random_state=42),
             {
-                "model__n_estimators": [120, 180, 250],
-                "model__max_depth": [6, 10, None],
-                "model__min_samples_leaf": [1, 3, 5],
+                "feature_filter__k": [12, 18, 24, "all"],
+                "model__n_estimators": [180, 260, 360],
+                "model__max_depth": [8, 12, 20, None],
+                "model__min_samples_split": [2, 5, 10],
+                "model__min_samples_leaf": [1, 2, 4],
+                "model__max_features": ["sqrt", 0.7, 1.0],
                 "model__class_weight": [None, "balanced"],
             },
         ),
@@ -542,10 +659,12 @@ def train_and_select_model(
             "gradient_boosting",
             GradientBoostingClassifier(random_state=42),
             {
-                "model__n_estimators": [120, 180, 250],
-                "model__learning_rate": [0.03, 0.06, 0.1],
-                "model__max_depth": [2, 3, 4],
-                "model__subsample": [0.8, 1.0],
+                "feature_filter__k": [12, 18, 24, "all"],
+                "model__n_estimators": [200, 320, 450],
+                "model__learning_rate": [0.02, 0.04, 0.06, 0.08],
+                "model__max_depth": [2, 3, 4, 5],
+                "model__min_samples_leaf": [1, 3, 5],
+                "model__subsample": [0.7, 0.85, 1.0],
             },
         ),
         (
@@ -560,11 +679,15 @@ def train_and_select_model(
                 scale_pos_weight=xgb_scale_pos_weight,
             ),
             {
-                "model__n_estimators": [120, 180, 250],
-                "model__max_depth": [3, 5, 7],
-                "model__learning_rate": [0.03, 0.06, 0.1],
-                "model__subsample": [0.8, 1.0],
-                "model__colsample_bytree": [0.8, 1.0],
+                "feature_filter__k": [12, 18, 24, "all"],
+                "model__n_estimators": [220, 350, 500],
+                "model__max_depth": [3, 5, 7, 9],
+                "model__learning_rate": [0.02, 0.04, 0.06, 0.08],
+                "model__min_child_weight": [1, 3, 5],
+                "model__subsample": [0.7, 0.85, 1.0],
+                "model__colsample_bytree": [0.7, 0.85, 1.0],
+                "model__reg_lambda": [0.5, 1.0, 2.0],
+                "model__gamma": [0.0, 0.5, 1.0],
                 "model__scale_pos_weight": [xgb_scale_pos_weight],
             },
         ),
@@ -578,11 +701,11 @@ def train_and_select_model(
         search = RandomizedSearchCV(
             estimator=pipeline,
             param_distributions=params,
-            n_iter=6,
+            n_iter=_max_search_iterations(params, requested_n_iter=4),
             cv=splitter,
             n_jobs=1,
             random_state=42,
-            scoring="f1",
+            scoring="balanced_accuracy",
             refit=True,
         )
         search.fit(x_train_core, y_train_core)
@@ -598,8 +721,6 @@ def train_and_select_model(
             "test_balanced_accuracy": float(policy_metrics["test_balanced_accuracy"]),
             "test_precision": float(policy_metrics["test_precision"]),
             "test_recall": float(policy_metrics["test_recall"]),
-            "test_action_rate": float(policy_metrics["test_action_rate"]),
-            "test_hold_rate": float(policy_metrics["test_hold_rate"]),
             "policy_score": float(_score_trade_policy(policy_metrics)),
             "decision_threshold": float(tuned_threshold),
             "estimator": fitted_estimator,
@@ -610,8 +731,9 @@ def train_and_select_model(
         evaluations,
         key=lambda row: (
             float(row["policy_score"]),
-            float(row["test_precision"]),
             float(row["test_balanced_accuracy"]),
+            float(row["test_f1"]),
+            float(row["test_precision"]),
             float(row["cv_f1"]),
         ),
         reverse=True,
@@ -634,8 +756,6 @@ def train_and_select_model(
                 "test_balanced_accuracy": float(item["test_balanced_accuracy"]),
                 "test_precision": float(item["test_precision"]),
                 "test_recall": float(item["test_recall"]),
-                "test_action_rate": float(item["test_action_rate"]),
-                "test_hold_rate": float(item["test_hold_rate"]),
             }
             for item in ranked
         ]
@@ -644,6 +764,7 @@ def train_and_select_model(
         model_version=model_version,
         horizon_days=horizon_days,
         positive_return_threshold=positive_return_threshold,
+        neutral_return_band=neutral_return_band,
         decision_threshold=float(winner["decision_threshold"]),
         trained_rows=len(dataset),
     )
@@ -696,5 +817,4 @@ def predict_action(
         "conviction_label": conviction_label,
         "reasoning": reasoning,
     }
-
 
