@@ -101,6 +101,23 @@ public class StockMetricsRefreshService {
 
     private void applyIndicatorsToHistory(List<StockMarketData> historyAsc) {
         List<BigDecimal> closes = historyAsc.stream().map(StockMarketData::getClosePrice).toList();
+
+        // Pre-compute RSI and MACD per-row using EMA series over all closes
+        List<Double> closeDoubles = closes.stream()
+                .map(v -> v == null ? null : v.doubleValue())
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        List<Double> ema12Series = emaSeries(closeDoubles, 12);
+        List<Double> ema26Series = emaSeries(closeDoubles, 26);
+        List<Double> macdSeries = new ArrayList<>();
+        for (int i = 0; i < closeDoubles.size(); i++) {
+            Double e12 = ema12Series.get(i);
+            Double e26 = ema26Series.get(i);
+            macdSeries.add(e12 == null || e26 == null ? null : e12 - e26);
+        }
+        List<Double> signalSeries = emaSeries(
+                macdSeries.stream().filter(java.util.Objects::nonNull).toList(), 9);
+
         for (int index = 0; index < historyAsc.size(); index++) {
             StockMarketData row = historyAsc.get(index);
             row.setSma20(scaleNullable(simpleMovingAverageAt(closes, index, 20)));
@@ -114,7 +131,38 @@ public class StockMetricsRefreshService {
                 dailyReturn = percentChange(closes.get(index - 1), closes.get(index));
             }
             row.setDailyReturnPercent(scaleNullable(dailyReturn));
+
+            // 5-day return
+            BigDecimal return5d = index >= 5
+                    ? percentChange(closes.get(index - 5), closes.get(index)) : null;
+            row.setReturn5d(return5d == null ? null : return5d.setScale(4, RoundingMode.HALF_UP));
+
+            // 20-day momentum (same as 20-day return expressed as % change)
+            BigDecimal momentum20d = index >= 20
+                    ? percentChange(closes.get(index - 20), closes.get(index)) : null;
+            row.setMomentum20d(momentum20d == null ? null : momentum20d.setScale(4, RoundingMode.HALF_UP));
+
+            // RSI 14 using a rolling window up to this index
+            BigDecimal rsi14 = computeRsi(closes.subList(0, index + 1), 14);
+            row.setRsi14(scaleNullable4(rsi14));
+
+            // MACD and signal from pre-computed series
+            if (index < macdSeries.size() && macdSeries.get(index) != null) {
+                row.setMacd(BigDecimal.valueOf(macdSeries.get(index)).setScale(4, RoundingMode.HALF_UP));
+            }
+            // Signal aligns with compacted macd series index, approximate by using signalSeries at same position
+            long nonNullBefore = macdSeries.subList(0, index + 1).stream().filter(java.util.Objects::nonNull).count();
+            if (nonNullBefore > 0 && nonNullBefore - 1 < signalSeries.size()) {
+                Double sig = signalSeries.get((int) nonNullBefore - 1);
+                if (sig != null) {
+                    row.setMacdSignal(BigDecimal.valueOf(sig).setScale(4, RoundingMode.HALF_UP));
+                }
+            }
         }
+    }
+
+    private BigDecimal scaleNullable4(BigDecimal value) {
+        return value == null ? null : value.setScale(4, RoundingMode.HALF_UP);
     }
 
     private StockMetrics buildMetrics(Long stockId, List<StockMarketData> historyAsc) {

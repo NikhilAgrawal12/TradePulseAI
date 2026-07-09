@@ -218,7 +218,6 @@ public class StockOhlcSyncService implements ApplicationRunner {
             return 0;
         }
 
-        boolean adjustedResponse = response.path("adjusted").asBoolean(adjusted);
         Set<Long> existingStockIds = new HashSet<>(stockMarketDataRepository.findStockIdsByTradingDate(date));
         List<StockMarketData> rows = new java.util.ArrayList<>();
 
@@ -251,8 +250,6 @@ public class StockOhlcSyncService implements ApplicationRunner {
             row.setClosePrice(close);
             row.setVolume(longOrZero(node.get("v")));
             row.setVwap(decimalOrNull(node.get("vw")));
-            row.setOtc(node.path("otc").asBoolean(false));
-            row.setAdjusted(adjustedResponse);
             rows.add(row);
             existingStockIds.add(stock.getStockId());
         }

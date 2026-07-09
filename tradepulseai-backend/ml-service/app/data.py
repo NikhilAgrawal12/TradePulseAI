@@ -102,7 +102,14 @@ class StockDataRepository:
                 d.sma_200,
                 d.volatility_30d,
                 d.volatility_90d,
-                d.daily_return_percent
+                d.daily_return_percent,
+                d.return_5d,
+                d.momentum_20d,
+                d.rsi_14,
+                d.macd,
+                d.macd_signal,
+                d.sentiment_score,
+                d.news_count
             FROM stock_daily_ohlc d
             JOIN ranked_stocks rs ON rs.stock_id = d.stock_id
             WHERE d.trading_date >= CURRENT_DATE - make_interval(days => :days_back)
@@ -140,7 +147,14 @@ class StockDataRepository:
                     d.sma_200,
                     d.volatility_30d,
                     d.volatility_90d,
-                    d.daily_return_percent
+                    d.daily_return_percent,
+                    d.return_5d,
+                    d.momentum_20d,
+                    d.rsi_14,
+                    d.macd,
+                    d.macd_signal,
+                    d.sentiment_score,
+                    d.news_count
                 FROM stock_daily_ohlc d
                 JOIN stocks s ON s.stock_id = d.stock_id
                 WHERE d.stock_id = :stock_id

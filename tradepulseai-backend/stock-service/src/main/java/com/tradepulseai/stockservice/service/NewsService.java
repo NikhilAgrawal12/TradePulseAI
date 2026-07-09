@@ -3,7 +3,6 @@ package com.tradepulseai.stockservice.service;
 import com.tradepulseai.stockservice.model.Stock;
 import com.tradepulseai.stockservice.model.StockMarketData;
 import com.tradepulseai.stockservice.repository.StockMarketDataRepository;
-import com.tradepulseai.stockservice.repository.StockRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,6 +68,7 @@ public class NewsService {
                 log.debug("No news found for {} on {}", stock.getSymbol(), tradingDate);
                 marketData.setNewsCount(0);
                 marketData.setSentimentScore(BigDecimal.ZERO);
+                marketData.setDailyNews(null);
                 stockMarketDataRepository.save(marketData);
                 return;
             }
@@ -78,6 +78,7 @@ public class NewsService {
 
             marketData.setNewsCount(articles.size());
             marketData.setSentimentScore(new BigDecimal(sentiment.score).setScale(4, java.math.RoundingMode.HALF_UP));
+            marketData.setDailyNews(buildDailyNewsSummary(articles));
 
             stockMarketDataRepository.save(marketData);
             log.info("Updated sentiment for {} on {} (score: {})",
@@ -137,9 +138,6 @@ public class NewsService {
         try {
             NewsArticle article = new NewsArticle();
             article.title = node.get("title") != null ? node.get("title").asText() : "";
-            article.description = node.get("description") != null ? node.get("description").asText() : "";
-            article.author = node.get("author") != null ? node.get("author").asText() : "";
-            article.url = node.get("article_url") != null ? node.get("article_url").asText() : "";
 
             // Extract sentiment from insights
             JsonNode insights = node.get("insights");
@@ -147,18 +145,7 @@ public class NewsService {
                 JsonNode firstInsight = insights.get(0);
                 String sentiment = firstInsight.get("sentiment") != null ?
                     firstInsight.get("sentiment").asText() : "neutral";
-                String reasoning = firstInsight.get("sentiment_reasoning") != null ?
-                    firstInsight.get("sentiment_reasoning").asText() : "";
-
                 article.sentiment = sentiment;
-                article.reasoning = reasoning;
-            }
-
-            // Extract publisher
-            JsonNode publisher = node.get("publisher");
-            if (publisher != null) {
-                article.publisher = publisher.get("name") != null ?
-                    publisher.get("name").asText() : "Unknown";
             }
 
             return article;
@@ -189,14 +176,28 @@ public class NewsService {
         return agg;
     }
 
+    private String buildDailyNewsSummary(List<NewsArticle> articles) {
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (NewsArticle article : articles) {
+            if (article.title == null || article.title.isBlank()) {
+                continue;
+            }
+            if (count > 0) {
+                sb.append(" | ");
+            }
+            sb.append(article.title.trim());
+            count++;
+            if (count >= 3 || sb.length() >= 700) {
+                break;
+            }
+        }
+        return sb.isEmpty() ? null : sb.toString();
+    }
+
     static class NewsArticle {
         String title;
-        String description;
-        String author;
-        String url;
         String sentiment = "neutral";
-        String reasoning;
-        String publisher = "Unknown";
     }
 
     static class SentimentAggregation {

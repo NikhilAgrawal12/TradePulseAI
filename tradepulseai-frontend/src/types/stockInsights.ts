@@ -19,6 +19,22 @@ export type MonthlyReturnHeatmapCell = {
   returnPercent: number | null;
 };
 
+export type DailyNewsItem = {
+  tradingDate: string | null;
+  news: string | null;
+  sentimentScore: number | null;
+  newsCount: number | null;
+};
+
+export type AnalyticsNewsItem = {
+  stockId: number;
+  symbol: string;
+  tradingDate: string | null;
+  news: string | null;
+  sentimentScore: number | null;
+  newsCount: number | null;
+};
+
 export type StockInsights = {
   id: string;
   symbol: string;
@@ -84,6 +100,7 @@ export type StockInsights = {
     peakDate: string | null;
     troughDate: string | null;
   };
+  latestNews: DailyNewsItem[];
   monthlyReturnsHeatmap: MonthlyReturnHeatmapCell[];
   history: StockHistoryPoint[];
 };

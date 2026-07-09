@@ -1,6 +1,7 @@
 package com.tradepulseai.stockservice.controller;
 
 import com.tradepulseai.stockservice.dto.market.MarketStatusResponseDTO;
+import com.tradepulseai.stockservice.dto.stock.AnalyticsNewsItemDTO;
 import com.tradepulseai.stockservice.dto.stock.StockInsightsResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockPredictionResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
@@ -90,6 +91,13 @@ public class StockController {
     @Operation(summary = "Get detailed analytics and chart-ready insights for a stock")
     public ResponseEntity<StockInsightsResponseDTO> getStockInsights(@PathVariable Long id) {
         return ResponseEntity.ok(stockInsightsService.getInsights(id));
+    }
+
+    @GetMapping("/analytics/news")
+    @Operation(summary = "Get latest daily news entries for analytics page")
+    public ResponseEntity<List<AnalyticsNewsItemDTO>> getAnalyticsNews(
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(stockInsightsService.getLatestMarketNews(limit));
     }
 
     @GetMapping("/{id}/prediction")

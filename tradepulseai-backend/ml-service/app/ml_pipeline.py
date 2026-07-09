@@ -36,36 +36,30 @@ except Exception:
 
 
 NUMERIC_FEATURES = [
+    # Price
     "open_price",
     "high_price",
     "low_price",
     "close_price",
     "volume",
+    # Trend
     "sma_20",
     "sma_50",
     "sma_200",
+    # Returns
+    "daily_return_percent",
+    "return_5d",
+    "momentum_20d",
+    # Volatility
     "volatility_30d",
     "volatility_90d",
-    "return_1d",
-    "return_5d",
-    "return_10d",
-    "return_20d",
-    "momentum_20d",
+    # Technical indicators
     "rsi_14",
     "macd",
     "macd_signal",
-    "rolling_vol_10d",
-    "rolling_vol_20d",
-    "volume_change_5d",
-    "price_vs_sma20",
-    "price_vs_sma50",
-    "price_vs_sma200",
-    "sma20_vs_sma50",
-    "sma50_vs_sma200",
-    "high_low_spread",
-    "close_open_spread",
-    "sentiment_score",  # Daily news sentiment (-1.0 to 1.0)
-    "news_count",  # Number of news articles that day
+    # News
+    "sentiment_score",
+    "news_count",
 ]
 CATEGORICAL_FEATURES: list[str] = []
 
@@ -97,6 +91,7 @@ def _engineer_features(
     neutral_return_band: float,
 ) -> pd.DataFrame:
     # Thresholds are intentionally fixed to +/-1.5% to keep label semantics stable across runs.
+    # ML features are persisted in stock_daily_ohlc; compute only the label target here.
     _ = positive_return_threshold
     _ = neutral_return_band
     positive_return_threshold = FIXED_RETURN_THRESHOLD
@@ -106,41 +101,22 @@ def _engineer_features(
     data["trading_date"] = pd.to_datetime(data["trading_date"])
     data = data.sort_values(["stock_id", "trading_date"]).reset_index(drop=True)
 
+    if "sentiment_score" not in data.columns:
+        data["sentiment_score"] = 0.0
+    if "news_count" not in data.columns:
+        data["news_count"] = 0.0
+    # Backfill stored technical columns if absent (e.g. in unit tests)
+    for col in ["return_5d", "momentum_20d", "rsi_14", "macd", "macd_signal"]:
+        if col not in data.columns:
+            data[col] = np.nan
+
+    data["sentiment_score"] = data["sentiment_score"].fillna(0.0)
+    data["news_count"] = data["news_count"].fillna(0.0)
+
     grouped = data.groupby("stock_id", group_keys=False)
 
-    data["return_1d"] = grouped["close_price"].pct_change(1)
-    data["return_5d"] = grouped["close_price"].pct_change(5)
-    data["return_10d"] = grouped["close_price"].pct_change(10)
-    data["return_20d"] = grouped["close_price"].pct_change(20)
-    data["momentum_20d"] = grouped["close_price"].pct_change(20)
-
-    price_delta = grouped["close_price"].diff()
-    gains = price_delta.clip(lower=0.0)
-    losses = (-price_delta).clip(lower=0.0)
-    avg_gain = gains.groupby(data["stock_id"]).transform(lambda s: s.rolling(14).mean())
-    avg_loss = losses.groupby(data["stock_id"]).transform(lambda s: s.rolling(14).mean())
-    relative_strength = avg_gain / avg_loss.replace(0.0, np.nan)
-    data["rsi_14"] = 100.0 - (100.0 / (1.0 + relative_strength))
-
-    ema_12 = grouped["close_price"].transform(lambda s: s.ewm(span=12, adjust=False).mean())
-    ema_26 = grouped["close_price"].transform(lambda s: s.ewm(span=26, adjust=False).mean())
-    data["macd"] = ema_12 - ema_26
-    data["macd_signal"] = data.groupby("stock_id")["macd"].transform(lambda s: s.ewm(span=9, adjust=False).mean())
-
-    data["rolling_vol_10d"] = grouped["return_1d"].transform(lambda s: s.rolling(10).std())
-    data["rolling_vol_20d"] = grouped["return_1d"].transform(lambda s: s.rolling(20).std())
-    data["volume_change_5d"] = grouped["volume"].pct_change(5)
-
-    data["price_vs_sma20"] = (data["close_price"] - data["sma_20"]) / data["sma_20"].replace(0, np.nan)
-    data["price_vs_sma50"] = (data["close_price"] - data["sma_50"]) / data["sma_50"].replace(0, np.nan)
-    data["price_vs_sma200"] = (data["close_price"] - data["sma_200"]) / data["sma_200"].replace(0, np.nan)
-    data["sma20_vs_sma50"] = (data["sma_20"] - data["sma_50"]) / data["sma_50"].replace(0, np.nan)
-    data["sma50_vs_sma200"] = (data["sma_50"] - data["sma_200"]) / data["sma_200"].replace(0, np.nan)
-    data["high_low_spread"] = (data["high_price"] - data["low_price"]) / data["close_price"].replace(0, np.nan)
-    data["close_open_spread"] = (data["close_price"] - data["open_price"]) / data["open_price"].replace(0, np.nan)
-
     data["forward_return"] = grouped["close_price"].shift(-horizon_days) / data["close_price"] - 1.0
-    # Keep only meaningful moves; drop neutral returns between -1% and +1%.
+    # Keep only meaningful moves; drop neutral returns between -1.5% and +1.5%.
     data["target"] = np.where(
         data["forward_return"] > positive_return_threshold,
         1,
@@ -575,7 +551,7 @@ def train_and_select_model(
     positive_return_threshold: float,
     neutral_return_band: float,
 ) -> TrainedModelBundle:
-    # Keep training labels fixed to +/-1% regardless of request payload.
+    # Keep training labels fixed to +/-1.5% regardless of request payload.
     _ = positive_return_threshold
     _ = neutral_return_band
     positive_return_threshold = FIXED_RETURN_THRESHOLD
@@ -633,7 +609,7 @@ def train_and_select_model(
             "logistic_regression",
             LogisticRegression(max_iter=800, solver="liblinear"),
             {
-                "feature_filter__k": [10, 15, 20, "all"],
+                "feature_filter__k": [6, 8, 10, "all"],
                 "reduce_dim": [
                     "passthrough",
                     PCA(n_components=0.95, svd_solver="full", random_state=42),
@@ -648,7 +624,7 @@ def train_and_select_model(
             "random_forest",
             RandomForestClassifier(random_state=42),
             {
-                "feature_filter__k": [12, 18, 24, "all"],
+                "feature_filter__k": [6, 8, 10, "all"],
                 "model__n_estimators": [180, 260, 360],
                 "model__max_depth": [8, 12, 20, None],
                 "model__min_samples_split": [2, 5, 10],
@@ -661,7 +637,7 @@ def train_and_select_model(
             "gradient_boosting",
             GradientBoostingClassifier(random_state=42),
             {
-                "feature_filter__k": [12, 18, 24, "all"],
+                "feature_filter__k": [6, 8, 10, "all"],
                 "model__n_estimators": [200, 320, 450],
                 "model__learning_rate": [0.02, 0.04, 0.06, 0.08],
                 "model__max_depth": [2, 3, 4, 5],
@@ -681,7 +657,7 @@ def train_and_select_model(
                 scale_pos_weight=xgb_scale_pos_weight,
             ),
             {
-                "feature_filter__k": [12, 18, 24, "all"],
+                "feature_filter__k": [6, 8, 10, "all"],
                 "model__n_estimators": [220, 350, 500],
                 "model__max_depth": [3, 5, 7, 9],
                 "model__learning_rate": [0.02, 0.04, 0.06, 0.08],
@@ -796,18 +772,24 @@ def predict_action(
     else:
         conviction_label = "NEUTRAL"
 
-    price_vs_sma20 = float(prediction_row.iloc[0]["price_vs_sma20"]) if pd.notna(prediction_row.iloc[0]["price_vs_sma20"]) else None
-    short_term_return = float(prediction_row.iloc[0]["return_5d"]) if pd.notna(prediction_row.iloc[0]["return_5d"]) else None
+    daily_return = float(prediction_row.iloc[0]["daily_return_percent"]) if pd.notna(prediction_row.iloc[0]["daily_return_percent"]) else None
+    return_5d = float(prediction_row.iloc[0]["return_5d"]) if pd.notna(prediction_row.iloc[0]["return_5d"]) else None
+    rsi = float(prediction_row.iloc[0]["rsi_14"]) if pd.notna(prediction_row.iloc[0]["rsi_14"]) else None
+    sentiment_score = float(prediction_row.iloc[0]["sentiment_score"]) if pd.notna(prediction_row.iloc[0]["sentiment_score"]) else None
 
     reasoning: list[str] = [
         f"Model horizon: {horizon_days} trading days",
         f"BUY probability: {probability_buy:.2%}",
         f"SELL probability: {probability_sell:.2%}",
     ]
-    if price_vs_sma20 is not None:
-        reasoning.append(f"Price vs 20-day SMA: {price_vs_sma20:.2%}")
-    if short_term_return is not None:
-        reasoning.append(f"5-day return: {short_term_return:.2%}")
+    if daily_return is not None:
+        reasoning.append(f"Daily return: {daily_return:.2f}%")
+    if return_5d is not None:
+        reasoning.append(f"5-day return: {return_5d:.2f}%")
+    if rsi is not None:
+        reasoning.append(f"RSI (14): {rsi:.1f}")
+    if sentiment_score is not None:
+        reasoning.append(f"News sentiment: {sentiment_score:+.2f}")
 
     return {
         "action": action,

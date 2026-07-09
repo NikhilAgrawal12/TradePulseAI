@@ -2,6 +2,15 @@ import axios from "axios";
 import type { StockInsights, StockHistoryPoint, StockPrediction } from "../types/stockInsights";
 import { toMoney } from "./money";
 
+export type AnalyticsNewsItem = {
+  stockId: number;
+  symbol: string;
+  tradingDate: string | null;
+  news: string | null;
+  sentimentScore: number | null;
+  newsCount: number | null;
+};
+
 function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {
   return {
     ...point,
@@ -85,5 +94,13 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
 export async function fetchStockPrediction(stockId: string): Promise<StockPrediction> {
   const response = await axios.get<StockPrediction>(`/api/stocks/${stockId}/prediction`);
   return response.data;
+}
+
+export async function fetchAnalyticsNews(limit = 10): Promise<AnalyticsNewsItem[]> {
+  const response = await axios.get<AnalyticsNewsItem[]>(`/api/stocks/analytics/news`, { params: { limit } });
+  return response.data.map((item) => ({
+    ...item,
+    sentimentScore: item.sentimentScore == null ? null : toMoney(item.sentimentScore),
+  }));
 }
 

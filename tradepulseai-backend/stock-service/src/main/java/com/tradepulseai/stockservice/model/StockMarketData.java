@@ -74,14 +74,23 @@ public class StockMarketData {
     @Column(name = "daily_return_percent", precision = 12, scale = 2)
     private BigDecimal dailyReturnPercent;
 
-    @Column(name = "is_otc", nullable = false)
-    private Boolean otc;
-
-    @Column(name = "adjusted", nullable = false)
-    private Boolean adjusted;
-
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "return_5d", precision = 12, scale = 4)
+    private BigDecimal return5d;
+
+    @Column(name = "momentum_20d", precision = 12, scale = 4)
+    private BigDecimal momentum20d;
+
+    @Column(name = "rsi_14", precision = 8, scale = 4)
+    private BigDecimal rsi14;
+
+    @Column(name = "macd", precision = 12, scale = 4)
+    private BigDecimal macd;
+
+    @Column(name = "macd_signal", precision = 12, scale = 4)
+    private BigDecimal macdSignal;
 
     @Column(name = "sentiment_score", precision = 5, scale = 4)
     private BigDecimal sentimentScore;
@@ -89,19 +98,157 @@ public class StockMarketData {
     @Column(name = "news_count")
     private Integer newsCount;
 
+    @Column(name = "daily_news", columnDefinition = "TEXT")
+    private String dailyNews;
+
     @PrePersist
     @PreUpdate
     public void touch() {
         this.updatedAt = Instant.now();
-        if (this.otc == null) {
-            this.otc = false;
-        }
-        if (this.adjusted == null) {
-            this.adjusted = true;
-        }
     }
 
-    // ...existing code...
+    public Long getMarketDataId() {
+        return marketDataId;
+    }
+
+    public void setMarketDataId(Long marketDataId) {
+        this.marketDataId = marketDataId;
+    }
+
+    public Stock getStock() {
+        return stock;
+    }
+
+    public void setStock(Stock stock) {
+        this.stock = stock;
+    }
+
+    public LocalDate getTradingDate() {
+        return tradingDate;
+    }
+
+    public void setTradingDate(LocalDate tradingDate) {
+        this.tradingDate = tradingDate;
+    }
+
+    public BigDecimal getOpenPrice() {
+        return openPrice;
+    }
+
+    public void setOpenPrice(BigDecimal openPrice) {
+        this.openPrice = openPrice;
+    }
+
+    public BigDecimal getHighPrice() {
+        return highPrice;
+    }
+
+    public void setHighPrice(BigDecimal highPrice) {
+        this.highPrice = highPrice;
+    }
+
+    public BigDecimal getLowPrice() {
+        return lowPrice;
+    }
+
+    public void setLowPrice(BigDecimal lowPrice) {
+        this.lowPrice = lowPrice;
+    }
+
+    public BigDecimal getClosePrice() {
+        return closePrice;
+    }
+
+    public void setClosePrice(BigDecimal closePrice) {
+        this.closePrice = closePrice;
+    }
+
+    public Long getVolume() {
+        return volume;
+    }
+
+    public void setVolume(Long volume) {
+        this.volume = volume;
+    }
+
+    public BigDecimal getVwap() {
+        return vwap;
+    }
+
+    public void setVwap(BigDecimal vwap) {
+        this.vwap = vwap;
+    }
+
+    public BigDecimal getSma20() {
+        return sma20;
+    }
+
+    public void setSma20(BigDecimal sma20) {
+        this.sma20 = sma20;
+    }
+
+    public BigDecimal getSma50() {
+        return sma50;
+    }
+
+    public void setSma50(BigDecimal sma50) {
+        this.sma50 = sma50;
+    }
+
+    public BigDecimal getSma200() {
+        return sma200;
+    }
+
+    public void setSma200(BigDecimal sma200) {
+        this.sma200 = sma200;
+    }
+
+    public BigDecimal getVolatility30d() {
+        return volatility30d;
+    }
+
+    public void setVolatility30d(BigDecimal volatility30d) {
+        this.volatility30d = volatility30d;
+    }
+
+    public BigDecimal getVolatility90d() {
+        return volatility90d;
+    }
+
+    public void setVolatility90d(BigDecimal volatility90d) {
+        this.volatility90d = volatility90d;
+    }
+
+    public BigDecimal getDailyReturnPercent() {
+        return dailyReturnPercent;
+    }
+
+    public void setDailyReturnPercent(BigDecimal dailyReturnPercent) {
+        this.dailyReturnPercent = dailyReturnPercent;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public BigDecimal getReturn5d() { return return5d; }
+    public void setReturn5d(BigDecimal return5d) { this.return5d = return5d; }
+
+    public BigDecimal getMomentum20d() { return momentum20d; }
+    public void setMomentum20d(BigDecimal momentum20d) { this.momentum20d = momentum20d; }
+
+    public BigDecimal getRsi14() { return rsi14; }
+    public void setRsi14(BigDecimal rsi14) { this.rsi14 = rsi14; }
+
+    public BigDecimal getMacd() { return macd; }
+    public void setMacd(BigDecimal macd) { this.macd = macd; }
+
+    public BigDecimal getMacdSignal() { return macdSignal; }
+    public void setMacdSignal(BigDecimal macdSignal) { this.macdSignal = macdSignal; }
 
     public BigDecimal getSentimentScore() {
         return sentimentScore;
@@ -118,5 +265,12 @@ public class StockMarketData {
     public void setNewsCount(Integer newsCount) {
         this.newsCount = newsCount;
     }
-}
 
+    public String getDailyNews() {
+        return dailyNews;
+    }
+
+    public void setDailyNews(String dailyNews) {
+        this.dailyNews = dailyNews;
+    }
+}

@@ -19,6 +19,7 @@ public record StockInsightsResponseDTO(
         RiskMetricsDTO riskMetrics,
         PerformanceDistributionDTO performanceDistribution,
         DrawdownAnalysisDTO drawdownAnalysis,
+        List<DailyNewsDTO> latestNews,
         List<MonthlyReturnHeatmapCellDTO> monthlyReturnsHeatmap,
         List<StockHistoryPointDTO> history
 ) {
@@ -98,6 +99,14 @@ public record StockInsightsResponseDTO(
             Double maxDrawdown,
             String peakDate,
             String troughDate
+    ) {
+    }
+
+    public record DailyNewsDTO(
+            String tradingDate,
+            String news,
+            Double sentimentScore,
+            Integer newsCount
     ) {
     }
 

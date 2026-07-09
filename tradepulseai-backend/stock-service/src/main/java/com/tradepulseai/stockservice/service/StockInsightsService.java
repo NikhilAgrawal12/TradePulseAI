@@ -1,5 +1,6 @@
 package com.tradepulseai.stockservice.service;
 
+import com.tradepulseai.stockservice.dto.stock.AnalyticsNewsItemDTO;
 import com.tradepulseai.stockservice.dto.stock.StockInsightsResponseDTO;
 import com.tradepulseai.stockservice.exception.StockNotFoundException;
 import com.tradepulseai.stockservice.model.AllStocksLastValueCache;
@@ -109,6 +110,7 @@ public class StockInsightsService {
                 metrics == null ? null : metrics.getSortinoRatio());
         DrawdownSummary drawdownSummary = resolveDrawdownSummary(metrics);
         DistributionSummary distributionSummary = resolveDistributionSummary(metrics);
+        List<StockInsightsResponseDTO.DailyNewsDTO> latestNews = buildLatestNews(historyAsc);
         List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> monthlyReturnsHeatmap = resolveMonthlyReturnsHeatmap(metrics);
         List<StockInsightsResponseDTO.StockHistoryPointDTO> historyPoints = buildHistoryPoints(historyAsc);
 
@@ -177,9 +179,32 @@ public class StockInsightsService {
                         drawdownSummary.peakDate() == null ? null : drawdownSummary.peakDate().toString(),
                         drawdownSummary.troughDate() == null ? null : drawdownSummary.troughDate().toString()
                 ),
+                latestNews,
                 monthlyReturnsHeatmap,
                 historyPoints
         );
+    }
+
+    public List<AnalyticsNewsItemDTO> getLatestMarketNews(int limit) {
+        int pageSize = Math.max(1, Math.min(limit, 50));
+        List<StockMarketData> rows = stockMarketDataRepository.findByDailyNewsIsNotNullOrderByTradingDateDesc(
+                PageRequest.of(0, pageSize)
+        );
+        List<AnalyticsNewsItemDTO> response = new ArrayList<>();
+        for (StockMarketData row : rows) {
+            if (row.getDailyNews() == null || row.getDailyNews().isBlank() || row.getStock() == null) {
+                continue;
+            }
+            response.add(new AnalyticsNewsItemDTO(
+                    row.getStock().getStockId(),
+                    row.getStock().getSymbol(),
+                    row.getTradingDate() == null ? null : row.getTradingDate().toString(),
+                    row.getDailyNews(),
+                    toDouble(row.getSentimentScore()),
+                    row.getNewsCount()
+            ));
+        }
+        return response;
     }
 
     private String resolveExchange(Stock stock) {
@@ -252,6 +277,26 @@ public class StockInsightsService {
             ));
         }
          return points;
+    }
+
+    private List<StockInsightsResponseDTO.DailyNewsDTO> buildLatestNews(List<StockMarketData> historyAsc) {
+        List<StockInsightsResponseDTO.DailyNewsDTO> rows = new ArrayList<>();
+        for (int i = historyAsc.size() - 1; i >= 0; i--) {
+            StockMarketData point = historyAsc.get(i);
+            if (point.getDailyNews() == null || point.getDailyNews().isBlank()) {
+                continue;
+            }
+            rows.add(new StockInsightsResponseDTO.DailyNewsDTO(
+                    point.getTradingDate() == null ? null : point.getTradingDate().toString(),
+                    point.getDailyNews(),
+                    toDouble(point.getSentimentScore()),
+                    point.getNewsCount()
+            ));
+            if (rows.size() >= 5) {
+                break;
+            }
+        }
+        return rows;
     }
 
     private List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> resolveMonthlyReturnsHeatmap(StockMetrics metrics) {

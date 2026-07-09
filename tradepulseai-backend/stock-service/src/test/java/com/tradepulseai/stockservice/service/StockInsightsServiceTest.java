@@ -94,8 +94,6 @@ class StockInsightsServiceTest {
         data.setLowPrice(new BigDecimal(closePrice));
         data.setClosePrice(new BigDecimal(closePrice));
         data.setVolume(volume);
-        data.setAdjusted(true);
-        data.setOtc(false);
         return data;
     }
 }

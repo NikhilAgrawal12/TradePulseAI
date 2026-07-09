@@ -35,6 +35,11 @@ def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
                     "volatility_30d": abs(rng.normal(2.0, 0.6)),
                     "volatility_90d": abs(rng.normal(2.4, 0.7)),
                     "daily_return_percent": rng.normal(0.1, 1.5),
+                    "return_5d": rng.normal(0.5, 2.5),
+                    "momentum_20d": rng.normal(1.0, 4.0),
+                    "rsi_14": float(rng.uniform(20, 80)),
+                    "macd": rng.normal(0.0, 0.5),
+                    "macd_signal": rng.normal(0.0, 0.4),
                 }
             )
     return pd.DataFrame(records)
