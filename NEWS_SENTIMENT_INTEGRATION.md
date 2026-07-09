@@ -8,20 +8,16 @@ This integration adds daily news sentiment analysis to your ML pipeline. The sys
 
 ### 1. Database Schema (New Columns in `stock_daily_ohlc`)
 
-- `daily_sentiment` - Label: `positive`, `negative`, or `neutral`
-- `sentiment_score` - Float (-1.0 to 1.0) representing composite sentiment
+- `sentiment_score` - Float (-1.0 to 1.0) representing sentiment from daily news
 - `news_count` - Integer count of articles published that day
-- `news_summary` - Text containing concatenated article titles
-- `news_sources` - Comma-separated list of publishers
-- `sentiment_reasoning` - Explanation of the sentiment calculation
 
 ### 2. Backend Services (Java)
 
 #### `NewsService.java`
 - Fetches daily news for a stock from Polygon.io API
 - Aggregates sentiment from individual article insights
-- Stores results in the database
 - Calculates composite sentiment score: `(positive_count - negative_count) / total_articles`
+- Stores only the score and count in the database
 
 **Usage:**
 ```java
@@ -76,7 +72,7 @@ MASSIVE_API_KEY=your_polygon_io_api_key
 
 Set environment variable in `docker-compose.yml`:
 ```yaml
-ml-service:
+stock-service:
   environment:
     MASSIVE_NEWS_INTEGRATION_ENABLED: "true"
     MASSIVE_API_KEY: "your_polygon_io_api_key"
@@ -88,12 +84,8 @@ The migration `V6__add_sentiment_columns.sql` will automatically run on next ser
 
 Or manually:
 ```sql
-ALTER TABLE stock_daily_ohlc ADD COLUMN daily_sentiment VARCHAR(20);
 ALTER TABLE stock_daily_ohlc ADD COLUMN sentiment_score NUMERIC(5, 4);
-ALTER TABLE stock_daily_ohlc ADD COLUMN news_count INT;
-ALTER TABLE stock_daily_ohlc ADD COLUMN news_summary TEXT;
-ALTER TABLE stock_daily_ohlc ADD COLUMN news_sources VARCHAR(500);
-ALTER TABLE stock_daily_ohlc ADD COLUMN sentiment_reasoning TEXT;
+ALTER TABLE stock_daily_ohlc ADD COLUMN news_count INT DEFAULT 0;
 ```
 
 ### 3. Backfill Historical News (Optional)
@@ -128,9 +120,8 @@ public ResponseEntity<String> backfillNews(
 2. **For each active stock:**
    - Query Polygon.io `/v2/reference/news` API for that trading date
    - Extract sentiment from each article's `insights.sentiment` field
-   - Aggregate sentiments: `positive_count`, `negative_count`, `neutral_count`
-   - Calculate composite score: `(positive - negative) / total`
-   - Classify as: `positive` (score > 0.2), `negative` (score < -0.2), or `neutral`
+   - Aggregate sentiments: count positive and negative articles
+   - Calculate composite score: `(positive_count - negative_count) / total_articles`
 3. **Store results** in `stock_daily_ohlc` for that stock/date
 4. **Rate limit** with 100ms sleep between API calls
 
@@ -144,7 +135,7 @@ Example:
 - 1 negative article
 - 2 neutral articles
 - Total: 7 articles
-- Score = (4 - 1) / 7 = 0.4286 → "positive"
+- Score = (4 - 1) / 7 = 0.4286 → Used as feature
 ```
 
 ## ML Model Impact
@@ -172,10 +163,8 @@ Sentiment features (`sentiment_score` and `news_count`) will be automatically ra
 SELECT 
   stock_id,
   trading_date,
-  daily_sentiment,
   sentiment_score,
-  news_count,
-  news_sources
+  news_count
 FROM stock_daily_ohlc
 WHERE trading_date >= CURRENT_DATE - INTERVAL '7 days'
 ORDER BY trading_date DESC;
@@ -240,4 +229,9 @@ For questions or issues, refer to:
 - Polygon.io documentation: https://polygon.io/docs/stocks/get-ticker-news
 - NewsService.java implementation
 - Integration test examples
+
+
+
+
+
 

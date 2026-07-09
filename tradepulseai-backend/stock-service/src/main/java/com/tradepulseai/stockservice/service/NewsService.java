@@ -68,7 +68,6 @@ public class NewsService {
             if (articles.isEmpty()) {
                 log.debug("No news found for {} on {}", stock.getSymbol(), tradingDate);
                 marketData.setNewsCount(0);
-                marketData.setDailySentiment("neutral");
                 marketData.setSentimentScore(BigDecimal.ZERO);
                 stockMarketDataRepository.save(marketData);
                 return;
@@ -78,15 +77,11 @@ public class NewsService {
             SentimentAggregation sentiment = aggregateSentiment(articles);
 
             marketData.setNewsCount(articles.size());
-            marketData.setDailySentiment(sentiment.label);
             marketData.setSentimentScore(new BigDecimal(sentiment.score).setScale(4, java.math.RoundingMode.HALF_UP));
-            marketData.setNewsSummary(sentiment.summary);
-            marketData.setNewsSources(sentiment.sources);
-            marketData.setSentimentReasoning(sentiment.reasoning);
 
             stockMarketDataRepository.save(marketData);
-            log.info("Updated sentiment for {} on {} -> {} ({})",
-                stock.getSymbol(), tradingDate, sentiment.label, sentiment.score);
+            log.info("Updated sentiment for {} on {} (score: {})",
+                stock.getSymbol(), tradingDate, sentiment.score);
 
         } catch (Exception e) {
             log.error("Error fetching news for {} on {}", stock.getSymbol(), tradingDate, e);
@@ -176,48 +171,20 @@ public class NewsService {
     private SentimentAggregation aggregateSentiment(List<NewsArticle> articles) {
         SentimentAggregation agg = new SentimentAggregation();
 
-        int positive = 0, negative = 0, neutral = 0;
-        List<String> publishers = new ArrayList<>();
-        StringBuilder summary = new StringBuilder();
+        int positive = 0, negative = 0;
 
         for (NewsArticle article : articles) {
             if ("positive".equalsIgnoreCase(article.sentiment)) {
                 positive++;
             } else if ("negative".equalsIgnoreCase(article.sentiment)) {
                 negative++;
-            } else {
-                neutral++;
-            }
-
-            if (!article.publisher.isEmpty() && !publishers.contains(article.publisher)) {
-                publishers.add(article.publisher);
-            }
-
-            if (summary.length() < 500) {
-                summary.append(article.title).append("; ");
             }
         }
 
         // Calculate composite sentiment score (-1.0 to 1.0)
         int total = articles.size();
         double score = (double)(positive - negative) / total;
-
-        // Determine sentiment label
-        if (score > 0.2) {
-            agg.label = "positive";
-        } else if (score < -0.2) {
-            agg.label = "negative";
-        } else {
-            agg.label = "neutral";
-        }
-
         agg.score = score;
-        agg.summary = summary.toString();
-        agg.sources = String.join(",", publishers);
-        agg.reasoning = String.format(
-            "News sentiment analysis: %d positive, %d negative, %d neutral articles (score: %.2f)",
-            positive, negative, neutral, score
-        );
 
         return agg;
     }
@@ -233,11 +200,9 @@ public class NewsService {
     }
 
     static class SentimentAggregation {
-        String label;
         double score;
-        String summary;
-        String sources;
-        String reasoning;
     }
 }
+
+
 
