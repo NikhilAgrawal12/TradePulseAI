@@ -127,6 +127,11 @@ def _engineer_features(
 
 
 def build_prediction_row(frame: pd.DataFrame) -> pd.DataFrame:
+    """Prepare a single prediction row from the latest stored data.
+
+    All 18 features are pre-stored in the database so no rolling
+    computation is needed — just normalise the frame and return it.
+    """
     engineered = _engineer_features(frame, horizon_days=5, positive_return_threshold=0.0, neutral_return_band=0.0)
     latest = engineered.sort_values("trading_date").tail(1)
     return latest[NUMERIC_FEATURES + CATEGORICAL_FEATURES + ["stock_id", "symbol", "trading_date"]].copy()

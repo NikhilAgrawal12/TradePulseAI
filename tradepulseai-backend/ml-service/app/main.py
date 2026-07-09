@@ -241,7 +241,7 @@ def get_prediction(stock_id: int) -> PredictionResponse:
     if state["estimator"] is None and not _load_model_from_disk():
         raise HTTPException(status_code=503, detail="Model is not trained. Run startup training or POST /v1/train.")
 
-    history = repository.fetch_stock_history(stock_id=stock_id)
+    history = repository.fetch_latest_stock_row(stock_id=stock_id)
     if history.empty:
         raise HTTPException(status_code=404, detail=f"No historical rows found for stock_id={stock_id}")
 
