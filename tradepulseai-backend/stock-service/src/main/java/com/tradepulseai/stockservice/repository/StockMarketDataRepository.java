@@ -50,5 +50,6 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
             )
             """)
     List<StockMarketData> findLatestForAllStocks();
-}
 
+    Optional<StockMarketData> findByStockAndTradingDate(Stock stock, LocalDate tradingDate);
+}

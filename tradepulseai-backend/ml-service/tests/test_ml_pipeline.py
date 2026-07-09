@@ -42,7 +42,7 @@ def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
 
 def test_training_selects_model() -> None:
     frame = synthetic_frame()
-    bundle = train_and_select_model(frame, horizon_days=5, positive_return_threshold=0.0, neutral_return_band=0.0)
+    bundle = train_and_select_model(frame, horizon_days=5, positive_return_threshold=0.015, neutral_return_band=0.015)
 
     assert bundle.estimator is not None
     assert bundle.selected_model in {

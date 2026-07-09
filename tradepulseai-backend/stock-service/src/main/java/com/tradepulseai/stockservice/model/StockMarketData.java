@@ -83,6 +83,24 @@ public class StockMarketData {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "daily_sentiment", length = 20)
+    private String dailySentiment;
+
+    @Column(name = "sentiment_score", precision = 5, scale = 4)
+    private BigDecimal sentimentScore;
+
+    @Column(name = "news_count")
+    private Integer newsCount;
+
+    @Column(name = "news_summary", columnDefinition = "TEXT")
+    private String newsSummary;
+
+    @Column(name = "news_sources", length = 500)
+    private String newsSources;
+
+    @Column(name = "sentiment_reasoning", columnDefinition = "TEXT")
+    private String sentimentReasoning;
+
     @PrePersist
     @PreUpdate
     public void touch() {
@@ -234,5 +252,52 @@ public class StockMarketData {
     public Instant getUpdatedAt() {
         return updatedAt;
     }
-}
 
+    public String getDailySentiment() {
+        return dailySentiment;
+    }
+
+    public void setDailySentiment(String dailySentiment) {
+        this.dailySentiment = dailySentiment;
+    }
+
+    public BigDecimal getSentimentScore() {
+        return sentimentScore;
+    }
+
+    public void setSentimentScore(BigDecimal sentimentScore) {
+        this.sentimentScore = sentimentScore;
+    }
+
+    public Integer getNewsCount() {
+        return newsCount;
+    }
+
+    public void setNewsCount(Integer newsCount) {
+        this.newsCount = newsCount;
+    }
+
+    public String getNewsSummary() {
+        return newsSummary;
+    }
+
+    public void setNewsSummary(String newsSummary) {
+        this.newsSummary = newsSummary;
+    }
+
+    public String getNewsSources() {
+        return newsSources;
+    }
+
+    public void setNewsSources(String newsSources) {
+        this.newsSources = newsSources;
+    }
+
+    public String getSentimentReasoning() {
+        return sentimentReasoning;
+    }
+
+    public void setSentimentReasoning(String sentimentReasoning) {
+        this.sentimentReasoning = sentimentReasoning;
+    }
+}

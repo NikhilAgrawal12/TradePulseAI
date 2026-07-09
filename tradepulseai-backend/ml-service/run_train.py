@@ -1,5 +1,5 @@
 import urllib.request, json
-d = json.dumps({'days_back':365,'horizon_days':5,'positive_return_threshold':0.01,'neutral_return_band':0.01}).encode()
+d = json.dumps({'days_back':730,'horizon_days':5,'positive_return_threshold':0.015,'neutral_return_band':0.015}).encode()
 r = urllib.request.Request('http://localhost:4010/v1/train', data=d, headers={'Content-Type':'application/json'}, method='POST')
 resp = urllib.request.urlopen(r, timeout=600)
 result = json.loads(resp.read().decode())

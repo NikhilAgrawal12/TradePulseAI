@@ -27,7 +27,7 @@ def test_startup_survives_missing_training_data(monkeypatch) -> None:
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=1095,
+        default_days_back=730,
         default_horizon_days=5,
         default_positive_return_threshold=0.0,
     ))
@@ -65,11 +65,11 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=180,
+        default_days_back=730,
         default_horizon_days=5,
         default_positive_return_threshold=0.0,
         max_training_stocks=100,
-        max_training_rows=30000,
+        max_training_rows=100000,
     ))
     monkeypatch.setattr(main.repository, "initialize_tables", lambda: None)
     monkeypatch.setattr(main, "_load_model_from_disk", lambda: False)
@@ -122,11 +122,11 @@ def test_startup_background_training_handles_missing_data(monkeypatch) -> None:
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=180,
+        default_days_back=730,
         default_horizon_days=5,
         default_positive_return_threshold=0.0,
         max_training_stocks=100,
-        max_training_rows=30000,
+        max_training_rows=100000,
     ))
 
     def _raise_no_data(*_args, **_kwargs):

@@ -64,6 +64,8 @@ NUMERIC_FEATURES = [
     "sma50_vs_sma200",
     "high_low_spread",
     "close_open_spread",
+    "sentiment_score",  # Daily news sentiment (-1.0 to 1.0)
+    "news_count",  # Number of news articles that day
 ]
 CATEGORICAL_FEATURES: list[str] = []
 
@@ -71,7 +73,7 @@ ACTION_BUY = "BUY"
 ACTION_SELL = "SELL"
 ACTION_HOLD = "HOLD"
 ACTION_THRESHOLD = 0.50
-FIXED_RETURN_THRESHOLD = 0.01
+FIXED_RETURN_THRESHOLD = 0.015
 LSTM_SEQUENCE_LENGTH = 20
 
 
@@ -94,7 +96,7 @@ def _engineer_features(
     positive_return_threshold: float,
     neutral_return_band: float,
 ) -> pd.DataFrame:
-    # Thresholds are intentionally fixed to +/-1% to keep label semantics stable across runs.
+    # Thresholds are intentionally fixed to +/-1.5% to keep label semantics stable across runs.
     _ = positive_return_threshold
     _ = neutral_return_band
     positive_return_threshold = FIXED_RETURN_THRESHOLD

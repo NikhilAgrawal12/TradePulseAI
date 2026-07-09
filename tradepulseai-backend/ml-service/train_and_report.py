@@ -22,8 +22,8 @@ t = time.time()
 bundle = train_and_select_model(
     frame=frame,
     horizon_days=settings.default_horizon_days,
-    positive_return_threshold=0.01,
-    neutral_return_band=0.01,
+    positive_return_threshold=0.015,
+    neutral_return_band=0.015,
 )
 elapsed = round(time.time() - t, 1)
 
