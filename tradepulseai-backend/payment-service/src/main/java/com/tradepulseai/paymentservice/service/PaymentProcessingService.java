@@ -9,12 +9,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.UUID;
 
 @Service
 public class PaymentProcessingService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentProcessingService.class);
+    private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
+    private static final String PAYMENT_STATUS_REFUNDED = "REFUNDED";
 
     private final PaymentRepository paymentRepository;
     private final WalletService walletService;
@@ -35,11 +38,22 @@ public class PaymentProcessingService {
             return paymentRepository.findByOrderId(orderId).get(0);
         }
 
-        // Deduct from wallet — throws IllegalStateException if insufficient balance
-        Long userIdLong = Long.parseLong(userId);
-        walletService.deductForPurchase(userIdLong, BigDecimal.valueOf(totalAmount));
+        BigDecimal amount = BigDecimal.valueOf(totalAmount).setScale(2, RoundingMode.HALF_UP);
+        if (amount.compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Payment amount cannot be zero.");
+        }
 
-        Payment payment = PaymentMapper.toModel(orderId, BigDecimal.valueOf(totalAmount));
+        Long userIdLong = Long.parseLong(userId);
+        Payment payment;
+        if (amount.compareTo(BigDecimal.ZERO) > 0) {
+            walletService.deductForPurchase(userIdLong, amount);
+            payment = PaymentMapper.toModel(orderId, amount, PAYMENT_STATUS_COMPLETED);
+        } else {
+            BigDecimal refundAmount = amount.abs();
+            walletService.refundPurchase(userIdLong, refundAmount);
+            payment = PaymentMapper.toModel(orderId, refundAmount, PAYMENT_STATUS_REFUNDED);
+        }
+
         Payment savedPayment = paymentRepository.save(payment);
 
         log.info("Payment saved: id={}, status={}, totalAmount={}",
@@ -47,6 +61,7 @@ public class PaymentProcessingService {
 
         return savedPayment;
     }
+
 
     public String generateAccountId(String userId) {
         return "acct-" + userId + "-" + UUID.randomUUID().toString().substring(0, 8);

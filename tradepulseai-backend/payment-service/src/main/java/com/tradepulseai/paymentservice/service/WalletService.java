@@ -23,6 +23,7 @@ public class WalletService {
     private static final String TYPE_DEPOSIT    = "DEPOSIT";
     private static final String TYPE_WITHDRAWAL = "WITHDRAWAL";
     private static final String TYPE_PURCHASE   = "PURCHASE";
+    private static final String TYPE_REFUND     = "REFUND";
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
@@ -105,6 +106,24 @@ public class WalletService {
 
         recordTransaction(wallet.getWalletId(), TYPE_PURCHASE, scaled, newBalance);
         log.info("Purchase deduction of {} from walletId={}, newBalance={}",
+                scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet refundPurchase(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Refund amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newBalance = wallet.getBalance().add(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_REFUND, scaled, newBalance);
+        log.info("Refund of {} credited to walletId={}, newBalance={}",
                 scaled, wallet.getWalletId(), newBalance);
         return wallet;
     }

@@ -9,13 +9,14 @@
         <module name="stock-service" />
         <module name="auth-service" />
         <module name="payment-service" />
-        <module name="analytics-service" />
         <module name="api-gateway" />
         <module name="cust-service" />
         <module name="order-service" />
+        <module name="portfolio-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="analytics-service" target="21" />
       <module name="authentication-service" target="24" />
       <module name="billing-service" target="21" />
       <module name="customer-service" target="21" />
@@ -39,6 +40,7 @@
       <module name="gateway" options="-parameters" />
       <module name="order-service" options="-parameters" />
       <module name="payment-service" options="-parameters" />
+      <module name="portfolio-service" options="-parameters" />
       <module name="stock-service" options="-parameters" />
       <module name="test-module2" options="-parameters" />
       <module name="user-auth-service" options="-parameters" />

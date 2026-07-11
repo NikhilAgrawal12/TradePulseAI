@@ -51,5 +51,19 @@ public class OrderPaymentGrpcClient {
         log.info("OrderPayment gRPC response: {}", response);
         return response;
     }
+
+    public OrderPaymentResponse refundOrderPayment(String orderId, BigDecimal totalAmount, Long userId) {
+        OrderPaymentRequest request = OrderPaymentRequest.newBuilder()
+                .setOrderId("refund-" + orderId)
+                .setUserId(String.valueOf(userId))
+                .setTotalAmount(totalAmount.negate().doubleValue())
+                .build();
+
+        log.warn("Sending refundOrderPayment gRPC for orderId={}, userId={}, amount={}",
+                orderId, userId, totalAmount);
+        OrderPaymentResponse response = blockingStub.completePayment(request);
+        log.warn("Refund gRPC response for orderId={}: status={}", orderId, response.getStatus());
+        return response;
+    }
 }
 

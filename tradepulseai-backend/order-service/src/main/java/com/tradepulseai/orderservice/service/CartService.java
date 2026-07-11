@@ -139,7 +139,11 @@ public class CartService {
                 savedOrder.getId(),
                 userId,
                 syncRequest.getItems().size());
-        portfolioSyncGrpcClient.syncCompletedOrder(userId, syncRequest);
+        try {
+            portfolioSyncGrpcClient.syncCompletedOrder(userId, syncRequest);
+        } catch (Exception syncException) {
+            compensatePaymentOnPortfolioSyncFailure(savedOrder.getId(), savedOrder.getTotal(), userId, syncException);
+        }
 
         cartItemRepository.deleteByIdUserId(userId);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
@@ -290,4 +294,21 @@ public class CartService {
             throw new IllegalStateException("Payment failed for orderId: " + orderId);
         }
     }
+
+    private void compensatePaymentOnPortfolioSyncFailure(String orderId, BigDecimal totalAmount, Long userId, Exception syncException) {
+        log.error("Portfolio sync failed for orderId={}, userId={}. Triggering payment compensation.",
+                orderId, userId, syncException);
+
+        try {
+            var refundResponse = orderPaymentGrpcClient.refundOrderPayment(orderId, totalAmount, userId);
+            throw new IllegalStateException("Portfolio sync failed after payment. Compensation applied with status: "
+                    + refundResponse.getStatus(), syncException);
+        } catch (StatusRuntimeException refundGrpcException) {
+            throw new IllegalStateException(
+                    "Portfolio sync failed after payment, and refund gRPC call failed for orderId: " + orderId,
+                    refundGrpcException
+            );
+        }
+    }
+
 }
