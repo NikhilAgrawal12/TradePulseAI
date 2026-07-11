@@ -26,7 +26,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 @Service
 public class StockInsightsService {
 
-    private static final int HISTORY_LOOKBACK_ROWS = 800;
+    private static final int HISTORY_LOOKBACK_ROWS = 1100; // 730-day training window + warmup buffer
     private static final MathContext MATH_CONTEXT = new MathContext(12, RoundingMode.HALF_UP);
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 

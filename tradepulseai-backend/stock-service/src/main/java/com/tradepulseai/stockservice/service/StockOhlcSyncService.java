@@ -43,6 +43,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
     private final StockRepository stockRepository;
     private final StockMarketDataRepository stockMarketDataRepository;
     private final StockMetricsRefreshService stockMetricsRefreshService;
+    private final NewsService newsService;
     private final RestClient restClient;
     private final String apiKey;
     private final boolean syncOnStartup;
@@ -61,6 +62,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
             StockRepository stockRepository,
             StockMarketDataRepository stockMarketDataRepository,
             StockMetricsRefreshService stockMetricsRefreshService,
+            NewsService newsService,
             @Value("${massive.api.base-url}") String apiBaseUrl,
             @Value("${massive.api.key:}") String apiKey,
             @Value("${massive.ohlc.sync-on-startup:true}") boolean syncOnStartup,
@@ -74,6 +76,7 @@ public class StockOhlcSyncService implements ApplicationRunner {
         this.stockRepository = stockRepository;
         this.stockMarketDataRepository = stockMarketDataRepository;
         this.stockMetricsRefreshService = stockMetricsRefreshService;
+        this.newsService = newsService;
         this.apiKey = apiKey;
         this.syncOnStartup = syncOnStartup;
         this.dailySyncEnabled = dailySyncEnabled;
@@ -259,8 +262,23 @@ public class StockOhlcSyncService implements ApplicationRunner {
         }
 
         stockMarketDataRepository.saveAll(rows);
+        hydrateNewsForInsertedRows(rows);
         log.info("Inserted {} OHLC rows for {}.", rows.size(), date);
         return rows.size();
+    }
+
+    private void hydrateNewsForInsertedRows(List<StockMarketData> rows) {
+        for (StockMarketData row : rows) {
+            if (row == null || row.getStock() == null || row.getTradingDate() == null) {
+                continue;
+            }
+            try {
+                newsService.fetchAndUpdateNewsSentiment(row);
+            } catch (Exception ex) {
+                log.warn("Failed to fetch news sentiment for {} on {} during OHLC sync.",
+                        row.getStock().getSymbol(), row.getTradingDate(), ex);
+            }
+        }
     }
 
     private String buildGroupedDailyPath(LocalDate date) {

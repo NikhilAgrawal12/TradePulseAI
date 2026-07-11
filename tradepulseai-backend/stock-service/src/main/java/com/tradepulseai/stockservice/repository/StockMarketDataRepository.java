@@ -51,6 +51,7 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
             """)
     List<StockMarketData> findLatestForAllStocks();
 
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
     Optional<StockMarketData> findByStockAndTradingDate(Stock stock, LocalDate tradingDate);
 
     @EntityGraph(attributePaths = {"stock"})

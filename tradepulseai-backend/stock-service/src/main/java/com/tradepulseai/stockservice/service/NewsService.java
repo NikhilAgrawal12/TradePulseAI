@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
-import tools.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -22,6 +22,7 @@ import java.util.Optional;
 public class NewsService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
+    private static final double EPSILON = 1e-6;
 
     private final RestClient restClient;
     private final StockMarketDataRepository stockMarketDataRepository;
@@ -42,6 +43,49 @@ public class NewsService {
     }
 
     /**
+     * Fetch news for the provided market-data row and update sentiment fields in place.
+     */
+    public void fetchAndUpdateNewsSentiment(StockMarketData marketData) {
+        if (marketData == null || marketData.getStock() == null || marketData.getTradingDate() == null) {
+            return;
+        }
+
+        if (!newsIntegrationEnabled || apiKey == null || apiKey.isBlank()) {
+            log.debug("News integration disabled or API key not configured");
+            return;
+        }
+
+        try {
+            Stock stock = marketData.getStock();
+            LocalDate tradingDate = marketData.getTradingDate();
+            String symbol = stock != null ? stock.getSymbol() : "UNKNOWN";
+
+            List<NewsArticle> articles = fetchNewsForStock(symbol, tradingDate);
+
+            if (articles.isEmpty()) {
+                log.debug("No news found for {} on {}", symbol, tradingDate);
+                marketData.setNewsCount(0);
+                marketData.setSentimentScore(BigDecimal.ZERO);
+                marketData.setDailyNews(null);
+                stockMarketDataRepository.save(marketData);
+                return;
+            }
+
+            SentimentAggregation sentiment = aggregateSentiment(articles);
+
+            marketData.setNewsCount(articles.size());
+            marketData.setSentimentScore(new BigDecimal(sentiment.score).setScale(4, java.math.RoundingMode.HALF_UP));
+            marketData.setDailyNews(buildDailyNewsSummary(articles));
+
+            stockMarketDataRepository.save(marketData);
+            log.info("Updated sentiment for {} on {} (score: {})",
+                    symbol, tradingDate, sentiment.score);
+        } catch (Exception e) {
+            log.error("Error fetching news for row {}", marketData.getMarketDataId(), e);
+        }
+    }
+
+    /**
      * Fetch daily news for a stock and update sentiment data
      */
     public void fetchAndUpdateNewsSentiment(Stock stock, LocalDate tradingDate) {
@@ -59,30 +103,7 @@ public class NewsService {
                 return;
             }
 
-            StockMarketData marketData = marketDataOpt.get();
-
-            // Fetch news for this stock
-            List<NewsArticle> articles = fetchNewsForStock(stock.getSymbol(), tradingDate);
-
-            if (articles.isEmpty()) {
-                log.debug("No news found for {} on {}", stock.getSymbol(), tradingDate);
-                marketData.setNewsCount(0);
-                marketData.setSentimentScore(BigDecimal.ZERO);
-                marketData.setDailyNews(null);
-                stockMarketDataRepository.save(marketData);
-                return;
-            }
-
-            // Aggregate sentiment
-            SentimentAggregation sentiment = aggregateSentiment(articles);
-
-            marketData.setNewsCount(articles.size());
-            marketData.setSentimentScore(new BigDecimal(sentiment.score).setScale(4, java.math.RoundingMode.HALF_UP));
-            marketData.setDailyNews(buildDailyNewsSummary(articles));
-
-            stockMarketDataRepository.save(marketData);
-            log.info("Updated sentiment for {} on {} (score: {})",
-                stock.getSymbol(), tradingDate, sentiment.score);
+            fetchAndUpdateNewsSentiment(marketDataOpt.get());
 
         } catch (Exception e) {
             log.error("Error fetching news for {} on {}", stock.getSymbol(), tradingDate, e);
@@ -97,7 +118,7 @@ public class NewsService {
             LocalDate endDate = date.plusDays(1);
 
             String url = UriComponentsBuilder
-                .fromHttpUrl(apiBaseUrl + "/v2/reference/news")
+                .fromUriString(apiBaseUrl + "/v2/reference/news")
                 .queryParam("ticker", ticker)
                 .queryParam("published_utc.gte", startDate.format(DateTimeFormatter.ISO_DATE))
                 .queryParam("published_utc.lt", endDate.format(DateTimeFormatter.ISO_DATE))
@@ -115,7 +136,7 @@ public class NewsService {
                 return articles;
             }
 
-            JsonNode root = new tools.jackson.databind.ObjectMapper().readTree(response);
+            JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response);
             JsonNode results = root.get("results");
 
             if (results != null && results.isArray()) {
@@ -168,9 +189,14 @@ public class NewsService {
             }
         }
 
-        // Calculate composite sentiment score (-1.0 to 1.0)
-        int total = articles.size();
-        double score = (double)(positive - negative) / total;
+        // Safer normalized score using only positive/negative counts.
+        double denominator = positive + negative + EPSILON;
+        double score = (positive - negative) / denominator;
+        if (score > 1.0) {
+            score = 1.0;
+        } else if (score < -1.0) {
+            score = -1.0;
+        }
         agg.score = score;
 
         return agg;

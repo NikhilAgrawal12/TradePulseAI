@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class StockMetricsRefreshService {
 
     private static final Logger log = LoggerFactory.getLogger(StockMetricsRefreshService.class);
-    private static final int LOOKBACK_ROWS = 800;
+    private static final int LOOKBACK_ROWS = 1100; // 730-day training window + 200 SMA-200 warmup + safety buffer
     private static final int ONE_WEEK_PERIODS = 5;
     private static final int ONE_MONTH_PERIODS = 21;
     private static final int THREE_MONTH_PERIODS = 63;

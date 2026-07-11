@@ -156,6 +156,7 @@ services:
         condition: service_started
     environment:
       MASSIVE_API_KEY: ${MASSIVE_API_KEY}
+      MASSIVE_NEWS_INTEGRATION_ENABLED: "true"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       STOCK_KAFKA_TOPIC: stocks
       SPRING_DATASOURCE_URL: jdbc:postgresql://stock-service-db:5432/${POSTGRES_DB}
@@ -222,13 +223,6 @@ services:
     networks:
       - tradepulse
 
-  analytics-service:
-    build: ./analytics-service
-    image: analytics-service:latest
-    environment:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    networks:
-      - tradepulse
 
   ml-service:
     build: ./ml-service

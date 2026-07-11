@@ -82,3 +82,130 @@ ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_1y;
 
+-- Drop unused stock_daily_ohlc columns no longer fetched from API
+ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS is_otc;
+ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS adjusted;
+
+-- Ensure ML feature columns exist (guard for services that skip Flyway)
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_5d       NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS momentum_20d    NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS rsi_14          NUMERIC(8,  4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS macd            NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS macd_signal     NUMERIC(12, 4);
+
+-- Ensure sentiment columns exist
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sentiment_score NUMERIC(5, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS news_count      INT DEFAULT 0;
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS daily_news      TEXT;
+
+-- -----------------------------------------------------------------------
+-- Backfill newly added technical indicator columns for ALL existing rows.
+-- These UPDATEs are guarded by WHERE ... IS NULL so they are cheap on
+-- subsequent startups once the values have already been written.
+-- The Java StockMetricsRefreshService overwrites these for recent rows
+-- with its more accurate EMA-based computation on first sync.
+-- -----------------------------------------------------------------------
+
+-- return_5d: 5-day % change in close price
+UPDATE stock_daily_ohlc d
+SET return_5d = subq.return_5d
+FROM (
+    SELECT
+        stock_id,
+        trading_date,
+        ROUND(
+            (close_price - LAG(close_price, 5) OVER (PARTITION BY stock_id ORDER BY trading_date))
+            / NULLIF(LAG(close_price, 5) OVER (PARTITION BY stock_id ORDER BY trading_date), 0) * 100,
+            4
+        ) AS return_5d
+    FROM stock_daily_ohlc
+) subq
+WHERE d.stock_id = subq.stock_id
+  AND d.trading_date = subq.trading_date
+  AND d.return_5d IS NULL
+  AND subq.return_5d IS NOT NULL;
+
+-- momentum_20d: 20-day % change in close price
+UPDATE stock_daily_ohlc d
+SET momentum_20d = subq.momentum_20d
+FROM (
+    SELECT
+        stock_id,
+        trading_date,
+        ROUND(
+            (close_price - LAG(close_price, 20) OVER (PARTITION BY stock_id ORDER BY trading_date))
+            / NULLIF(LAG(close_price, 20) OVER (PARTITION BY stock_id ORDER BY trading_date), 0) * 100,
+            4
+        ) AS momentum_20d
+    FROM stock_daily_ohlc
+) subq
+WHERE d.stock_id = subq.stock_id
+  AND d.trading_date = subq.trading_date
+  AND d.momentum_20d IS NULL
+  AND subq.momentum_20d IS NOT NULL;
+
+-- rsi_14: approximated via 14-period average gain/loss window
+UPDATE stock_daily_ohlc d
+SET rsi_14 = subq.rsi_14
+FROM (
+    WITH daily_changes AS (
+        SELECT stock_id, trading_date,
+               close_price - LAG(close_price, 1) OVER (PARTITION BY stock_id ORDER BY trading_date) AS delta
+        FROM stock_daily_ohlc
+    ),
+    gains_losses AS (
+        SELECT stock_id, trading_date,
+               GREATEST(delta, 0) AS gain,
+               GREATEST(-delta, 0) AS loss
+        FROM daily_changes WHERE delta IS NOT NULL
+    ),
+    rsi_raw AS (
+        SELECT stock_id, trading_date,
+               AVG(gain) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_gain,
+               AVG(loss) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_loss
+        FROM gains_losses
+    )
+    SELECT stock_id, trading_date,
+           CASE WHEN avg_loss = 0 THEN 100.0000
+                ELSE ROUND(100 - (100.0 / (1 + avg_gain / NULLIF(avg_loss, 0))), 4)
+           END AS rsi_14
+    FROM rsi_raw
+) subq
+WHERE d.stock_id = subq.stock_id
+  AND d.trading_date = subq.trading_date
+  AND d.rsi_14 IS NULL
+  AND subq.rsi_14 IS NOT NULL;
+
+-- macd and macd_signal: SMA-based approximation (Java service will overwrite with true EMA values)
+UPDATE stock_daily_ohlc d
+SET macd        = subq.macd_val,
+    macd_signal = subq.signal_val
+FROM (
+    WITH ema_approx AS (
+        SELECT stock_id, trading_date,
+               ROUND(
+                   AVG(close_price) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 11 PRECEDING AND CURRENT ROW)
+                   - AVG(close_price) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 25 PRECEDING AND CURRENT ROW),
+                   4
+               ) AS macd_val
+        FROM stock_daily_ohlc
+    )
+    SELECT stock_id, trading_date, macd_val,
+           ROUND(AVG(macd_val) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 8 PRECEDING AND CURRENT ROW), 4) AS signal_val
+    FROM ema_approx
+    WHERE macd_val IS NOT NULL
+) subq
+WHERE d.stock_id = subq.stock_id
+  AND d.trading_date = subq.trading_date
+  AND d.macd IS NULL
+  AND subq.macd_val IS NOT NULL;
+
+-- Default sentiment to neutral (0) where no news data has been collected yet
+UPDATE stock_daily_ohlc
+SET sentiment_score = 0.0000
+WHERE sentiment_score IS NULL;
+
+UPDATE stock_daily_ohlc
+SET news_count = 0
+WHERE news_count IS NULL;
+

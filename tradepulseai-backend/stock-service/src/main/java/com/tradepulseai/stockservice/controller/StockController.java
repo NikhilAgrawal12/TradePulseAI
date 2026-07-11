@@ -7,6 +7,7 @@ import com.tradepulseai.stockservice.dto.stock.StockPredictionResponseDTO;
 import com.tradepulseai.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulseai.stockservice.service.FeaturedStockRefreshService;
 import com.tradepulseai.stockservice.service.FeaturedStockSSEService;
+import com.tradepulseai.stockservice.service.NewsIntegrationScheduler;
 import com.tradepulseai.stockservice.service.MarketStatusCacheService;
 import com.tradepulseai.stockservice.service.StockInsightsService;
 import com.tradepulseai.stockservice.service.MlPredictionService;
@@ -14,6 +15,7 @@ import com.tradepulseai.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +27,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/stocks")
@@ -34,6 +37,7 @@ public class StockController {
     private final StockService stockService;
     private final FeaturedStockRefreshService featuredStockRefreshService;
     private final FeaturedStockSSEService featuredStockSSEService;
+    private final NewsIntegrationScheduler newsIntegrationScheduler;
     private final MarketStatusCacheService marketStatusCacheService;
     private final StockInsightsService stockInsightsService;
     private final MlPredictionService mlPredictionService;
@@ -41,12 +45,14 @@ public class StockController {
     public StockController(StockService stockService,
                           FeaturedStockRefreshService featuredStockRefreshService,
                           FeaturedStockSSEService featuredStockSSEService,
+                           NewsIntegrationScheduler newsIntegrationScheduler,
                           MarketStatusCacheService marketStatusCacheService,
                           StockInsightsService stockInsightsService,
                           MlPredictionService mlPredictionService) {
         this.stockService = stockService;
         this.featuredStockRefreshService = featuredStockRefreshService;
         this.featuredStockSSEService = featuredStockSSEService;
+        this.newsIntegrationScheduler = newsIntegrationScheduler;
         this.marketStatusCacheService = marketStatusCacheService;
         this.stockInsightsService = stockInsightsService;
         this.mlPredictionService = mlPredictionService;
@@ -73,6 +79,63 @@ public class StockController {
         response.put("accepted", true);
         response.put("message", "Manual featured-stock refresh queued.");
         return ResponseEntity.accepted().body(response);
+    }
+
+    @PostMapping("/admin/backfill-news")
+    @Operation(summary = "Backfill news and sentiment for a stock over the last N trading days")
+    public ResponseEntity<Map<String, Object>> backfillNews(
+            @RequestParam String ticker,
+            @RequestParam(defaultValue = "365") int daysBack) {
+        boolean accepted = newsIntegrationScheduler.triggerBackfillNewsForStock(ticker, daysBack);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("accepted", accepted);
+        response.put("message", accepted
+                ? "Historical news backfill queued."
+                : "Another news backfill job is already running.");
+        response.put("ticker", ticker);
+        response.put("daysBack", daysBack);
+        return accepted ? ResponseEntity.accepted().body(response) : ResponseEntity.status(409).body(response);
+    }
+
+    @PostMapping("/admin/backfill-news/all")
+    @Operation(summary = "Backfill news and sentiment for all stocks over the last N trading days")
+    public ResponseEntity<Map<String, Object>> backfillNewsForAllStocks(
+            @RequestParam(defaultValue = "365") int daysBack) {
+        boolean accepted = newsIntegrationScheduler.triggerBackfillNewsForAllStocks(daysBack);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("accepted", accepted);
+        response.put("message", accepted
+                ? "Historical news backfill queued for all stocks."
+                : "Another news backfill job is already running.");
+        response.put("daysBack", daysBack);
+        return accepted ? ResponseEntity.accepted().body(response) : ResponseEntity.status(409).body(response);
+    }
+
+    @PostMapping("/admin/backfill-news/top")
+    @Operation(summary = "Backfill news and sentiment for top N stocks by market cap over the last N calendar days")
+    public ResponseEntity<Map<String, Object>> backfillNewsForTopStocks(
+            @RequestParam(defaultValue = "365") int daysBack,
+            @RequestParam(defaultValue = "200") int stockLimit,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate resumeFromDate) {
+        boolean accepted = newsIntegrationScheduler.triggerBackfillNewsForTopStocks(daysBack, stockLimit, resumeFromDate);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("accepted", accepted);
+        response.put("message", accepted
+                ? "Historical news backfill queued for top stocks by market cap."
+                : "Another news backfill job is already running.");
+        response.put("daysBack", daysBack);
+        response.put("stockLimit", stockLimit);
+        response.put("resumeFromDate", resumeFromDate == null ? null : resumeFromDate.toString());
+        return accepted ? ResponseEntity.accepted().body(response) : ResponseEntity.status(409).body(response);
+    }
+
+    @GetMapping("/admin/backfill-news/status")
+    @Operation(summary = "Get current or most recent historical news backfill status")
+    public ResponseEntity<Map<String, Object>> getNewsBackfillStatus() {
+        return ResponseEntity.ok(newsIntegrationScheduler.getBackfillStatus());
     }
 
     @GetMapping("/featured/health")
