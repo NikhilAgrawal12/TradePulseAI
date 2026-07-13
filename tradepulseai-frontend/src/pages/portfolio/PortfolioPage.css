@@ -141,6 +141,17 @@
   color: #ffffff;
 }
 
+.portfolio-symbol-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.portfolio-symbol-cell span {
+  color: #4d735f;
+  font-size: 0.75rem;
+}
+
 .portfolio-sell-action {
   display: flex;
   align-items: center;

@@ -25,9 +25,9 @@ public class CustomerRequestDTO {
     @ValidName(message = "Last name can only contain letters, spaces, hyphens, and apostrophes")
     private String lastName;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
-    @Size(max = 255, message = "Email cannot exceed 255 characters")
+    @NotBlank(groups = CreateCustomerValidationGroup.class, message = "Email is required")
+    @Email(groups = CreateCustomerValidationGroup.class, message = "Email must be valid")
+    @Size(max = 255, groups = CreateCustomerValidationGroup.class, message = "Email cannot exceed 255 characters")
     private String email;
 
     @NotBlank(message = "Phone number is required")

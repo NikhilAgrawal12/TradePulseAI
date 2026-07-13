@@ -21,8 +21,8 @@ public class PortfolioSyncGrpcClient {
     private final PortfolioSyncServiceGrpc.PortfolioSyncServiceBlockingStub blockingStub;
 
     public PortfolioSyncGrpcClient(
-            @Value("${portfolio.sync.service.address:cust-service}") String serverAddress,
-            @Value("${portfolio.sync.service.grpc.port:9004}") int serverPort
+            @Value("${portfolio.sync.service.address:portfolio-service}") String serverAddress,
+            @Value("${portfolio.sync.service.grpc.port:9005}") int serverPort
     ) {
         log.info("Connecting to PortfolioSync gRPC at {}:{}", serverAddress, serverPort);
 

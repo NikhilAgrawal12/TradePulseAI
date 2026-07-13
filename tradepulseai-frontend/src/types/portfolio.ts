@@ -10,7 +10,9 @@ export type PortfolioSummary = {
 
 export type PortfolioHolding = {
   stockId: string;
-  symbol: string;
+  symbol?: string | null;
+  companyName?: string | null;
+  exchange?: string | null;
   quantity: number;
   averageBuyPrice: number;
   currentPrice: number;
@@ -24,7 +26,9 @@ export type PortfolioHolding = {
 export type PortfolioTransaction = {
   transactionId: number;
   stockId: string;
-  symbol: string;
+  symbol?: string | null;
+  companyName?: string | null;
+  exchange?: string | null;
   transactionType: "BUY" | "SELL" | string;
   price: number;
   quantity: number;

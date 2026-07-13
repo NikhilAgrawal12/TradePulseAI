@@ -418,8 +418,7 @@ export function RegistrationPage() {
           <h1 id="registration-title">Create your TradePulseAI account</h1>
           <p className="registration-subtitle">Set up your profile to track insights, portfolios, and live market activity.</p>
 
-          {error && <div className="registration-error">{error}</div>}
-          {locationError && <div className="registration-error">{locationError}</div>}
+          {(error || locationError) && <div className="registration-error">{error || locationError}</div>}
 
           <form className="registration-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">

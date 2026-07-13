@@ -1,8 +1,8 @@
-package com.tradepulseai.custservice.controller;
+package com.tradepulseai.portfolioservice.controller;
 
-import com.tradepulseai.custservice.dto.portfolio.PortfolioResponseDTO;
-import com.tradepulseai.custservice.dto.portfolio.SellPortfolioItemRequestDTO;
-import com.tradepulseai.custservice.service.PortfolioService;
+import com.tradepulseai.portfolioservice.dto.PortfolioResponseDTO;
+import com.tradepulseai.portfolioservice.dto.SellPortfolioItemRequestDTO;
+import com.tradepulseai.portfolioservice.service.PortfolioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/customers/portfolio")
+@RequestMapping("/portfolio")
 @Tag(name = "Portfolio", description = "API for managing portfolio holdings and sell operations")
 public class PortfolioController {
 
@@ -34,7 +34,6 @@ public class PortfolioController {
         return ResponseEntity.ok(portfolioService.getPortfolio(normalizeUserId(userId)));
     }
 
-
     @PostMapping("/sell/{stockId}")
     @Operation(summary = "Sell a stock from portfolio")
     public ResponseEntity<PortfolioResponseDTO> sellPosition(
@@ -46,9 +45,8 @@ public class PortfolioController {
     }
 
     private Long normalizeUserId(String userId) {
-        if (userId == null || userId.trim().isEmpty()) {
+        if (userId == null || userId.trim().isEmpty())
             throw new IllegalArgumentException("Missing required header: " + USER_ID_HEADER);
-        }
         try {
             return Long.parseLong(userId.trim());
         } catch (NumberFormatException exception) {

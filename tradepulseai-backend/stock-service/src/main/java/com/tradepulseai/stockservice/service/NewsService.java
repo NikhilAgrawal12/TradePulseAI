@@ -60,7 +60,7 @@ public class NewsService {
             LocalDate tradingDate = marketData.getTradingDate();
             String symbol = stock != null ? stock.getSymbol() : "UNKNOWN";
 
-            List<NewsArticle> articles = fetchNewsForStock(symbol, tradingDate);
+            List<NewsArticle> articles = fetchNewsForStock(symbol, symbol, tradingDate);
 
             if (articles.isEmpty()) {
                 log.debug("No news found for {} on {}", symbol, tradingDate);
@@ -111,6 +111,10 @@ public class NewsService {
     }
 
     private List<NewsArticle> fetchNewsForStock(String ticker, LocalDate date) {
+        return fetchNewsForStock(ticker, ticker, date);
+    }
+
+    private List<NewsArticle> fetchNewsForStock(String ticker, String targetTicker, LocalDate date) {
         List<NewsArticle> articles = new ArrayList<>();
 
         try {
@@ -141,7 +145,7 @@ public class NewsService {
 
             if (results != null && results.isArray()) {
                 for (JsonNode result : results) {
-                    NewsArticle article = parseNewsArticle(result);
+                    NewsArticle article = parseNewsArticle(result, targetTicker);
                     if (article != null) {
                         articles.add(article);
                     }
@@ -155,17 +159,39 @@ public class NewsService {
         return articles;
     }
 
-    private NewsArticle parseNewsArticle(JsonNode node) {
+    /**
+     * Parse a news article and extract the sentiment specific to {@code targetTicker}.
+     *
+     * <p>The Polygon.io {@code insights} array lists sentiment for every ticker mentioned in the
+     * article. Previously the code always picked {@code insights[0]}, which is the first ticker
+     * mentioned — not necessarily the one we queried. This method now finds the insight whose
+     * {@code ticker} field matches {@code targetTicker} (case-insensitive), falling back to
+     * {@code insights[0]} only when no matching insight exists, and defaulting to neutral when
+     * there are no insights at all.</p>
+     */
+    private NewsArticle parseNewsArticle(JsonNode node, String targetTicker) {
         try {
             NewsArticle article = new NewsArticle();
             article.title = node.get("title") != null ? node.get("title").asText() : "";
 
-            // Extract sentiment from insights
             JsonNode insights = node.get("insights");
             if (insights != null && insights.isArray() && insights.size() > 0) {
-                JsonNode firstInsight = insights.get(0);
-                String sentiment = firstInsight.get("sentiment") != null ?
-                    firstInsight.get("sentiment").asText() : "neutral";
+                // Find the insight for the ticker we actually queried.
+                JsonNode matchedInsight = null;
+                for (JsonNode insight : insights) {
+                    JsonNode insightTicker = insight.get("ticker");
+                    if (insightTicker != null &&
+                            targetTicker.equalsIgnoreCase(insightTicker.asText())) {
+                        matchedInsight = insight;
+                        break;
+                    }
+                }
+
+                // Fall back to the first insight when no ticker-specific one exists.
+                JsonNode chosenInsight = matchedInsight != null ? matchedInsight : insights.get(0);
+                String sentiment = chosenInsight.get("sentiment") != null
+                        ? chosenInsight.get("sentiment").asText()
+                        : "neutral";
                 article.sentiment = sentiment;
             }
 

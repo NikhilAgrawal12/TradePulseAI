@@ -10,6 +10,7 @@ import com.tradepulseai.authservice.dto.auth.ForgotPasswordResetRequestDTO;
 import com.tradepulseai.authservice.dto.auth.ForgotPasswordResponseDTO;
 import com.tradepulseai.authservice.dto.auth.RegisterRequestDTO;
 import com.tradepulseai.authservice.dto.auth.RegisterResponseDTO;
+import com.tradepulseai.authservice.dto.credentials.ChangePasswordRequestDTO;
 import com.tradepulseai.authservice.dto.credentials.CredentialsResponseDTO;
 import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsRequestDTO;
 import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsResponseDTO;
@@ -23,6 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -37,15 +39,23 @@ public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private static final String AUTHENTICATED_USER_ID_HEADER = "X-Authenticated-User-Id";
+    private static final String INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key";
 
     private final AuthService authService;
     private final ForgotPasswordService forgotPasswordService;
     private final UserService userService;
+    private final String internalApiKey;
 
-    public AuthController(AuthService authService, ForgotPasswordService forgotPasswordService, UserService userService) {
+    public AuthController(
+            AuthService authService,
+            ForgotPasswordService forgotPasswordService,
+            UserService userService,
+            @Value("${auth.internal.api-key:}") String internalApiKey
+    ) {
         this.authService = authService;
         this.forgotPasswordService = forgotPasswordService;
         this.userService = userService;
+        this.internalApiKey = internalApiKey;
     }
 
     @Operation(summary="Generate token on user login")
@@ -221,15 +231,53 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "Change account password")
+    @PutMapping("/users/{userId}/password")
+    public ResponseEntity<?> changePassword(
+            @PathVariable Long userId,
+            @RequestHeader("Authorization") String authHeader,
+            @Valid @RequestBody ChangePasswordRequestDTO request
+    ) {
+        try {
+            authorizeUserId(authHeader, userId);
+            authService.changePassword(userId, request);
+            return ResponseEntity.ok(java.util.Map.of("message", "Password updated successfully"));
+        } catch (JwtException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", ex.getMessage()));
+        } catch (IllegalArgumentException ex) {
+            HttpStatus status = "User not found".equals(ex.getMessage()) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(java.util.Map.of("message", ex.getMessage()));
+        }
+    }
+
     @Operation(summary = "Delete user by id")
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<?> deleteUser(@PathVariable Long userId) {
+    public ResponseEntity<?> deleteUser(
+            @PathVariable Long userId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader(value = INTERNAL_API_KEY_HEADER, required = false) String internalHeader
+    ) {
+        boolean internalAuthorized = isInternalRequestAuthorized(internalHeader);
+        if (!internalAuthorized) {
+            try {
+                authorizeUserId(authHeader, userId);
+            } catch (JwtException ex) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(java.util.Map.of("message", ex.getMessage()));
+            }
+        }
+
         if (userService.findById(userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found"));
         }
 
         userService.deleteById(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    private boolean isInternalRequestAuthorized(String internalHeader) {
+        return internalApiKey != null
+                && !internalApiKey.isBlank()
+                && internalApiKey.equals(internalHeader);
     }
 
     private void authorizeUserId(String authHeader, Long pathUserId) {

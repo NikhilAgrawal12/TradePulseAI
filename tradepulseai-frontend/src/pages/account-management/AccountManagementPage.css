@@ -231,14 +231,92 @@
   border-color: #86efac;
 }
 
-/* ── Security section ── */
-.am-security-block {
-  margin-bottom: 16px;
+.am-password-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
 }
 
-.am-security-actions {
-  margin-top: 8px;
-  margin-bottom: 8px;
+/* Input + Show/Hide toggle row inside password editor */
+.am-password-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.am-password-input-wrap input {
+  flex: 1;
+}
+
+.am-btn-inline {
+  flex-shrink: 0;
+  border: 1px solid #bbe5ca;
+  background: #f8fff9;
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #25553f;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.am-btn-inline:hover {
+  background: #ecf5ed;
+  border-color: #86efac;
+}
+
+.am-btn-inline:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.am-password-actions-sep {
+  color: #9dbfad;
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.am-btn-text {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: #4d735f;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+.am-btn-text:hover {
+  color: #14532d;
+  text-decoration-color: currentColor;
+}
+
+.am-btn-text--primary {
+  color: #15803d;
+}
+
+.am-btn-text--primary:hover {
+  color: #0f6330;
+  text-decoration-color: currentColor;
+}
+
+.am-btn-text:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.am-password-note {
+  margin: 8px 0 0;
+  color: #4d735f;
+  font-size: 0.85rem;
 }
 
 .am-security-block h3,
@@ -335,6 +413,21 @@
   .am-row {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .am-password-input-wrap {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .am-password-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .am-password-actions-sep {
+    display: none;
   }
 
   .am-form {

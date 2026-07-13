@@ -16,6 +16,8 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
 
     List<Stock> findAllByOrderByStockIdAsc();
 
+    List<Stock> findByStockIdInOrderByStockIdAsc(List<Long> stockIds);
+
     @Query("""
             SELECT s
             FROM Stock s

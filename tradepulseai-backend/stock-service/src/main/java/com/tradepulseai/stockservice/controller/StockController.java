@@ -150,6 +150,7 @@ public class StockController {
         return ResponseEntity.ok(stockService.getStockById(id));
     }
 
+
     @GetMapping("/{id}/insights")
     @Operation(summary = "Get detailed analytics and chart-ready insights for a stock")
     public ResponseEntity<StockInsightsResponseDTO> getStockInsights(@PathVariable Long id) {

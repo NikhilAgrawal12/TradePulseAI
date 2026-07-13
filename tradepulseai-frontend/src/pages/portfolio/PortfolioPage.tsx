@@ -81,10 +81,22 @@ export function PortfolioPage() {
         [stocks],
     );
 
+    const stockNameMap = useMemo(
+        () => new Map(stocks.map((stock) => [stock.id, stock.name ?? null])),
+        [stocks],
+    );
+
+    const stockExchangeMap = useMemo(
+        () => new Map(stocks.map((stock) => [stock.id, stock.exchange ?? null])),
+        [stocks],
+    );
+
     const holdingsWithLivePrice = useMemo(() => {
         return portfolio.holdings.map((holding) => {
             const livePrice = stockPriceMap.get(holding.stockId) ?? holding.currentPrice;
             const symbol = stockSymbolMap.get(holding.stockId) ?? holding.symbol ?? holding.stockId;
+            const companyName = stockNameMap.get(holding.stockId) ?? null;
+            const exchange = stockExchangeMap.get(holding.stockId) ?? null;
             const marketValue = toMoney(livePrice * holding.quantity);
             const unrealizedPnl = toMoney(marketValue - holding.investedValue);
             const unrealizedPnlPercent =
@@ -93,13 +105,15 @@ export function PortfolioPage() {
             return {
                 ...holding,
                 symbol,
+                companyName,
+                exchange,
                 currentPrice: toMoney(livePrice),
                 marketValue,
                 unrealizedPnl,
                 unrealizedPnlPercent,
             };
         });
-    }, [portfolio.holdings, stockPriceMap, stockSymbolMap]);
+    }, [portfolio.holdings, stockPriceMap, stockSymbolMap, stockNameMap, stockExchangeMap]);
 
     const livePortfolioTotals = useMemo(() => {
         const totalMarketValue = holdingsWithLivePrice.reduce((sum, item) => sum + item.marketValue, 0);
@@ -116,8 +130,10 @@ export function PortfolioPage() {
         () => portfolio.transactions.map((transaction) => ({
             ...transaction,
             symbol: stockSymbolMap.get(transaction.stockId) ?? transaction.symbol ?? transaction.stockId,
+            companyName: stockNameMap.get(transaction.stockId) ?? null,
+            exchange: stockExchangeMap.get(transaction.stockId) ?? null,
         })),
-        [portfolio.transactions, stockSymbolMap],
+        [portfolio.transactions, stockSymbolMap, stockNameMap, stockExchangeMap],
     );
 
     const handleSell = async (holding: PortfolioHolding) => {
@@ -216,7 +232,17 @@ export function PortfolioPage() {
                                         <tbody>
                                             {holdingsWithLivePrice.map((holding) => (
                                                 <tr key={holding.stockId}>
-                                                    <td><strong>{holding.symbol}</strong></td>
+                                                    <td>
+                                                        <div className="portfolio-symbol-cell">
+                                                            <strong>{holding.symbol}</strong>
+                                                            {holding.companyName && (
+                                                                <span>
+                                                                    {holding.companyName}
+                                                                    {holding.exchange ? ` • ${holding.exchange}` : ""}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td>{holding.quantity}</td>
                                                     <td>{formatCurrency(holding.averageBuyPrice)}</td>
                                                     <td>{formatCurrency(holding.currentPrice)}</td>
@@ -288,7 +314,17 @@ export function PortfolioPage() {
                                                                 {transaction.transactionType}
                                                             </span>
                                                         </td>
-                                                        <td><strong>{transaction.symbol}</strong></td>
+                                                        <td>
+                                                            <div className="portfolio-symbol-cell">
+                                                                <strong>{transaction.symbol}</strong>
+                                                                {transaction.companyName && (
+                                                                    <span>
+                                                                        {transaction.companyName}
+                                                                        {transaction.exchange ? ` • ${transaction.exchange}` : ""}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td>{transaction.quantity}</td>
                                                         <td>{formatCurrency(transaction.price)}</td>
                                                         <td>{formatCurrency(transaction.grossAmount)}</td>

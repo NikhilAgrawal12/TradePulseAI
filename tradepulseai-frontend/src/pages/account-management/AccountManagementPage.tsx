@@ -22,12 +22,14 @@ const VALIDATION_PATTERNS = {
   phoneNumber: /^\+?[0-9\- ]{7,15}$/,
   name: /^[A-Za-z\s'-]{1,100}$/,
   postalCode: /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9\- ]{2,19}$/,
+  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?/`~]).{8,}$/,
 };
 
 const VALIDATION_MESSAGES = {
   phoneNumber: "Phone number must be 7-15 digits, optionally starting with +, and can contain spaces or hyphens",
   name: "Name can only contain letters, spaces, hyphens, and apostrophes (1-100 characters)",
   postalCode: "Postal code must be 3-20 characters, include at least one digit, and use only letters, numbers, spaces, or hyphens",
+  password: "Password must be at least 8 characters and include uppercase, lowercase, number, and special character",
 };
 
 type CustomerProfile = {
@@ -46,19 +48,24 @@ type CustomerProfile = {
   dateOfBirth: string;
 };
 
-type CredentialsResponse = {
-  userId: number;
-  email: string;
-};
-
 type UpdateCredentialsResponse = {
   userId: number;
   email: string;
   token: string;
 };
 
+type ChangePasswordResponse = {
+  message: string;
+};
+
 type CredentialsForm = {
   email: string;
+};
+
+type PasswordForm = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 };
 
 const emptyProfile: CustomerProfile = {
@@ -91,6 +98,20 @@ export function AccountManagementPage() {
   const [credentialsSaving, setCredentialsSaving] = useState(false);
   const [credentialsError, setCredentialsError] = useState("");
   const [credentialsSuccess, setCredentialsSuccess] = useState("");
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [showPasswordEditor, setShowPasswordEditor] = useState(false);
+  const [showPasswordValues, setShowPasswordValues] = useState<Record<keyof PasswordForm, boolean>>({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+  });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [countryOptions, setCountryOptions] = useState<LocationCountryOption[]>([]);
   const [stateOptions, setStateOptions] = useState<LocationStateOption[]>([]);
@@ -233,10 +254,12 @@ export function AccountManagementPage() {
 
     const loadProfile = async () => {
       setLoading(true);
+      setCredentialsLoading(true);
       setError("");
+      setCredentialsError("");
 
       try {
-        const response = await axios.get<CustomerProfile>(`/api/customers/user/${encodeURIComponent(userIdFromToken)}`, {
+        const response = await axios.get<CustomerProfile>("/api/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const loadedProfile = response.data;
@@ -251,6 +274,8 @@ export function AccountManagementPage() {
           userId: loadedProfile.userId ?? loadedProfile.customerId ?? Number(userIdFromToken),
           customerId: loadedProfile.customerId ?? loadedProfile.userId ?? Number(userIdFromToken),
         });
+        setCredentials({ email: (loadedProfile.email || "").trim().toLowerCase() });
+        setInitialCredentialEmail((loadedProfile.email || "").trim().toLowerCase());
       } catch (err) {
         if (axios.isAxiosError(err)) {
           if (err.response?.status === 404) {
@@ -265,40 +290,11 @@ export function AccountManagementPage() {
         }
       } finally {
         setLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, [navigate, token, userIdFromToken]);
-
-  useEffect(() => {
-    if (!token || !userIdFromToken) {
-      navigate("/login");
-      return;
-    }
-
-    const loadCredentials = async () => {
-      setCredentialsLoading(true);
-      setCredentialsError("");
-
-      try {
-        const response = await axios.get<CredentialsResponse>(`/auth/users/${userIdFromToken}/credentials`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setCredentials({ email: response.data.email });
-        setInitialCredentialEmail(response.data.email);
-      } catch (err) {
-        if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
-          setCredentialsError(err.response.data.message);
-        } else {
-          setCredentialsError("Unable to load account credentials.");
-        }
-      } finally {
         setCredentialsLoading(false);
       }
     };
 
-    loadCredentials();
+    loadProfile();
   }, [navigate, token, userIdFromToken]);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -381,6 +377,23 @@ export function AccountManagementPage() {
     setCredentials((prev) => ({ ...prev, [name]: value }));
     setSuccess("");
     setCredentialsSuccess("");
+  };
+
+  const handlePasswordChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setPasswordForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setPasswordError("");
+    setPasswordSuccess("");
+  };
+
+  const togglePasswordValueVisibility = (field: keyof PasswordForm) => {
+    setShowPasswordValues((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
   };
 
   const handleCountryChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -520,9 +533,10 @@ export function AccountManagementPage() {
     setSaving(true);
     setCredentialsSaving(true);
 
+    let hasEmailChange = false;
     try {
       const trimmedEmail = credentials.email.trim().toLowerCase();
-      const hasEmailChange = trimmedEmail !== initialCredentialEmail;
+      hasEmailChange = trimmedEmail !== initialCredentialEmail;
 
       if (hasEmailChange) {
         if (!userIdFromToken) {
@@ -554,7 +568,6 @@ export function AccountManagementPage() {
         {
           firstName: profile.firstName,
           lastName: profile.lastName,
-          email: (credentials.email || profile.email).trim().toLowerCase(),
           phoneNumber: profile.phoneNumber,
           addressLine1: profile.addressLine1,
           addressLine2: profile.addressLine2,
@@ -572,15 +585,73 @@ export function AccountManagementPage() {
         setCredentialsSuccess("Credentials updated successfully.");
       }
     } catch (err) {
-      setError("Unable to save profile details.");
-      if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
-        setCredentialsError(err.response.data.message);
+      if (hasEmailChange) {
+        if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+          setCredentialsError(err.response.data.message);
+        } else {
+          setCredentialsError("Unable to save account credentials.");
+        }
       } else {
-        setCredentialsError("Unable to save account credentials.");
+        setError("Unable to save profile details.");
       }
     } finally {
       setSaving(false);
       setCredentialsSaving(false);
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!token || !userIdFromToken) {
+      navigate("/login");
+      return;
+    }
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+
+    if (!VALIDATION_PATTERNS.password.test(passwordForm.newPassword)) {
+      setPasswordError(VALIDATION_MESSAGES.password);
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New password and confirm password must match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const response = await axios.put<ChangePasswordResponse>(
+        `/auth/users/${userIdFromToken}/password`,
+        passwordForm,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setPasswordSuccess(response.data.message || "Password updated successfully.");
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setShowPasswordEditor(false);
+      setShowPasswordValues({
+        currentPassword: false,
+        newPassword: false,
+        confirmPassword: false,
+      });
+    } catch (err) {
+      if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+        setPasswordError(err.response.data.message);
+      } else {
+        setPasswordError("Unable to change password right now.");
+      }
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -627,6 +698,124 @@ export function AccountManagementPage() {
                       />
                     </div>
                   </div>
+
+                  <div className="am-row">
+                    <div className="am-group am-full">
+                      <label htmlFor="account-password">Password</label>
+                      <input
+                        id="account-password"
+                        type="password"
+                        value="••••••••••••"
+                        readOnly
+                        disabled
+                      />
+                      <div className="am-password-actions">
+                        <button
+                          type="button"
+                          className="am-btn-text am-btn-text--primary"
+                          onClick={() => {
+                            setShowPasswordEditor((prev) => !prev);
+                            setPasswordError("");
+                            setPasswordSuccess("");
+                          }}
+                          disabled={passwordSaving}
+                        >
+                          {showPasswordEditor ? "Cancel" : "Change password"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {passwordError && <p className="am-message am-error">{passwordError}</p>}
+                  {passwordSuccess && <p className="am-message am-success">{passwordSuccess}</p>}
+
+                  {showPasswordEditor && (
+                    <>
+                      <div className="am-row">
+                        <div className="am-group am-full">
+                          <label htmlFor="current-password">Current Password</label>
+                          <div className="am-password-input-wrap">
+                            <input
+                              id="current-password"
+                              name="currentPassword"
+                              type={showPasswordValues.currentPassword ? "text" : "password"}
+                              value={passwordForm.currentPassword}
+                              onChange={handlePasswordChange}
+                              disabled={passwordSaving}
+                            />
+                            <button
+                              type="button"
+                              className="am-btn-inline"
+                              onClick={() => togglePasswordValueVisibility("currentPassword")}
+                              disabled={passwordSaving}
+                            >
+                              {showPasswordValues.currentPassword ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="am-row">
+                        <div className="am-group">
+                          <label htmlFor="new-password">New Password</label>
+                          <div className="am-password-input-wrap">
+                            <input
+                              id="new-password"
+                              name="newPassword"
+                              type={showPasswordValues.newPassword ? "text" : "password"}
+                              value={passwordForm.newPassword}
+                              onChange={handlePasswordChange}
+                              disabled={passwordSaving}
+                            />
+                            <button
+                              type="button"
+                              className="am-btn-inline"
+                              onClick={() => togglePasswordValueVisibility("newPassword")}
+                              disabled={passwordSaving}
+                            >
+                              {showPasswordValues.newPassword ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="am-group">
+                          <label htmlFor="confirm-password">Confirm Password</label>
+                          <div className="am-password-input-wrap">
+                            <input
+                              id="confirm-password"
+                              name="confirmPassword"
+                              type={showPasswordValues.confirmPassword ? "text" : "password"}
+                              value={passwordForm.confirmPassword}
+                              onChange={handlePasswordChange}
+                              disabled={passwordSaving}
+                            />
+                            <button
+                              type="button"
+                              className="am-btn-inline"
+                              onClick={() => togglePasswordValueVisibility("confirmPassword")}
+                              disabled={passwordSaving}
+                            >
+                              {showPasswordValues.confirmPassword ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+
+                      <div className="am-security-actions">
+                        <button
+                          type="button"
+                          className="am-btn-save"
+                          onClick={() => {
+                            void handlePasswordSubmit();
+                          }}
+                          disabled={passwordSaving}
+                        >
+                          {passwordSaving ? "Updating password..." : "Update password"}
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                 </div>
               </div>

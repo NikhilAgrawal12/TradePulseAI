@@ -57,8 +57,8 @@ Routed through gateway to auth-service.
 
 ### Portfolio routes
 
-- `GET /api/customers/portfolio`
-- `POST /api/customers/portfolio/sell/{stockId}`
+- `GET /api/portfolio`
+- `POST /api/portfolio/sell/{stockId}`
 
 ### Stock routes
 
@@ -142,7 +142,7 @@ Caller:
 - order-service
 
 Server:
-- customer-service
+- portfolio-service
 
 Purpose:
 - sync successful completed orders into portfolio holdings and transactions
@@ -151,8 +151,7 @@ Purpose:
 
 There is also protobuf usage outside gRPC:
 
-- customer-service publishes customer events
-- analytics-service consumes them from Kafka topic `customer`
+- customer-service publishes customer events to Kafka topic `customer`
 
 Important note:
 - `customer_event.proto` is protobuf-based messaging, not a gRPC API

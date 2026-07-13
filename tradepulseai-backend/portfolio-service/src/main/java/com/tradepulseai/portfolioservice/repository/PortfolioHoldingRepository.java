@@ -1,9 +1,9 @@
-package com.tradepulseai.custservice.repository;
+package com.tradepulseai.portfolioservice.repository;
 
-import com.tradepulseai.custservice.model.PortfolioHolding;
-import com.tradepulseai.custservice.model.PortfolioHoldingId;
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.tradepulseai.portfolioservice.model.PortfolioHolding;
+import com.tradepulseai.portfolioservice.model.PortfolioHoldingId;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,3 +16,4 @@ public interface PortfolioHoldingRepository extends JpaRepository<PortfolioHoldi
     @EntityGraph(attributePaths = "id")
     Optional<PortfolioHolding> findByIdUserIdAndIdStockId(Long userId, Long stockId);
 }
+

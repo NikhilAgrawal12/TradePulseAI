@@ -11,11 +11,11 @@ import com.tradepulseai.stockservice.repository.StockRepository;
 import com.tradepulseai.stockservice.repository.FeaturedStockCacheRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Comparator;
 
 @Service
 public class StockService {
@@ -159,6 +159,7 @@ public class StockService {
 
         return StockMapper.toDTO(stock, latestMarketData);
     }
+
 
     public List<StockResponseDTO> searchStocks(String query) {
         if (query == null || query.trim().isEmpty()) {

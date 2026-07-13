@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.dto.portfolio;
+package com.tradepulseai.portfolioservice.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -19,30 +19,11 @@ public class PortfolioFillItemRequestDTO {
     @Min(value = 1, message = "quantity must be at least 1")
     private int quantity;
 
-    public String getStockId() {
-        return stockId;
-    }
-
-    public void setStockId(String stockId) {
-        this.stockId = stockId;
-    }
-
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
+    public String getStockId() { return stockId; }
+    public void setStockId(String stockId) { this.stockId = stockId; }
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
 }
-
 

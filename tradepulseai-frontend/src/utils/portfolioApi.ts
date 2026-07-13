@@ -45,7 +45,7 @@ function normalizePortfolio(data: PortfolioResponse): PortfolioResponse {
 
 export async function fetchPortfolio(): Promise<PortfolioResponse> {
   try {
-    const response = await axios.get<PortfolioResponse>("/api/customers/portfolio", {
+    const response = await axios.get<PortfolioResponse>("/api/portfolio", {
       headers: buildAuthHeaders(),
     });
     return normalizePortfolio(response.data);
@@ -56,7 +56,7 @@ export async function fetchPortfolio(): Promise<PortfolioResponse> {
 
 export async function sellPortfolioItem(stockId: string, payload: SellPortfolioItemRequest): Promise<PortfolioResponse> {
   try {
-    const response = await axios.post<PortfolioResponse>(`/api/customers/portfolio/sell/${stockId}`, {
+    const response = await axios.post<PortfolioResponse>(`/api/portfolio/sell/${stockId}`, {
       ...payload,
       price: toMoney(payload.price),
     }, {
@@ -67,4 +67,3 @@ export async function sellPortfolioItem(stockId: string, payload: SellPortfolioI
     throw unwrapApiError(error, "Failed to sell stock.");
   }
 }
-

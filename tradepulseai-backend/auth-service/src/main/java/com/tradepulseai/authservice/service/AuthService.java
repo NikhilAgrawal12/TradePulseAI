@@ -2,6 +2,7 @@ package com.tradepulseai.authservice.service;
 
 import com.tradepulseai.authservice.dto.auth.LoginRequestDTO;
 import com.tradepulseai.authservice.dto.auth.RegisterRequestDTO;
+import com.tradepulseai.authservice.dto.credentials.ChangePasswordRequestDTO;
 import com.tradepulseai.authservice.dto.credentials.CredentialsResponseDTO;
 import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsRequestDTO;
 import com.tradepulseai.authservice.dto.credentials.UpdateCredentialsResponseDTO;
@@ -10,6 +11,7 @@ import com.tradepulseai.authservice.util.JwtUtil;
 import io.jsonwebtoken.JwtException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -45,6 +47,7 @@ public class AuthService {
         }
     }
 
+    @Transactional
     public User register(RegisterRequestDTO registerRequestDTO) {
         String normalizedEmail = normalizeEmail(registerRequestDTO.getEmail());
         if (userService.existsByEmail(normalizedEmail)) {
@@ -85,6 +88,26 @@ public class AuthService {
         User saved = userService.save(user);
         String refreshedToken = jwtUtil.generateToken(saved.getEmail(), saved.getRole(), saved.getUserId());
         return new UpdateCredentialsResponseDTO(saved.getUserId(), saved.getEmail(), refreshedToken);
+    }
+
+    public void changePassword(Long userId, ChangePasswordRequestDTO request) {
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("New password must be different from the current password");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userService.save(user);
     }
 
 

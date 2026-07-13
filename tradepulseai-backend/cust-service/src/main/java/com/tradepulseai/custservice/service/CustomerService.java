@@ -34,11 +34,10 @@ public class CustomerService {
     }
 
     public CustomerResponseDTO getCustomerByUserId(Long userId) {
-        Customer customer = customerRepository.findById(userId)
+        Customer customer = customerRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found with userId: " + userId));
 
-        String resolvedEmail = normalizeEmail(authServiceClient.getUserById(userId).email());
-        return CustomerMapper.toDTO(customer, resolvedEmail);
+        return CustomerMapper.toDTO(customer);
     }
 
     public CustomerResponseDTO createCustomer(CustomerRequestDTO customerRequestDTO) {
@@ -49,7 +48,7 @@ public class CustomerService {
         AuthServiceClient.AuthUser authUser = authServiceClient.getUserById(customerRequestDTO.getUserId());
         String normalizedEmail = normalizeEmail(authUser.email());
 
-        if (customerRepository.existsById(authUser.userId())) {
+        if (customerRepository.existsByUserId(authUser.userId())) {
             throw new EmailAlreadyExistsException("A customer with this user already exists " + normalizedEmail);
         }
         customerRequestDTO.setUserId(authUser.userId());
@@ -69,21 +68,24 @@ public class CustomerService {
             createdAuthUser = authServiceClient.registerUser(requestDTO);
             String normalizedEmail = normalizeEmail(createdAuthUser.email());
 
-            if (customerRepository.existsById(createdAuthUser.userId())) {
+            if (customerRepository.existsByUserId(createdAuthUser.userId())) {
                 throw new EmailAlreadyExistsException("A customer with this user already exists " + normalizedEmail);
             }
 
             CustomerRequestDTO customerRequestDTO = mapToCustomerRequest(requestDTO, createdAuthUser.userId(), normalizedEmail);
             Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
-            kafkaProducer.sendEvent(customer, normalizedEmail);
+            kafkaProducer.sendEventOrThrow(customer, normalizedEmail);
             return CustomerMapper.toDTO(customer, normalizedEmail);
         } catch (Exception exception) {
             if (createdAuthUser != null && createdAuthUser.userId() != null) {
                 try {
                     rollbackAuthUser(createdAuthUser.userId());
                 } catch (Exception rollbackException) {
-                    exception.addSuppressed(rollbackException);
                     log.error("Customer registration compensation failed for userId={}", createdAuthUser.userId(), rollbackException);
+                    throw new IllegalStateException(
+                            "Customer registration failed and compensation rollback failed for userId=" + createdAuthUser.userId(),
+                            rollbackException
+                    );
                 }
             }
             throw exception;
@@ -91,7 +93,7 @@ public class CustomerService {
     }
 
     public CustomerResponseDTO updateCustomer(Long userId, CustomerRequestDTO customerRequestDTO) {
-        Customer customer = customerRepository.findById(userId)
+        Customer customer = customerRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found with userId: " + userId));
 
         if (customerRequestDTO.getUserId() != null && !Objects.equals(customerRequestDTO.getUserId(), customer.getUserId())) {
@@ -110,14 +112,13 @@ public class CustomerService {
         customer.setPhoneNumber(customerRequestDTO.getPhoneNumber());
 
         Customer updatedcustomer = customerRepository.save(customer);
-        String resolvedEmail = normalizeEmail(authServiceClient.getUserById(updatedcustomer.getUserId()).email());
-        return CustomerMapper.toDTO(updatedcustomer, resolvedEmail);
+        return CustomerMapper.toDTO(updatedcustomer);
 
     }
 
 
     public void deleteCustomer(Long userId) {
-        customerRepository.deleteById(userId);
+        customerRepository.deleteByUserId(userId);
     }
 
     private String normalizeEmail(String email) {

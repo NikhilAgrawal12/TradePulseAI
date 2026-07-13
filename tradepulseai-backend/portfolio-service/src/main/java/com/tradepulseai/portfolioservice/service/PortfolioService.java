@@ -1,21 +1,21 @@
-package com.tradepulseai.custservice.service;
+package com.tradepulseai.portfolioservice.service;
 
-import com.tradepulseai.custservice.client.StockCatalogClient;
-import com.tradepulseai.custservice.dto.portfolio.PortfolioFillItemRequestDTO;
-import com.tradepulseai.custservice.dto.portfolio.PortfolioHoldingResponseDTO;
-import com.tradepulseai.custservice.dto.portfolio.PortfolioResponseDTO;
-import com.tradepulseai.custservice.dto.portfolio.PortfolioSummaryResponseDTO;
-import com.tradepulseai.custservice.dto.portfolio.PortfolioTransactionResponseDTO;
-import com.tradepulseai.custservice.dto.portfolio.RecordPortfolioOrderRequestDTO;
-import com.tradepulseai.custservice.dto.portfolio.SellPortfolioItemRequestDTO;
-import com.tradepulseai.custservice.mapper.PortfolioMapper;
-import com.tradepulseai.custservice.model.PortfolioHolding;
-import com.tradepulseai.custservice.model.PortfolioTransaction;
-import com.tradepulseai.custservice.repository.PortfolioHoldingRepository;
-import com.tradepulseai.custservice.repository.PortfolioTransactionRepository;
+import com.tradepulseai.portfolioservice.client.StockCatalogClient;
+import com.tradepulseai.portfolioservice.dto.PortfolioFillItemRequestDTO;
+import com.tradepulseai.portfolioservice.dto.PortfolioHoldingResponseDTO;
+import com.tradepulseai.portfolioservice.dto.PortfolioResponseDTO;
+import com.tradepulseai.portfolioservice.dto.PortfolioSummaryResponseDTO;
+import com.tradepulseai.portfolioservice.dto.PortfolioTransactionResponseDTO;
+import com.tradepulseai.portfolioservice.dto.RecordPortfolioOrderRequestDTO;
+import com.tradepulseai.portfolioservice.dto.SellPortfolioItemRequestDTO;
+import com.tradepulseai.portfolioservice.mapper.PortfolioMapper;
+import com.tradepulseai.portfolioservice.model.PortfolioHolding;
+import com.tradepulseai.portfolioservice.model.PortfolioTransaction;
+import com.tradepulseai.portfolioservice.repository.PortfolioHoldingRepository;
+import com.tradepulseai.portfolioservice.repository.PortfolioTransactionRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -47,26 +47,22 @@ public class PortfolioService {
         List<PortfolioHolding> holdings = portfolioHoldingRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
         List<PortfolioTransaction> transactions = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(userId);
 
-        Map<Long, StockCatalogClient.StockQuote> stockQuotes = loadStockQuotes(holdings, transactions);
         PortfolioAnalytics analytics = calculateAnalytics(transactions);
 
         List<PortfolioHoldingResponseDTO> holdingResponses = holdings.stream()
                 .map(holding -> {
                     Long stockId = holding.getId().getStockId();
-                    StockCatalogClient.StockQuote quote = resolveQuote(stockQuotes, stockId);
                     BigDecimal averageBuyPrice = analytics.averageBuyByStock().getOrDefault(stockId, BigDecimal.ZERO);
                     BigDecimal realizedPnl = analytics.realizedByStock().getOrDefault(stockId, BigDecimal.ZERO);
-                    return PortfolioMapper.toHoldingResponse(holding, quote, averageBuyPrice, realizedPnl);
+                    return PortfolioMapper.toHoldingResponse(holding, averageBuyPrice, realizedPnl);
                 })
                 .toList();
 
         List<PortfolioTransactionResponseDTO> transactionResponses = transactions.stream()
                 .map(transaction -> {
-                    Long stockId = transaction.getStockId();
-                    StockCatalogClient.StockQuote quote = resolveQuote(stockQuotes, stockId);
                     BigDecimal realizedPnl = analytics.realizedByTransactionId()
                             .getOrDefault(transaction.getTransactionId(), BigDecimal.ZERO);
-                    return PortfolioMapper.toTransactionResponse(transaction, quote.symbol(), realizedPnl);
+                    return PortfolioMapper.toTransactionResponse(transaction, realizedPnl);
                 })
                 .toList();
 
@@ -83,13 +79,14 @@ public class PortfolioService {
 
         for (PortfolioFillItemRequestDTO item : request.getItems()) {
             Long stockId = parseStockId(item.getStockId());
-            PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, stockId)
-                    .orElse(null);
+            PortfolioHolding holding = portfolioHoldingRepository
+                    .findByIdUserIdAndIdStockId(userId, stockId).orElse(null);
 
             if (holding == null) {
                 holding = PortfolioMapper.newHolding(userId, item);
             } else {
-                mergeBuyIntoHolding(holding, item);
+                BigDecimal updatedQuantity = holding.getTotalQuantity().add(BigDecimal.valueOf(item.getQuantity()));
+                holding.setTotalQuantity(PortfolioMapper.scaleQuantity(updatedQuantity));
             }
 
             portfolioHoldingRepository.save(holding);
@@ -97,35 +94,6 @@ public class PortfolioService {
         }
 
         return getPortfolio(userId);
-    }
-
-    private void validateRecordCompletedOrderRequest(Long userId, RecordPortfolioOrderRequestDTO request) {
-        if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("Valid userId is required.");
-        }
-
-        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw new IllegalArgumentException("At least one portfolio item is required.");
-        }
-
-        for (int index = 0; index < request.getItems().size(); index++) {
-            PortfolioFillItemRequestDTO item = request.getItems().get(index);
-            if (item == null) {
-                throw new IllegalArgumentException("Portfolio item at index " + index + " is missing.");
-            }
-
-            if (item.getStockId() == null || item.getStockId().isBlank()) {
-                throw new IllegalArgumentException("stockId is required for item at index " + index);
-            }
-
-            if (item.getPrice() == null || item.getPrice().signum() <= 0) {
-                throw new IllegalArgumentException("price must be greater than 0 for stockId: " + item.getStockId());
-            }
-
-            if (item.getQuantity() <= 0) {
-                throw new IllegalArgumentException("quantity must be greater than 0 for stockId: " + item.getStockId());
-            }
-        }
     }
 
     @Transactional
@@ -139,7 +107,6 @@ public class PortfolioService {
         }
 
         Long parsedStockId = parseStockId(stockId);
-
         PortfolioHolding holding = portfolioHoldingRepository.findByIdUserIdAndIdStockId(userId, parsedStockId)
                 .orElseThrow(() -> new IllegalArgumentException("Portfolio holding not found for stockId: " + stockId));
 
@@ -149,12 +116,8 @@ public class PortfolioService {
         }
 
         portfolioTransactionRepository.save(
-                PortfolioMapper.toSellTransaction(
-                        userId,
-                        holding.getId().getStockId(),
-                        request.getQuantity(),
-                        request.getPrice()
-                )
+                PortfolioMapper.toSellTransaction(userId, holding.getId().getStockId(),
+                        request.getQuantity(), request.getPrice())
         );
 
         BigDecimal remainingQuantity = holding.getTotalQuantity().subtract(requestedQty);
@@ -168,9 +131,21 @@ public class PortfolioService {
         return getPortfolio(userId);
     }
 
-    private void mergeBuyIntoHolding(PortfolioHolding holding, PortfolioFillItemRequestDTO item) {
-        BigDecimal updatedQuantity = holding.getTotalQuantity().add(BigDecimal.valueOf(item.getQuantity()));
-        holding.setTotalQuantity(PortfolioMapper.scaleQuantity(updatedQuantity));
+    private void validateRecordCompletedOrderRequest(Long userId, RecordPortfolioOrderRequestDTO request) {
+        if (userId == null || userId <= 0) throw new IllegalArgumentException("Valid userId is required.");
+        if (request == null || request.getItems() == null || request.getItems().isEmpty())
+            throw new IllegalArgumentException("At least one portfolio item is required.");
+
+        for (int index = 0; index < request.getItems().size(); index++) {
+            PortfolioFillItemRequestDTO item = request.getItems().get(index);
+            if (item == null) throw new IllegalArgumentException("Portfolio item at index " + index + " is missing.");
+            if (item.getStockId() == null || item.getStockId().isBlank())
+                throw new IllegalArgumentException("stockId is required for item at index " + index);
+            if (item.getPrice() == null || item.getPrice().signum() <= 0)
+                throw new IllegalArgumentException("price must be greater than 0 for stockId: " + item.getStockId());
+            if (item.getQuantity() <= 0)
+                throw new IllegalArgumentException("quantity must be greater than 0 for stockId: " + item.getStockId());
+        }
     }
 
     private Long parseStockId(String stockId) {
@@ -181,27 +156,6 @@ public class PortfolioService {
         }
     }
 
-    private Map<Long, StockCatalogClient.StockQuote> loadStockQuotes(
-            List<PortfolioHolding> holdings,
-            List<PortfolioTransaction> transactions
-    ) {
-        Map<Long, StockCatalogClient.StockQuote> quotes = new LinkedHashMap<>();
-        for (PortfolioHolding holding : holdings) {
-            quotes.computeIfAbsent(holding.getId().getStockId(), stockCatalogClient::getStockQuote);
-        }
-        for (PortfolioTransaction transaction : transactions) {
-            quotes.computeIfAbsent(transaction.getStockId(), stockCatalogClient::getStockQuote);
-        }
-        return quotes;
-    }
-
-    private StockCatalogClient.StockQuote resolveQuote(Map<Long, StockCatalogClient.StockQuote> stockQuotes, Long stockId) {
-        StockCatalogClient.StockQuote quote = stockQuotes.get(stockId);
-        if (quote == null) {
-            throw new IllegalArgumentException("Missing stock quote for stockId: " + stockId);
-        }
-        return quote;
-    }
 
     private PortfolioAnalytics calculateAnalytics(List<PortfolioTransaction> transactions) {
         Map<Long, CostBasisState> stateByStock = new LinkedHashMap<>();
@@ -237,10 +191,8 @@ public class PortfolioService {
         Map<Long, BigDecimal> averageBuyByStock = new LinkedHashMap<>();
         Map<Long, BigDecimal> realizedByStock = new LinkedHashMap<>();
         for (Map.Entry<Long, CostBasisState> entry : stateByStock.entrySet()) {
-            Long stockId = entry.getKey();
-            CostBasisState state = entry.getValue();
-            averageBuyByStock.put(stockId, state.averageCost());
-            realizedByStock.put(stockId, PortfolioMapper.scaleMoney(state.realizedPnl));
+            averageBuyByStock.put(entry.getKey(), entry.getValue().averageCost());
+            realizedByStock.put(entry.getKey(), PortfolioMapper.scaleMoney(entry.getValue().realizedPnl));
         }
 
         return new PortfolioAnalytics(averageBuyByStock, realizedByStock, realizedByTransactionId);
@@ -252,9 +204,7 @@ public class PortfolioService {
         private BigDecimal realizedPnl = BigDecimal.ZERO;
 
         private BigDecimal averageCost() {
-            if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-                return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-            }
+            if (quantity.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             return totalCost.divide(quantity, 2, RoundingMode.HALF_UP);
         }
     }
@@ -263,36 +213,18 @@ public class PortfolioService {
             Map<Long, BigDecimal> averageBuyByStock,
             Map<Long, BigDecimal> realizedByStock,
             Map<Long, BigDecimal> realizedByTransactionId
-    ) {
-    }
+    ) {}
 
-    private PortfolioSummaryResponseDTO toSummary(
-            List<PortfolioHoldingResponseDTO> holdings,
-            PortfolioAnalytics analytics
-    ) {
-        BigDecimal totalInvested = holdings.stream()
-                .map(PortfolioHoldingResponseDTO::getInvestedValue)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalMarketValue = holdings.stream()
-                .map(PortfolioHoldingResponseDTO::getMarketValue)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalUnrealized = holdings.stream()
-                .map(PortfolioHoldingResponseDTO::getUnrealizedPnl)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalRealized = analytics.realizedByStock().values().stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        int totalQuantity = holdings.stream()
-                .mapToInt(PortfolioHoldingResponseDTO::getQuantity)
-                .sum();
+    private PortfolioSummaryResponseDTO toSummary(List<PortfolioHoldingResponseDTO> holdings, PortfolioAnalytics analytics) {
+        BigDecimal totalInvested = holdings.stream().map(PortfolioHoldingResponseDTO::getInvestedValue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalMarketValue = holdings.stream().map(PortfolioHoldingResponseDTO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalUnrealized = holdings.stream().map(PortfolioHoldingResponseDTO::getUnrealizedPnl).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalRealized = analytics.realizedByStock().values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        int totalQuantity = holdings.stream().mapToInt(PortfolioHoldingResponseDTO::getQuantity).sum();
 
         BigDecimal totalUnrealizedPercent = BigDecimal.ZERO;
         if (totalInvested.compareTo(BigDecimal.ZERO) > 0) {
-            totalUnrealizedPercent = totalUnrealized
-                    .divide(totalInvested, 6, RoundingMode.HALF_UP)
+            totalUnrealizedPercent = totalUnrealized.divide(totalInvested, 6, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
         }
 
@@ -307,3 +239,4 @@ public class PortfolioService {
         return summary;
     }
 }
+

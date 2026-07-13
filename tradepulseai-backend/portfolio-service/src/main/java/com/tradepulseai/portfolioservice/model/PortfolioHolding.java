@@ -1,4 +1,4 @@
-package com.tradepulseai.custservice.model;
+package com.tradepulseai.portfolioservice.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
@@ -47,35 +47,16 @@ public class PortfolioHolding {
         this.updatedAt = Instant.now();
     }
 
-    public PortfolioHoldingId getId() {
-        return id;
-    }
+    public PortfolioHoldingId getId() { return id; }
+    public void setId(PortfolioHoldingId id) { this.id = id; }
 
-    public void setId(PortfolioHoldingId id) {
-        this.id = id;
-    }
+    public BigDecimal getTotalQuantity() { return totalQuantity; }
+    public void setTotalQuantity(BigDecimal totalQuantity) { this.totalQuantity = totalQuantity; }
 
-    public BigDecimal getTotalQuantity() {
-        return totalQuantity;
-    }
+    public BigDecimal getAvgBuyPrice() { return avgBuyPrice; }
+    public void setAvgBuyPrice(BigDecimal avgBuyPrice) { this.avgBuyPrice = avgBuyPrice; }
 
-    public void setTotalQuantity(BigDecimal totalQuantity) {
-        this.totalQuantity = totalQuantity;
-    }
-
-    public BigDecimal getAvgBuyPrice() {
-        return avgBuyPrice;
-    }
-
-    public void setAvgBuyPrice(BigDecimal avgBuyPrice) {
-        this.avgBuyPrice = avgBuyPrice;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }
+

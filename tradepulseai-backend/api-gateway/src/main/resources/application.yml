@@ -1,6 +1,22 @@
 server:
   port: 4004 # Gateway listens on port 4004
 
+auth:
+  service:
+    url: ${AUTH_SERVICE_URL:http://auth-service:4005}
+
+customer:
+  service:
+    url: ${CUSTOMER_SERVICE_URL:http://cust-service:4000}
+
+portfolio:
+  service:
+    url: ${PORTFOLIO_SERVICE_URL:http://portfolio-service:4007}
+
+stock:
+  service:
+    url: ${STOCK_SERVICE_URL:http://stock-service:4003}
+
 spring:
   cloud:
     gateway:
@@ -28,6 +44,15 @@ spring:
           uri: http://cust-service:4000
           predicates:
             - Path=/api/customers,/api/customers/**
+          filters:
+            - StripPrefix=1
+            - JwtValidation
+            - RateLimit=90,60,user
+
+        - id: portfolio-service-route
+          uri: http://portfolio-service:4007
+          predicates:
+            - Path=/api/portfolio,/api/portfolio/**
           filters:
             - StripPrefix=1
             - JwtValidation

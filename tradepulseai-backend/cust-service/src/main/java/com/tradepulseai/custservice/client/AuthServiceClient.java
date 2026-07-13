@@ -10,12 +10,19 @@ import org.springframework.web.client.RestClient;
 @Service
 public class AuthServiceClient {
 
-    private final RestClient restClient;
+    private static final String INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key";
 
-    public AuthServiceClient(@Value("${auth.service.base-url:http://auth-service:4005}") String authServiceBaseUrl) {
+    private final RestClient restClient;
+    private final String internalApiKey;
+
+    public AuthServiceClient(
+            @Value("${auth.service.base-url:http://auth-service:4005}") String authServiceBaseUrl,
+            @Value("${auth.service.internal-api-key:}") String internalApiKey
+    ) {
         this.restClient = RestClient.builder()
                 .baseUrl(authServiceBaseUrl)
                 .build();
+        this.internalApiKey = internalApiKey;
     }
 
     public AuthUser getUserById(Long userId) {
@@ -62,6 +69,11 @@ public class AuthServiceClient {
     public void deleteUserById(Long userId) {
         restClient.delete()
                 .uri("/users/{userId}", userId)
+                .headers(headers -> {
+                    if (internalApiKey != null && !internalApiKey.isBlank()) {
+                        headers.set(INTERNAL_API_KEY_HEADER, internalApiKey);
+                    }
+                })
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
                     throw new IllegalStateException("Unable to rollback auth user with id: " + userId);

@@ -18,18 +18,33 @@ public class kafkaProducer {
     }
 
     public void sendEvent(Customer customer, String email) {
-        CustomerEvent event = CustomerEvent.newBuilder()
-                .setCustomerId(customer.getUserId().toString())
-                .setFirstName(customer.getFirstName())
-                .setEmail(email)
-                .setEventType("CUSTOMER_CREATED")
-                .build();
+        CustomerEvent event = buildCustomerCreatedEvent(customer, email);
 
         try {
             kafkaTemplate.send("customer", event.toByteArray());
         } catch (Exception e) {
             log.error("Error sending CustomerCreated event: {}", event, e);
         }
+
+    }
+
+    public void sendEventOrThrow(Customer customer, String email) {
+        CustomerEvent event = buildCustomerCreatedEvent(customer, email);
+        try {
+            // Wait for broker ack so saga compensation can run if publish fails.
+            kafkaTemplate.send("customer", event.toByteArray()).join();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Error sending CustomerCreated event", exception);
+        }
+    }
+
+    private CustomerEvent buildCustomerCreatedEvent(Customer customer, String email) {
+        return CustomerEvent.newBuilder()
+                .setCustomerId(customer.getCustomerId().toString())
+                .setFirstName(customer.getFirstName())
+                .setEmail(email)
+                .setEventType("CUSTOMER_CREATED")
+                .build();
 
     }
 
