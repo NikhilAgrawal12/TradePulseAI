@@ -162,6 +162,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - tradepulse
 
@@ -176,8 +177,6 @@ services:
     environment:
       MASSIVE_API_KEY: ${MASSIVE_API_KEY}
       MASSIVE_NEWS_INTEGRATION_ENABLED: "true"
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      STOCK_KAFKA_TOPIC: stocks
       SPRING_DATASOURCE_URL: jdbc:postgresql://stock-service-db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
@@ -229,6 +228,9 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
       STOCK_SERVICE_BASE_URL: http://stock-service:4003
+      PAYMENT_SERVICE_GRPC_ADDRESS: payment-service
+      PAYMENT_SERVICE_GRPC_PORT: 9002
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - tradepulse
 
@@ -258,6 +260,7 @@ services:
       STOCK_SERVICE_GRPC_PORT: 9003
       PORTFOLIO_SYNC_SERVICE_ADDRESS: portfolio-service
       PORTFOLIO_SYNC_SERVICE_GRPC_PORT: 9005
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - tradepulse
 
@@ -303,6 +306,31 @@ services:
       CUSTOMER_SERVICE_URL: http://cust-service:4000
     ports:
       - "4004:4004"
+    networks:
+      - tradepulse
+
+  notification-service:
+    build: ./notification-service
+    image: notification-service:latest
+    depends_on:
+      kafka:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AUTH_SERVICE_BASE_URL: http://auth-service:4005
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@tradepulseai.local}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS_ENABLE:-true}
+      MAIL_SMTP_STARTTLS_REQUIRED: ${MAIL_SMTP_STARTTLS_REQUIRED:-false}
+      MAIL_SMTP_CONNECTION_TIMEOUT: ${MAIL_SMTP_CONNECTION_TIMEOUT:-5000}
+      MAIL_SMTP_TIMEOUT: ${MAIL_SMTP_TIMEOUT:-5000}
+      MAIL_SMTP_WRITE_TIMEOUT: ${MAIL_SMTP_WRITE_TIMEOUT:-5000}
     networks:
       - tradepulse
 

@@ -18,6 +18,7 @@ public class PaymentProcessingService {
     private static final Logger log = LoggerFactory.getLogger(PaymentProcessingService.class);
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
     private static final String PAYMENT_STATUS_REFUNDED = "REFUNDED";
+    private static final String PAYMENT_STATUS_SELL_SETTLED = "SELL_SETTLED";
 
     private final PaymentRepository paymentRepository;
     private final WalletService walletService;
@@ -35,7 +36,7 @@ public class PaymentProcessingService {
 
         if (paymentRepository.existsByOrderId(orderId)) {
             log.warn("Payment already exists for orderId={}, returning existing record", orderId);
-            return paymentRepository.findByOrderId(orderId).get(0);
+            return paymentRepository.findByOrderId(orderId).getFirst();
         }
 
         BigDecimal amount = BigDecimal.valueOf(totalAmount).setScale(2, RoundingMode.HALF_UP);
@@ -57,6 +58,43 @@ public class PaymentProcessingService {
         Payment savedPayment = paymentRepository.save(payment);
 
         log.info("Payment saved: id={}, status={}, totalAmount={}",
+                savedPayment.getId(), savedPayment.getStatus(), savedPayment.getTotalAmount());
+
+        return savedPayment;
+    }
+
+    @Transactional
+    public Payment processSellSettlement(String rawSettlementRef, String userId, String stockId, int quantity, double totalAmount) {
+        String settlementRef = validateOrderId(rawSettlementRef);
+        if (stockId == null || stockId.isBlank()) {
+            throw new IllegalArgumentException("Stock id is required for sell settlement.");
+        }
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Sell settlement quantity must be greater than zero.");
+        }
+
+        log.info("Processing sell settlement for settlementRef={}, userId={}, totalAmount={}",
+                settlementRef, userId, totalAmount);
+        log.info("Sell settlement metadata for settlementRef={}: stockId={}, quantity={}",
+                settlementRef, stockId, quantity);
+
+        if (paymentRepository.existsByOrderId(settlementRef)) {
+            log.warn("Sell settlement already exists for settlementRef={}, returning existing record", settlementRef);
+            return paymentRepository.findByOrderId(settlementRef).getFirst();
+        }
+
+        BigDecimal amount = BigDecimal.valueOf(totalAmount).setScale(2, RoundingMode.HALF_UP);
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Sell settlement amount must be greater than zero.");
+        }
+
+        Long userIdLong = Long.parseLong(userId);
+        walletService.creditForSell(userIdLong, amount);
+
+        Payment payment = PaymentMapper.toModel(settlementRef, amount, PAYMENT_STATUS_SELL_SETTLED);
+        Payment savedPayment = paymentRepository.save(payment);
+
+        log.info("Sell settlement saved: id={}, status={}, totalAmount={}",
                 savedPayment.getId(), savedPayment.getStatus(), savedPayment.getTotalAmount());
 
         return savedPayment;

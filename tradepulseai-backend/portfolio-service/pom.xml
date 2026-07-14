@@ -82,6 +82,13 @@
             <artifactId>protobuf-java</artifactId>
             <version>4.29.1</version>
         </dependency>
+
+        <!-- Kafka for notification events -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+            <version>3.3.0</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -12,6 +12,7 @@
         <module name="api-gateway" />
         <module name="cust-service" />
         <module name="order-service" />
+        <module name="notification-service" />
         <module name="portfolio-service" />
       </profile>
     </annotationProcessing>
@@ -38,6 +39,7 @@
       <module name="customer-service" options="-parameters" />
       <module name="gate" options="-parameters" />
       <module name="gateway" options="-parameters" />
+      <module name="notification-service" options="-parameters" />
       <module name="order-service" options="-parameters" />
       <module name="payment-service" options="-parameters" />
       <module name="portfolio-service" options="-parameters" />

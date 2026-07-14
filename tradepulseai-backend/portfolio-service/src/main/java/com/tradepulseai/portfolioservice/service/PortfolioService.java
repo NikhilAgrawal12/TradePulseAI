@@ -8,11 +8,14 @@ import com.tradepulseai.portfolioservice.dto.PortfolioSummaryResponseDTO;
 import com.tradepulseai.portfolioservice.dto.PortfolioTransactionResponseDTO;
 import com.tradepulseai.portfolioservice.dto.RecordPortfolioOrderRequestDTO;
 import com.tradepulseai.portfolioservice.dto.SellPortfolioItemRequestDTO;
+import com.tradepulseai.portfolioservice.grpc.OrderPaymentGrpcClient;
+import com.tradepulseai.portfolioservice.kafka.NotificationKafkaProducer;
 import com.tradepulseai.portfolioservice.mapper.PortfolioMapper;
 import com.tradepulseai.portfolioservice.model.PortfolioHolding;
 import com.tradepulseai.portfolioservice.model.PortfolioTransaction;
 import com.tradepulseai.portfolioservice.repository.PortfolioHoldingRepository;
 import com.tradepulseai.portfolioservice.repository.PortfolioTransactionRepository;
+import io.grpc.StatusRuntimeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,15 +34,21 @@ public class PortfolioService {
     private final PortfolioHoldingRepository portfolioHoldingRepository;
     private final PortfolioTransactionRepository portfolioTransactionRepository;
     private final StockCatalogClient stockCatalogClient;
+    private final OrderPaymentGrpcClient orderPaymentGrpcClient;
+    private final NotificationKafkaProducer notificationKafkaProducer;
 
     public PortfolioService(
             PortfolioHoldingRepository portfolioHoldingRepository,
             PortfolioTransactionRepository portfolioTransactionRepository,
-            StockCatalogClient stockCatalogClient
+            StockCatalogClient stockCatalogClient,
+            OrderPaymentGrpcClient orderPaymentGrpcClient,
+            NotificationKafkaProducer notificationKafkaProducer
     ) {
         this.portfolioHoldingRepository = portfolioHoldingRepository;
         this.portfolioTransactionRepository = portfolioTransactionRepository;
         this.stockCatalogClient = stockCatalogClient;
+        this.orderPaymentGrpcClient = orderPaymentGrpcClient;
+        this.notificationKafkaProducer = notificationKafkaProducer;
     }
 
     @Transactional(readOnly = true)
@@ -115,10 +124,34 @@ public class PortfolioService {
             throw new IllegalArgumentException("Sell quantity cannot be greater than owned quantity.");
         }
 
-        portfolioTransactionRepository.save(
+        PortfolioTransaction savedSellTransaction = portfolioTransactionRepository.save(
                 PortfolioMapper.toSellTransaction(userId, holding.getId().getStockId(),
                         request.getQuantity(), request.getPrice())
         );
+
+        BigDecimal settlementAmount = PortfolioMapper.scaleMoney(
+                request.getPrice().multiply(BigDecimal.valueOf(request.getQuantity()))
+        );
+        String settlementRef = "sell-" + savedSellTransaction.getTransactionId();
+        try {
+            var settlementResponse = orderPaymentGrpcClient.settleSell(
+                    settlementRef,
+                    userId,
+                    holding.getId().getStockId(),
+                    request.getQuantity(),
+                    PortfolioMapper.scaleMoney(request.getPrice()),
+                    settlementAmount
+            );
+            if (!"SELL_SETTLED".equalsIgnoreCase(settlementResponse.getStatus())) {
+                throw new IllegalStateException("Sell settlement returned unexpected status: "
+                        + settlementResponse.getStatus());
+            }
+        } catch (StatusRuntimeException settlementException) {
+            throw new IllegalStateException(
+                    "Sell settlement failed for stockId: " + stockId,
+                    settlementException
+            );
+        }
 
         BigDecimal remainingQuantity = holding.getTotalQuantity().subtract(requestedQty);
         if (remainingQuantity.compareTo(BigDecimal.ZERO) == 0) {
@@ -127,6 +160,14 @@ public class PortfolioService {
             holding.setTotalQuantity(PortfolioMapper.scaleQuantity(remainingQuantity));
             portfolioHoldingRepository.save(holding);
         }
+
+        notificationKafkaProducer.publishStockSold(
+                userId,
+                holding.getId().getStockId(),
+                request.getQuantity(),
+                PortfolioMapper.scaleMoney(request.getPrice()),
+                settlementAmount
+        );
 
         return getPortfolio(userId);
     }

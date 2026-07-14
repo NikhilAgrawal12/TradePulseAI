@@ -5,6 +5,7 @@ option java_package = "order_payment";
 
 service OrderPaymentService {
   rpc CompletePayment (OrderPaymentRequest) returns (OrderPaymentResponse);
+  rpc SettleSell (SellSettlementRequest) returns (SellSettlementResponse);
 }
 
 message OrderPaymentRequest {
@@ -14,6 +15,20 @@ message OrderPaymentRequest {
 }
 
 message OrderPaymentResponse {
+  string account_id = 1;
+  string status = 2;
+}
+
+message SellSettlementRequest {
+  string settlement_ref = 1;
+  string user_id = 2;
+  double total_amount = 3;
+  string stock_id = 4;
+  int32 quantity = 5;
+  double unit_price = 6;
+}
+
+message SellSettlementResponse {
   string account_id = 1;
   string status = 2;
 }

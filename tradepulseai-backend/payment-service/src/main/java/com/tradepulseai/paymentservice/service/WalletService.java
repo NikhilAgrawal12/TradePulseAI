@@ -1,5 +1,6 @@
 package com.tradepulseai.paymentservice.service;
 
+import com.tradepulseai.paymentservice.kafka.NotificationKafkaProducer;
 import com.tradepulseai.paymentservice.model.Wallet;
 import com.tradepulseai.paymentservice.model.WalletTransaction;
 import com.tradepulseai.paymentservice.repository.WalletRepository;
@@ -24,14 +25,18 @@ public class WalletService {
     private static final String TYPE_WITHDRAWAL = "WITHDRAWAL";
     private static final String TYPE_PURCHASE   = "PURCHASE";
     private static final String TYPE_REFUND     = "REFUND";
+    private static final String TYPE_SELL_CREDIT = "SELL_CREDIT";
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final NotificationKafkaProducer notificationKafkaProducer;
 
     public WalletService(WalletRepository walletRepository,
-                         WalletTransactionRepository walletTransactionRepository) {
+                         WalletTransactionRepository walletTransactionRepository,
+                         NotificationKafkaProducer notificationKafkaProducer) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
+        this.notificationKafkaProducer = notificationKafkaProducer;
     }
 
     @Transactional
@@ -60,6 +65,7 @@ public class WalletService {
 
         recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
         log.info("Deposited {} to walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
+        notificationKafkaProducer.publishWalletDeposit(userId, scaled, newBalance);
         return wallet;
     }
 
@@ -82,6 +88,7 @@ public class WalletService {
 
         recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
         log.info("Withdrew {} from walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
+        notificationKafkaProducer.publishWalletWithdrawal(userId, scaled, newBalance);
         return wallet;
     }
 
@@ -124,6 +131,24 @@ public class WalletService {
 
         recordTransaction(wallet.getWalletId(), TYPE_REFUND, scaled, newBalance);
         log.info("Refund of {} credited to walletId={}, newBalance={}",
+                scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet creditForSell(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Sell credit amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newBalance = wallet.getBalance().add(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_SELL_CREDIT, scaled, newBalance);
+        log.info("Sell credit of {} applied to walletId={}, newBalance={}",
                 scaled, wallet.getWalletId(), newBalance);
         return wallet;
     }

@@ -8,6 +8,7 @@ import com.tradepulseai.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulseai.orderservice.dto.order.LockedOrderQuoteResponseDTO;
 import com.tradepulseai.orderservice.grpc.OrderPaymentGrpcClient;
 import com.tradepulseai.orderservice.grpc.PortfolioSyncGrpcClient;
+import com.tradepulseai.orderservice.kafka.NotificationKafkaProducer;
 import com.tradepulseai.orderservice.mapper.OrderItemMapper;
 import com.tradepulseai.orderservice.mapper.OrderMapper;
 import com.tradepulseai.orderservice.mapper.PortfolioOrderMapper;
@@ -41,19 +42,22 @@ public class CartService {
     private final PortfolioSyncGrpcClient portfolioSyncGrpcClient;
     private final OrderHistoryService orderHistoryService;
     private final StockCatalogClient stockCatalogClient;
+    private final NotificationKafkaProducer notificationKafkaProducer;
 
     public CartService(
             CartItemRepository cartItemRepository,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
             PortfolioSyncGrpcClient portfolioSyncGrpcClient,
             OrderHistoryService orderHistoryService,
-            StockCatalogClient stockCatalogClient
+            StockCatalogClient stockCatalogClient,
+            NotificationKafkaProducer notificationKafkaProducer
     ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
         this.portfolioSyncGrpcClient = portfolioSyncGrpcClient;
         this.orderHistoryService = orderHistoryService;
         this.stockCatalogClient = stockCatalogClient;
+        this.notificationKafkaProducer = notificationKafkaProducer;
     }
 
     @Transactional(readOnly = true)
@@ -146,6 +150,7 @@ public class CartService {
         }
 
         cartItemRepository.deleteByIdUserId(userId);
+        notificationKafkaProducer.publishStockPurchased(userId, savedOrder);
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
 
