@@ -31,10 +31,20 @@ public class NotificationKafkaProducer {
     }
 
     public void publishStockSold(Long userId, Long stockId, int quantity, BigDecimal price, BigDecimal total) {
+        publishStockSold(userId, null, null, stockId, quantity, price, total);
+    }
+
+    public void publishStockSold(Long userId, String firstName, String lastName, Long stockId, int quantity, BigDecimal price, BigDecimal total) {
         try {
             String symbol = fetchStockSymbol(stockId);
             
             Map<String, Object> data = new LinkedHashMap<>();
+            if (firstName != null && !firstName.isEmpty()) {
+                data.put("firstName", firstName);
+            }
+            if (lastName != null && !lastName.isEmpty()) {
+                data.put("lastName", lastName);
+            }
             data.put("symbol", symbol);
             data.put("quantity", quantity);
             data.put("price", price.toPlainString());

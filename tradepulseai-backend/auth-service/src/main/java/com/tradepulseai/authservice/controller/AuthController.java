@@ -82,9 +82,14 @@ public class AuthController {
         }
 
         try {
-            Long userId = authService.extractUserId(authHeader.substring(7));
+            String token = authHeader.substring(7);
+            Long userId = authService.extractUserId(token);
+            String firstName = authService.extractFirstName(token);
+            String lastName = authService.extractLastName(token);
             return ResponseEntity.ok()
                     .header(AUTHENTICATED_USER_ID_HEADER, String.valueOf(userId))
+                    .header("X-First-Name", firstName != null ? firstName : "")
+                    .header("X-Last-Name", lastName != null ? lastName : "")
                     .build();
         } catch (JwtException ex) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

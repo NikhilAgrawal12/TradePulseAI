@@ -1,6 +1,7 @@
 package com.tradepulseai.portfolioservice.service;
 
 import com.tradepulseai.portfolioservice.client.StockCatalogClient;
+import com.tradepulseai.portfolioservice.client.CustomerClient;
 import com.tradepulseai.portfolioservice.dto.PortfolioFillItemRequestDTO;
 import com.tradepulseai.portfolioservice.dto.PortfolioHoldingResponseDTO;
 import com.tradepulseai.portfolioservice.dto.PortfolioResponseDTO;
@@ -36,19 +37,22 @@ public class PortfolioService {
     private final StockCatalogClient stockCatalogClient;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
     private final NotificationKafkaProducer notificationKafkaProducer;
+    private final CustomerClient customerClient;
 
     public PortfolioService(
             PortfolioHoldingRepository portfolioHoldingRepository,
             PortfolioTransactionRepository portfolioTransactionRepository,
             StockCatalogClient stockCatalogClient,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
-            NotificationKafkaProducer notificationKafkaProducer
+            NotificationKafkaProducer notificationKafkaProducer,
+            CustomerClient customerClient
     ) {
         this.portfolioHoldingRepository = portfolioHoldingRepository;
         this.portfolioTransactionRepository = portfolioTransactionRepository;
         this.stockCatalogClient = stockCatalogClient;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
         this.notificationKafkaProducer = notificationKafkaProducer;
+        this.customerClient = customerClient;
     }
 
     @Transactional(readOnly = true)
@@ -161,8 +165,12 @@ public class PortfolioService {
             portfolioHoldingRepository.save(holding);
         }
 
+        // Fetch customer data for email personalization
+        CustomerClient.CustomerInfo customerInfo = customerClient.getCustomer(userId);
         notificationKafkaProducer.publishStockSold(
                 userId,
+                customerInfo.firstName(),
+                customerInfo.lastName(),
                 holding.getId().getStockId(),
                 request.getQuantity(),
                 PortfolioMapper.scaleMoney(request.getPrice()),
@@ -200,7 +208,7 @@ public class PortfolioService {
 
     private PortfolioAnalytics calculateAnalytics(List<PortfolioTransaction> transactions) {
         Map<Long, CostBasisState> stateByStock = new LinkedHashMap<>();
-        Map<Long, BigDecimal> realizedByTransactionId = new LinkedHashMap<>();
+        Map<String, BigDecimal> realizedByTransactionId = new LinkedHashMap<>();
 
         transactions.stream()
                 .sorted(Comparator.comparing(PortfolioTransaction::getExecutedAt))
@@ -253,7 +261,7 @@ public class PortfolioService {
     private record PortfolioAnalytics(
             Map<Long, BigDecimal> averageBuyByStock,
             Map<Long, BigDecimal> realizedByStock,
-            Map<Long, BigDecimal> realizedByTransactionId
+            Map<String, BigDecimal> realizedByTransactionId
     ) {}
 
     private PortfolioSummaryResponseDTO toSummary(List<PortfolioHoldingResponseDTO> holdings, PortfolioAnalytics analytics) {

@@ -12,6 +12,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class JwtValidationGatewayFilterFactory extends AbstractGatewayFilterFactory<Object> {
     private static final String USER_ID_HEADER = "X-User-Id";
     private static final String AUTHENTICATED_USER_ID_HEADER = "X-Authenticated-User-Id";
+    private static final String FIRST_NAME_HEADER = "X-First-Name";
+    private static final String LAST_NAME_HEADER = "X-Last-Name";
 
     private final WebClient webClient;
 
@@ -36,6 +38,9 @@ public class JwtValidationGatewayFilterFactory extends AbstractGatewayFilterFact
                     .toBodilessEntity()
                     .flatMap(response -> {
                         String authenticatedUserId = response.getHeaders().getFirst(AUTHENTICATED_USER_ID_HEADER);
+                        String firstName = response.getHeaders().getFirst(FIRST_NAME_HEADER);
+                        String lastName = response.getHeaders().getFirst(LAST_NAME_HEADER);
+
                         if (authenticatedUserId == null || authenticatedUserId.isBlank()) {
                             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                             return exchange.getResponse().setComplete();
@@ -45,6 +50,12 @@ public class JwtValidationGatewayFilterFactory extends AbstractGatewayFilterFact
                                 .headers(headers -> {
                                     headers.remove(USER_ID_HEADER);
                                     headers.set(USER_ID_HEADER, authenticatedUserId);
+                                    if (firstName != null && !firstName.isBlank()) {
+                                        headers.set(FIRST_NAME_HEADER, firstName);
+                                    }
+                                    if (lastName != null && !lastName.isBlank()) {
+                                        headers.set(LAST_NAME_HEADER, lastName);
+                                    }
                                 })
                                 .build();
 

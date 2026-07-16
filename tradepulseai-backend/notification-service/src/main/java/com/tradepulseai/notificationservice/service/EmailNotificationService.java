@@ -95,41 +95,59 @@ public class EmailNotificationService {
                         """.formatted(fullName);
             }
             case "WALLET_DEPOSIT" -> {
+                String firstName = getString(data, "firstName", "");
+                String lastName = getString(data, "lastName", "");
+                String fullName = (firstName + " " + lastName).trim();
+                if (fullName.isEmpty()) {
+                    fullName = "Valued Customer";
+                }
                 String transactionId = getString(data, "transactionId", "N/A");
                 String amount  = getString(data, "amount", "0.00");
                 String balance = getString(data, "newBalance", "0.00");
                 yield """
-                        Hi,
+                        Hi %s,
 
                         Your deposit of $%s has been successfully processed.
                         Transaction ID : %s
                         New Balance    : $%s
 
                         — The TradePulseAI Team
-                        """.formatted(amount, transactionId, balance);
+                        """.formatted(fullName, amount, transactionId, balance);
             }
             case "WALLET_WITHDRAWAL" -> {
+                String firstName = getString(data, "firstName", "");
+                String lastName = getString(data, "lastName", "");
+                String fullName = (firstName + " " + lastName).trim();
+                if (fullName.isEmpty()) {
+                    fullName = "Valued Customer";
+                }
                 String transactionId = getString(data, "transactionId", "N/A");
                 String amount  = getString(data, "amount", "0.00");
                 String balance = getString(data, "newBalance", "0.00");
                 yield """
-                        Hi,
+                        Hi %s,
 
                         Your withdrawal of $%s has been successfully processed.
                         Transaction ID : %s
                         New Balance    : $%s
 
                         — The TradePulseAI Team
-                        """.formatted(amount, transactionId, balance);
+                        """.formatted(fullName, amount, transactionId, balance);
             }
             case "STOCK_PURCHASED" -> {
+                String firstName = getString(data, "firstName", "");
+                String lastName = getString(data, "lastName", "");
+                String fullName = (firstName + " " + lastName).trim();
+                if (fullName.isEmpty()) {
+                    fullName = "Valued Customer";
+                }
                 String orderId = getString(data, "orderId", "N/A");
                 String symbol   = getString(data, "symbol", getString(data, "stockId", "N/A"));
                 String quantity = getString(data, "quantity", "0");
                 String price    = getString(data, "price", "0.00");
                 String total    = getString(data, "total", "0.00");
                 yield """
-                        Hi,
+                        Hi %s,
 
                         Your stock purchase order has been completed successfully.
                         Order ID  : %s
@@ -141,15 +159,21 @@ public class EmailNotificationService {
                         Your portfolio has been updated.
 
                         — The TradePulseAI Team
-                        """.formatted(orderId, symbol, quantity, shareUnit(quantity), price, total);
+                        """.formatted(fullName, orderId, symbol, quantity, shareUnit(quantity), price, total);
             }
             case "STOCK_SOLD" -> {
+                String firstName = getString(data, "firstName", "");
+                String lastName = getString(data, "lastName", "");
+                String fullName = (firstName + " " + lastName).trim();
+                if (fullName.isEmpty()) {
+                    fullName = "Valued Customer";
+                }
                 String symbol   = getString(data, "symbol", "N/A");
                 String quantity = getString(data, "quantity", "0");
                 String price    = getString(data, "price", "0.00");
                 String total    = getString(data, "total", "0.00");
                 yield """
-                        Hi,
+                        Hi %s,
 
                         Your sell order has been settled successfully.
                         Stock    : %s
@@ -158,7 +182,7 @@ public class EmailNotificationService {
                         Total    : $%s credited to your wallet
 
                         — The TradePulseAI Team
-                        """.formatted(symbol, quantity, price, total);
+                        """.formatted(fullName, symbol, quantity, shareUnit(quantity), price, total);
             }
             default -> "A new activity has been recorded on your TradePulseAI account.";
         };

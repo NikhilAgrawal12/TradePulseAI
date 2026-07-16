@@ -32,8 +32,28 @@ public class NotificationKafkaProducer {
         ));
     }
 
+    public void publishWalletDeposit(Long userId, String firstName, String lastName, String transactionId, BigDecimal amount, BigDecimal newBalance) {
+        publish("WALLET_DEPOSIT", userId, Map.of(
+                "firstName", firstName != null ? firstName : "",
+                "lastName", lastName != null ? lastName : "",
+                "transactionId", transactionId,
+                "amount", amount.toPlainString(),
+                "newBalance", newBalance.toPlainString()
+        ));
+    }
+
     public void publishWalletWithdrawal(Long userId, String transactionId, BigDecimal amount, BigDecimal newBalance) {
         publish("WALLET_WITHDRAWAL", userId, Map.of(
+                "transactionId", transactionId,
+                "amount", amount.toPlainString(),
+                "newBalance", newBalance.toPlainString()
+        ));
+    }
+
+    public void publishWalletWithdrawal(Long userId, String firstName, String lastName, String transactionId, BigDecimal amount, BigDecimal newBalance) {
+        publish("WALLET_WITHDRAWAL", userId, Map.of(
+                "firstName", firstName != null ? firstName : "",
+                "lastName", lastName != null ? lastName : "",
                 "transactionId", transactionId,
                 "amount", amount.toPlainString(),
                 "newBalance", newBalance.toPlainString()

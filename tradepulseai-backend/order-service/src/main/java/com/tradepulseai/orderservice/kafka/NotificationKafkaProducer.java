@@ -30,8 +30,18 @@ public class NotificationKafkaProducer {
     }
 
     public void publishStockPurchased(Long userId, TradeOrder order) {
+        publishStockPurchased(userId, null, null, order);
+    }
+
+    public void publishStockPurchased(Long userId, String firstName, String lastName, TradeOrder order) {
         try {
             Map<String, Object> data = new LinkedHashMap<>();
+            if (firstName != null && !firstName.isEmpty()) {
+                data.put("firstName", firstName);
+            }
+            if (lastName != null && !lastName.isEmpty()) {
+                data.put("lastName", lastName);
+            }
             data.put("orderId", order.getId());
             data.put("total", order.getTotal() != null ? order.getTotal().toPlainString() : "0.00");
 

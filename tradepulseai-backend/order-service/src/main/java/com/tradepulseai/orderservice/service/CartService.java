@@ -43,6 +43,7 @@ public class CartService {
     private final OrderHistoryService orderHistoryService;
     private final StockCatalogClient stockCatalogClient;
     private final NotificationKafkaProducer notificationKafkaProducer;
+    private final CustomerClient customerClient;
 
     public CartService(
             CartItemRepository cartItemRepository,
@@ -50,7 +51,8 @@ public class CartService {
             PortfolioSyncGrpcClient portfolioSyncGrpcClient,
             OrderHistoryService orderHistoryService,
             StockCatalogClient stockCatalogClient,
-            NotificationKafkaProducer notificationKafkaProducer
+            NotificationKafkaProducer notificationKafkaProducer,
+            CustomerClient customerClient
     ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
@@ -58,6 +60,7 @@ public class CartService {
         this.orderHistoryService = orderHistoryService;
         this.stockCatalogClient = stockCatalogClient;
         this.notificationKafkaProducer = notificationKafkaProducer;
+        this.customerClient = customerClient;
     }
 
     @Transactional(readOnly = true)
@@ -150,7 +153,11 @@ public class CartService {
         }
 
         cartItemRepository.deleteByIdUserId(userId);
-        notificationKafkaProducer.publishStockPurchased(userId, savedOrder);
+
+        // Fetch customer data for email personalization
+        CustomerClient.CustomerInfo customerInfo = customerClient.getCustomer(userId);
+        notificationKafkaProducer.publishStockPurchased(userId, customerInfo.firstName(), customerInfo.lastName(), savedOrder);
+
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
 
