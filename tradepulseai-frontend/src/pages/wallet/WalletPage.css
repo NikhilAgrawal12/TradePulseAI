@@ -222,6 +222,11 @@
   color: #15803d;
 }
 
+.wallet-type-credit {
+  background: #dcfce7;
+  color: #15803d;
+}
+
 .wallet-type-withdrawal {
   background: #fef9c3;
   color: #a16207;

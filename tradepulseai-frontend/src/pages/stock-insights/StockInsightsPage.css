@@ -94,6 +94,29 @@
   color: #2e1065;
 }
 
+.insights-news-featured-card {
+  border: 1px solid rgba(124, 58, 237, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f5ff 100%);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+
+.insights-news-featured-text {
+  margin: 0;
+  color: #1f2a44;
+  line-height: 1.6;
+  font-size: 1.02rem;
+}
+
+
+.insights-empty-state {
+  margin: 0;
+  color: #526487;
+}
+
 .insights-ml-section-card {
   border: 1px solid rgba(59, 130, 246, 0.26);
   background: linear-gradient(180deg, #f3f8ff 0%, #eaf2ff 100%);

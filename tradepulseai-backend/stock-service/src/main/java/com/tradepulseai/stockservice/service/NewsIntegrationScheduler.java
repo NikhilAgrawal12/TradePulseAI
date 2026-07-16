@@ -6,6 +6,7 @@ import com.tradepulseai.stockservice.repository.StockRepository;
 import com.tradepulseai.stockservice.repository.StockMarketDataRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
@@ -40,6 +41,7 @@ public class NewsIntegrationScheduler implements ApplicationRunner {
     private final NewsService newsService;
     private final StockRepository stockRepository;
     private final StockMarketDataRepository stockMarketDataRepository;
+    private final boolean dailySchedulerEnabled;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean backfillRunning = new AtomicBoolean(false);
     private volatile BackfillStatusSnapshot lastBackfillStatus = BackfillStatusSnapshot.idle();
@@ -52,10 +54,12 @@ public class NewsIntegrationScheduler implements ApplicationRunner {
     public NewsIntegrationScheduler(
             NewsService newsService,
             StockRepository stockRepository,
-            StockMarketDataRepository stockMarketDataRepository) {
+            StockMarketDataRepository stockMarketDataRepository,
+            @Value("${massive.news.daily-scheduler-enabled:false}") boolean dailySchedulerEnabled) {
         this.newsService = newsService;
         this.stockRepository = stockRepository;
         this.stockMarketDataRepository = stockMarketDataRepository;
+        this.dailySchedulerEnabled = dailySchedulerEnabled;
     }
 
     @Override
@@ -69,11 +73,16 @@ public class NewsIntegrationScheduler implements ApplicationRunner {
     }
 
     /**
-     * Runs daily at 4 PM UTC (after US market close)
-     * Fetches news for the trading day and updates sentiment
+     * Runs daily at 5:30 PM America/New_York (after US market close)
+     * Fetches news for the trading day and updates sentiment.
      */
-    @Scheduled(cron = "0 0 16 * * MON-FRI", zone = "UTC")
+    @Scheduled(cron = "0 30 17 * * MON-FRI", zone = "America/New_York")
     public void fetchDailyNews() {
+        if (!dailySchedulerEnabled) {
+            log.debug("Daily scheduled news fetch is disabled");
+            return;
+        }
+
         if (running.getAndSet(true)) {
             log.warn("News fetch already in progress, skipping");
             return;
@@ -83,14 +92,13 @@ public class NewsIntegrationScheduler implements ApplicationRunner {
             LocalDate tradingDate = LocalDate.now(ZoneId.of("UTC"));
             log.info("Starting daily news fetch for {}", tradingDate);
 
-            List<Stock> stocks = stockRepository.findAllByOrderByStockIdAsc();
+            List<StockMarketData> marketRows = stockMarketDataRepository.findAllByTradingDate(tradingDate);
             int processed = 0;
             int errors = 0;
 
-            for (Stock stock : stocks) {
+            for (StockMarketData marketRow : marketRows) {
                 try {
-                    stockMarketDataRepository.findByStockAndTradingDate(stock, tradingDate)
-                            .ifPresent(newsService::fetchAndUpdateNewsSentiment);
+                    newsService.fetchAndUpdateNewsSentiment(marketRow);
                     processed++;
 
                     // Rate limit to avoid API throttling
@@ -98,7 +106,7 @@ public class NewsIntegrationScheduler implements ApplicationRunner {
                         Thread.sleep(100);
                     }
                 } catch (Exception e) {
-                    log.error("Error fetching news for stock {}", stock.getSymbol(), e);
+                    log.error("Error fetching news for stock {}", marketRow.getStock().getSymbol(), e);
                     errors++;
                 }
             }

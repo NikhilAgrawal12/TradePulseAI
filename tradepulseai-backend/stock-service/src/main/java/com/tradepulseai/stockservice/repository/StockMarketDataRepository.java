@@ -55,5 +55,8 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
     Optional<StockMarketData> findByStockAndTradingDate(Stock stock, LocalDate tradingDate);
 
     @EntityGraph(attributePaths = {"stock"})
+    List<StockMarketData> findAllByTradingDate(LocalDate tradingDate);
+
+    @EntityGraph(attributePaths = {"stock"})
     List<StockMarketData> findByDailyNewsIsNotNullOrderByTradingDateDesc(Pageable pageable);
 }

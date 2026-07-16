@@ -23,7 +23,7 @@ export interface WalletResponse {
 export interface WalletTransactionItem {
   transactionId: number;
   walletId: number;
-  transactionType: "DEPOSIT" | "WITHDRAWAL" | "PURCHASE";
+  transactionType: "DEPOSIT" | "WITHDRAWAL" | "PURCHASE" | "REFUND" | "SELL_CREDIT";
   amount: number;
   balanceAfter: number;
   createdAt: string;

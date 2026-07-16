@@ -63,9 +63,9 @@ public class WalletService {
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
 
-        recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
+        Long transactionId = recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
         log.info("Deposited {} to walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
-        notificationKafkaProducer.publishWalletDeposit(userId, scaled, newBalance);
+        notificationKafkaProducer.publishWalletDeposit(userId, transactionId, scaled, newBalance);
         return wallet;
     }
 
@@ -86,9 +86,9 @@ public class WalletService {
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
 
-        recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
+        Long transactionId = recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
         log.info("Withdrew {} from walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
-        notificationKafkaProducer.publishWalletWithdrawal(userId, scaled, newBalance);
+        notificationKafkaProducer.publishWalletWithdrawal(userId, transactionId, scaled, newBalance);
         return wallet;
     }
 
@@ -165,13 +165,14 @@ public class WalletService {
         return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId(), PageRequest.of(page, size));
     }
 
-    private void recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
+    private Long recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
         WalletTransaction tx = new WalletTransaction();
         tx.setWalletId(walletId);
         tx.setTransactionType(type);
         tx.setAmount(amount);
         tx.setBalanceAfter(balanceAfter);
-        walletTransactionRepository.save(tx);
+        WalletTransaction saved = walletTransactionRepository.save(tx);
+        return saved.getTransactionId();
     }
 }
 

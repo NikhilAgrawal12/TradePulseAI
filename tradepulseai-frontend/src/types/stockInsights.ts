@@ -22,16 +22,6 @@ export type MonthlyReturnHeatmapCell = {
 export type DailyNewsItem = {
   tradingDate: string | null;
   news: string | null;
-  sentimentScore: number | null;
-  newsCount: number | null;
-};
-
-export type AnalyticsNewsItem = {
-  stockId: number;
-  symbol: string;
-  tradingDate: string | null;
-  news: string | null;
-  sentimentScore: number | null;
   newsCount: number | null;
 };
 
@@ -117,14 +107,6 @@ export type StockPrediction = {
   modelVersion: string;
   generatedAt: string;
   reasoning: string[];
-  decisionThreshold: number;
-  confidenceEdge: number;
-  probabilityGap: number;
   convictionLabel: "HIGH" | "MEDIUM" | "LOW" | "NEUTRAL";
-  cvF1?: number | null;
-  testF1?: number | null;
-  testBalancedAccuracy?: number | null;
-  testPrecision?: number | null;
-  testRecall?: number | null;
 };
 

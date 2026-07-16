@@ -2,6 +2,7 @@ package com.tradepulseai.orderservice.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradepulseai.orderservice.model.TradeOrder;
+import com.tradepulseai.orderservice.model.TradeOrderItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -29,6 +30,21 @@ public class NotificationKafkaProducer {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("orderId", order.getId());
             data.put("total", order.getTotal() != null ? order.getTotal().toPlainString() : "0.00");
+
+            // Add stock symbol and quantity from the first order item
+            if (order.getItems() != null && !order.getItems().isEmpty()) {
+                TradeOrderItem item = order.getItems().getFirst();
+                String stockId = item.getStockId();
+                if (stockId != null) {
+                    data.put("stockId", stockId);
+                    if (item.getQuantity() != null) {
+                        data.put("quantity", item.getQuantity().toPlainString());
+                    }
+                    if (item.getPrice() != null) {
+                        data.put("price", item.getPrice().toPlainString());
+                    }
+                }
+            }
 
             Map<String, Object> event = new LinkedHashMap<>();
             event.put("eventType", "STOCK_PURCHASED");

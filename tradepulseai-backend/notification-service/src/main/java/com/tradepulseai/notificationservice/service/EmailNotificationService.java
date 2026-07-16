@@ -78,7 +78,12 @@ public class EmailNotificationService {
 
         return switch (event.getEventType()) {
             case "ACCOUNT_CREATED" -> {
-                String firstName = getString(data, "firstName", "Valued Customer");
+                String firstName = getString(data, "firstName", "");
+                String lastName = getString(data, "lastName", "");
+                String fullName = (firstName + " " + lastName).trim();
+                if (fullName.isEmpty()) {
+                    fullName = "Valued Customer";
+                }
                 yield """
                         Hello %s,
 
@@ -87,49 +92,59 @@ public class EmailNotificationService {
 
                         Happy trading!
                         — The TradePulseAI Team
-                        """.formatted(firstName);
+                        """.formatted(fullName);
             }
             case "WALLET_DEPOSIT" -> {
+                String transactionId = getString(data, "transactionId", "N/A");
                 String amount  = getString(data, "amount", "0.00");
                 String balance = getString(data, "newBalance", "0.00");
                 yield """
                         Hi,
 
                         Your deposit of $%s has been successfully processed.
-                        Your new wallet balance is $%s.
+                        Transaction ID : %s
+                        New Balance    : $%s
 
                         — The TradePulseAI Team
-                        """.formatted(amount, balance);
+                        """.formatted(amount, transactionId, balance);
             }
             case "WALLET_WITHDRAWAL" -> {
+                String transactionId = getString(data, "transactionId", "N/A");
                 String amount  = getString(data, "amount", "0.00");
                 String balance = getString(data, "newBalance", "0.00");
                 yield """
                         Hi,
 
                         Your withdrawal of $%s has been successfully processed.
-                        Your new wallet balance is $%s.
+                        Transaction ID : %s
+                        New Balance    : $%s
 
                         — The TradePulseAI Team
-                        """.formatted(amount, balance);
+                        """.formatted(amount, transactionId, balance);
             }
             case "STOCK_PURCHASED" -> {
                 String orderId = getString(data, "orderId", "N/A");
-                String total   = getString(data, "total", "0.00");
+                String symbol   = getString(data, "stockId", "N/A");
+                String quantity = getString(data, "quantity", "0");
+                String price    = getString(data, "price", "0.00");
+                String total    = getString(data, "total", "0.00");
                 yield """
                         Hi,
 
                         Your stock purchase order has been completed successfully.
-                        Order ID : %s
-                        Total    : $%s
+                        Order ID  : %s
+                        Stock     : %s
+                        Quantity  : %s shares
+                        Price     : $%s per share
+                        Total     : $%s
 
                         Your portfolio has been updated.
 
                         — The TradePulseAI Team
-                        """.formatted(orderId, total);
+                        """.formatted(orderId, symbol, quantity, price, total);
             }
             case "STOCK_SOLD" -> {
-                String symbol   = getString(data, "stockId", "N/A");
+                String symbol   = getString(data, "symbol", "N/A");
                 String quantity = getString(data, "quantity", "0");
                 String price    = getString(data, "price", "0.00");
                 String total    = getString(data, "total", "0.00");

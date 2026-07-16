@@ -38,9 +38,6 @@ class PredictionResponse(BaseModel):
     modelVersion: str
     generatedAt: str
     reasoning: list[str]
-    decisionThreshold: float
-    confidenceEdge: float
-    probabilityGap: float
     convictionLabel: str
     cvF1: float | None = None
     testF1: float | None = None

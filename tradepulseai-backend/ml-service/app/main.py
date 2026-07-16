@@ -280,16 +280,13 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         modelVersion=str(state["model_version"]),
         generatedAt=datetime.now(timezone.utc).isoformat(),
         reasoning=signal["reasoning"],
-        decisionThreshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
-        confidenceEdge=signal["confidence_edge"],
-         probabilityGap=signal["probability_gap"],
-         convictionLabel=signal["conviction_label"],
-         cvF1=(model_metrics["cv_f1"] if model_metrics else None),
-         testF1=(model_metrics["test_f1"] if model_metrics else None),
-         testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),
-         testPrecision=(model_metrics["test_precision"] if model_metrics else None),
-         testRecall=(model_metrics["test_recall"] if model_metrics else None),
-     )
+        convictionLabel=signal["conviction_label"],
+        cvF1=(model_metrics["cv_f1"] if model_metrics else None),
+        testF1=(model_metrics["test_f1"] if model_metrics else None),
+        testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),
+        testPrecision=(model_metrics["test_precision"] if model_metrics else None),
+        testRecall=(model_metrics["test_recall"] if model_metrics else None),
+    )
 
 
 

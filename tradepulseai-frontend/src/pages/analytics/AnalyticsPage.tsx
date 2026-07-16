@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { Header } from "../../components/Header.tsx";
 import { fetchAnalyticsNews } from "../../utils/stockInsightsApi";
-import { formatMoney } from "../../utils/money";
 
 type AnalyticsNewsItem = {
     stockId: number;
     symbol: string;
     tradingDate: string | null;
     news: string | null;
-    sentimentScore: number | null;
     newsCount: number | null;
 };
 
@@ -37,7 +35,7 @@ export function AnalyticsPage() {
         <>
             <Header />
             <h1>Analytics</h1>
-            <p>Latest market news and sentiment snapshots.</p>
+            <p>Latest market news.</p>
             <section style={{ marginTop: 16 }}>
                 <h2>Top News</h2>
                 {loading ? <p>Loading news...</p> : null}
@@ -51,9 +49,7 @@ export function AnalyticsPage() {
                                     <small>{formatDate(item.tradingDate)}</small>
                                 </div>
                                 <p style={{ margin: "8px 0" }}>{item.news ?? "--"}</p>
-                                <small>
-                                    Sentiment: {item.sentimentScore == null ? "--" : formatMoney(item.sentimentScore)} | Articles: {item.newsCount ?? 0}
-                                </small>
+                                <small>Articles: {item.newsCount ?? 0}</small>
                             </article>
                         ))}
                     </div>

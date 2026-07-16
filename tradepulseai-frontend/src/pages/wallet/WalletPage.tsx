@@ -8,6 +8,7 @@ import type { WalletTransactionItem } from "../../utils/walletApi";
 import "./WalletPage.css";
 
 const WALLET_TX_PAGE_SIZE = 10;
+const CREDIT_TRANSACTION_TYPES = new Set(["DEPOSIT", "REFUND", "SELL_CREDIT"]);
 
 export function WalletPage() {
   useEffect(() => {
@@ -103,6 +104,7 @@ export function WalletPage() {
 
   const typeBadgeClass = (type: string) => {
     if (type === "DEPOSIT") return "wallet-type-badge wallet-type-deposit";
+    if (type === "REFUND" || type === "SELL_CREDIT") return "wallet-type-badge wallet-type-credit";
     if (type === "WITHDRAWAL") return "wallet-type-badge wallet-type-withdrawal";
     return "wallet-type-badge wallet-type-purchase";
   };
@@ -200,7 +202,7 @@ export function WalletPage() {
                 </thead>
                 <tbody>
                   {transactions.map((tx) => {
-                    const isCredit = tx.transactionType === "DEPOSIT";
+                    const isCredit = CREDIT_TRANSACTION_TYPES.has(tx.transactionType);
                     return (
                       <tr key={tx.transactionId}>
                         <td>{formatEasternDateTime(tx.createdAt)}</td>

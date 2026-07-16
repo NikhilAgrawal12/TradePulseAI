@@ -425,14 +425,12 @@ function MlProbabilityDonut({ buyProbability, sellProbability }: { buyProbabilit
 function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
   const buyPct = Math.max(0, Math.min(100, prediction.probabilityBuy * 100));
   const sellPct = Math.max(0, Math.min(100, prediction.probabilitySell * 100));
-  const thresholdPct = Math.max(0, Math.min(100, prediction.decisionThreshold * 100));
-  const thresholdLeft = `${thresholdPct}%`;
 
   return (
     <div className="ml-signal-breakdown">
       <div className="ml-signal-headline">
-        <span>Signal Strength</span>
-        <strong>{prediction.confidenceEdge > 0 ? `+${formatPercent(prediction.confidenceEdge * 100, false)}% edge` : "No actionable edge"}</strong>
+        <span>Signal split</span>
+        <strong>{prediction.action === "BUY" ? "BUY bias" : prediction.action === "SELL" ? "SELL bias" : "Balanced setup"}</strong>
       </div>
 
       <div className="ml-signal-row">
@@ -442,7 +440,6 @@ function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
         </div>
         <div className="ml-signal-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(buyPct)}>
           <div className="ml-signal-fill buy" style={{ width: `${buyPct}%` }} />
-          <i className="ml-signal-threshold" style={{ left: thresholdLeft }} />
         </div>
       </div>
 
@@ -453,12 +450,11 @@ function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
         </div>
         <div className="ml-signal-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(sellPct)}>
           <div className="ml-signal-fill sell" style={{ width: `${sellPct}%` }} />
-          <i className="ml-signal-threshold" style={{ left: thresholdLeft }} />
         </div>
       </div>
 
       <p className="ml-signal-note">
-        Threshold: {formatPercent(thresholdPct, false)}%. {prediction.action === "HOLD" ? "Neither side crossed threshold, so signal is HOLD." : `${prediction.action} crossed threshold.`}
+        Latest BUY and SELL probabilities for the next trading window.
       </p>
     </div>
   );
@@ -824,6 +820,7 @@ export function StockInsightsPage() {
    const volumeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], volumeRange), [insights?.history, volumeRange]);
    const movingAverageHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], movingAverageRange), [insights?.history, movingAverageRange]);
    const rollingVolatilityHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], rollingVolatilityRange), [insights?.history, rollingVolatilityRange]);
+   const latestNewsItem = insights?.latestNews?.[0] ?? null;
 
   const summaryTone = (value: number | null | undefined): "positive" | "negative" | undefined => {
     if (value == null) return undefined;
@@ -900,88 +897,6 @@ export function StockInsightsPage() {
                 />
               </MetricSection>
 
-              <section className="insights-ml-section-card">
-                <div className="insights-ml-head">
-                  <h3>Machine Learning Signal</h3>
-                  <p>Model summary and confidence for the next trading window.</p>
-                </div>
-
-                {prediction ? (
-                  <div className="insights-ml-grid">
-                    <div className="insights-ml-primary">
-                      <div className="insights-ml-action-row">
-                        <span>Action</span>
-                        <strong
-                          className={`insights-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}
-                        >
-                          {prediction.action}
-                        </strong>
-                      </div>
-                      <MlSignalBreakdown prediction={prediction} />
-                      <div className="insights-ml-meta-row">
-                        <span className="insights-ml-meta-pill">
-                          <small>Horizon</small>
-                          <strong>{prediction.horizonDays} trading days</strong>
-                        </span>
-                        <span className="insights-ml-meta-pill">
-                          <small>Model</small>
-                          <strong>{prediction.modelName}</strong>
-                        </span>
-                        <span className="insights-ml-meta-pill subtle">
-                          <small>Updated</small>
-                          <strong>{formatDateLabel(prediction.generatedAt)}</strong>
-                        </span>
-                      </div>
-                      <div className="insights-ml-quality-grid">
-                        <div className="insights-ml-quality-card">
-                          <span>Trade Balanced Accuracy</span>
-                          <strong>{prediction.testBalancedAccuracy == null ? "--" : `${formatPercent(prediction.testBalancedAccuracy * 100, false)}%`}</strong>
-                        </div>
-                        <div className="insights-ml-quality-card">
-                          <span>Trade Precision</span>
-                          <strong>{prediction.testPrecision == null ? "--" : `${formatPercent(prediction.testPrecision * 100, false)}%`}</strong>
-                        </div>
-                        <div className="insights-ml-quality-card">
-                          <span>Trade Recall</span>
-                          <strong>{prediction.testRecall == null ? "--" : `${formatPercent(prediction.testRecall * 100, false)}%`}</strong>
-                        </div>
-                        <div className="insights-ml-quality-card">
-                          <span>Trade F1 Score</span>
-                          <strong>{prediction.testF1 == null ? "--" : `${formatPercent(prediction.testF1 * 100, false)}%`}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="insights-ml-visual">
-                      <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
-                      <div className="insights-ml-side-grid">
-                        <div className="insights-ml-side-card">
-                          <span>Action</span>
-                          <strong>{prediction.action}</strong>
-                        </div>
-                        <div className="insights-ml-side-card">
-                          <span>Conviction</span>
-                          <strong>{convictionTone(prediction.convictionLabel)}</strong>
-                        </div>
-                        <div className="insights-ml-side-card">
-                          <span>Edge vs Threshold</span>
-                          <strong>{formatPercent(prediction.confidenceEdge * 100, false)}%</strong>
-                        </div>
-                        <div className="insights-ml-side-card">
-                          <span>BUY/SELL Gap</span>
-                          <strong>{formatPercent(prediction.probabilityGap * 100, false)}%</strong>
-                        </div>
-                        <div className="insights-ml-side-card">
-                          <span>Decision Threshold</span>
-                          <strong>{formatPercent(prediction.decisionThreshold * 100, false)}%</strong>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="insights-state-card error"><p>ML prediction is currently unavailable.</p></div>
-                )}
-              </section>
-
               <MetricSection title="52-Week Metrics">
                 <MetricGrid
                   items={[
@@ -1025,6 +940,69 @@ export function StockInsightsPage() {
                   ]}
                 />
               </MetricSection>
+
+              <MetricSection title="Latest News">
+                {latestNewsItem ? (
+                  <article className="insights-news-featured-card">
+                    <p className="insights-news-featured-text">{latestNewsItem.news ?? "No headline available."}</p>
+                  </article>
+                ) : (
+                  <p className="insights-empty-state">No news available yet.</p>
+                )}
+              </MetricSection>
+
+              <section className="insights-ml-section-card">
+                <div className="insights-ml-head">
+                  <h3>Machine Learning Signal</h3>
+                  <p>Model summary and confidence for the next trading window.</p>
+                </div>
+
+                {prediction ? (
+                  <div className="insights-ml-grid">
+                    <div className="insights-ml-primary">
+                      <div className="insights-ml-action-row">
+                        <span>Action</span>
+                        <strong
+                          className={`insights-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}
+                        >
+                          {prediction.action}
+                        </strong>
+                      </div>
+                      <MlSignalBreakdown prediction={prediction} />
+                      <div className="insights-ml-meta-row">
+                        <span className="insights-ml-meta-pill">
+                          <small>Horizon</small>
+                          <strong>{prediction.horizonDays} trading days</strong>
+                        </span>
+                        <span className="insights-ml-meta-pill">
+                          <small>Model</small>
+                          <strong>{prediction.modelName}</strong>
+                        </span>
+                        <span className="insights-ml-meta-pill subtle">
+                          <small>Updated</small>
+                          <strong>{formatDateLabel(prediction.generatedAt)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="insights-ml-visual">
+                      <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
+                      <div className="insights-ml-side-grid">
+                        <div className="insights-ml-side-card">
+                          <span>Action</span>
+                          <strong>{prediction.action}</strong>
+                        </div>
+                        <div className="insights-ml-side-card">
+                          <span>Conviction</span>
+                          <strong>{convictionTone(prediction.convictionLabel)}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="insights-state-card error"><p>ML prediction is currently unavailable.</p></div>
+                )}
+              </section>
+
 
                <ChartCard title="Price History" subtitle="Line chart showing price movement over time">
                  <section className="insights-range-row" aria-label="Price history range selector">

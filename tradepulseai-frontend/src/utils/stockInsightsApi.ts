@@ -7,7 +7,6 @@ export type AnalyticsNewsItem = {
   symbol: string;
   tradingDate: string | null;
   news: string | null;
-  sentimentScore: number | null;
   newsCount: number | null;
 };
 
@@ -98,9 +97,6 @@ export async function fetchStockPrediction(stockId: string): Promise<StockPredic
 
 export async function fetchAnalyticsNews(limit = 10): Promise<AnalyticsNewsItem[]> {
   const response = await axios.get<AnalyticsNewsItem[]>(`/api/stocks/analytics/news`, { params: { limit } });
-  return response.data.map((item) => ({
-    ...item,
-    sentimentScore: item.sentimentScore == null ? null : toMoney(item.sentimentScore),
-  }));
+  return response.data;
 }
 
