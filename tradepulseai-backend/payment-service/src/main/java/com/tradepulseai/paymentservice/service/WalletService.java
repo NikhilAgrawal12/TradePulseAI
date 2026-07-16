@@ -165,7 +165,7 @@ public class WalletService {
         return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId(), PageRequest.of(page, size));
     }
 
-    private Long recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
+    private String recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
         WalletTransaction tx = new WalletTransaction();
         tx.setWalletId(walletId);
         tx.setTransactionType(type);

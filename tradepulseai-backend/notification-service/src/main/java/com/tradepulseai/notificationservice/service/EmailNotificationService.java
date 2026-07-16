@@ -124,7 +124,7 @@ public class EmailNotificationService {
             }
             case "STOCK_PURCHASED" -> {
                 String orderId = getString(data, "orderId", "N/A");
-                String symbol   = getString(data, "stockId", "N/A");
+                String symbol   = getString(data, "symbol", getString(data, "stockId", "N/A"));
                 String quantity = getString(data, "quantity", "0");
                 String price    = getString(data, "price", "0.00");
                 String total    = getString(data, "total", "0.00");
@@ -134,14 +134,14 @@ public class EmailNotificationService {
                         Your stock purchase order has been completed successfully.
                         Order ID  : %s
                         Stock     : %s
-                        Quantity  : %s shares
+                        Quantity  : %s %s
                         Price     : $%s per share
                         Total     : $%s
 
                         Your portfolio has been updated.
 
                         — The TradePulseAI Team
-                        """.formatted(orderId, symbol, quantity, price, total);
+                        """.formatted(orderId, symbol, quantity, shareUnit(quantity), price, total);
             }
             case "STOCK_SOLD" -> {
                 String symbol   = getString(data, "symbol", "N/A");
@@ -153,7 +153,7 @@ public class EmailNotificationService {
 
                         Your sell order has been settled successfully.
                         Stock    : %s
-                        Quantity : %s shares
+                        Quantity : %s %s
                         Price    : $%s per share
                         Total    : $%s credited to your wallet
 
@@ -168,6 +168,18 @@ public class EmailNotificationService {
         if (data == null) return defaultValue;
         Object value = data.get(key);
         return value != null ? value.toString() : defaultValue;
+    }
+
+    private String shareUnit(String quantity) {
+        if (quantity == null || quantity.isBlank()) {
+            return "shares";
+        }
+
+        try {
+            return new java.math.BigDecimal(quantity).compareTo(java.math.BigDecimal.ONE) == 0 ? "share" : "shares";
+        } catch (NumberFormatException exception) {
+            return "shares";
+        }
     }
 }
 

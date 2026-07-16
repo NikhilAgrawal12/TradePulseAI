@@ -21,9 +21,9 @@ import java.time.ZoneOffset;
 public class WalletTransaction {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "transaction_id")
-    private Long transactionId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "transaction_id", length = 36)
+    private String transactionId;
 
     @Column(name = "wallet_id", nullable = false)
     private Long walletId;
@@ -45,8 +45,8 @@ public class WalletTransaction {
         this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
-    public Long getTransactionId() { return transactionId; }
-    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+    public String getTransactionId() { return transactionId; }
+    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
 
     public Long getWalletId() { return walletId; }
     public void setWalletId(Long walletId) { this.walletId = walletId; }

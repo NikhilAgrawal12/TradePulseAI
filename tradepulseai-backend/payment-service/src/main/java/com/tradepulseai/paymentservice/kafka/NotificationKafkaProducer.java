@@ -24,7 +24,7 @@ public class NotificationKafkaProducer {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public void publishWalletDeposit(Long userId, Long transactionId, BigDecimal amount, BigDecimal newBalance) {
+    public void publishWalletDeposit(Long userId, String transactionId, BigDecimal amount, BigDecimal newBalance) {
         publish("WALLET_DEPOSIT", userId, Map.of(
                 "transactionId", transactionId,
                 "amount", amount.toPlainString(),
@@ -32,7 +32,7 @@ public class NotificationKafkaProducer {
         ));
     }
 
-    public void publishWalletWithdrawal(Long userId, Long transactionId, BigDecimal amount, BigDecimal newBalance) {
+    public void publishWalletWithdrawal(Long userId, String transactionId, BigDecimal amount, BigDecimal newBalance) {
         publish("WALLET_WITHDRAWAL", userId, Map.of(
                 "transactionId", transactionId,
                 "amount", amount.toPlainString(),

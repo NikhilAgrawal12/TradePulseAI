@@ -20,9 +20,9 @@ import java.time.Instant;
 public class PortfolioTransaction {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "transaction_id")
-    private Long transactionId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "transaction_id", length = 36)
+    private String transactionId;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -45,8 +45,8 @@ public class PortfolioTransaction {
     @PrePersist
     public void prePersist() { this.executedAt = Instant.now(); }
 
-    public Long getTransactionId() { return transactionId; }
-    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+    public String getTransactionId() { return transactionId; }
+    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public Long getStockId() { return stockId; }

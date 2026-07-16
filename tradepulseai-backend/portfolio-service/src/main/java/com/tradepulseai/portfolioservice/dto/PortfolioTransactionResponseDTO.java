@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 public class PortfolioTransactionResponseDTO {
-    private Long transactionId;
+    private String transactionId;
     private String stockId;
     private String transactionType;
     private BigDecimal price;
@@ -13,8 +13,8 @@ public class PortfolioTransactionResponseDTO {
     private BigDecimal realizedPnl;
     private Instant executedAt;
 
-    public Long getTransactionId() { return transactionId; }
-    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+    public String getTransactionId() { return transactionId; }
+    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
     public String getStockId() { return stockId; }
     public void setStockId(String stockId) { this.stockId = stockId; }
     public String getTransactionType() { return transactionType; }

@@ -36,7 +36,6 @@ public class NotificationKafkaProducer {
             
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("symbol", symbol);
-            data.put("stockId", stockId);
             data.put("quantity", quantity);
             data.put("price", price.toPlainString());
             data.put("total", total.toPlainString());

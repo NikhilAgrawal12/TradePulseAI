@@ -5,7 +5,7 @@ import java.time.Instant;
 
 public class WalletTransactionDTO {
 
-    private Long transactionId;
+    private String transactionId;
     private Long walletId;
     private String transactionType;
     private BigDecimal amount;
@@ -14,7 +14,7 @@ public class WalletTransactionDTO {
 
     public WalletTransactionDTO() {}
 
-    public WalletTransactionDTO(Long transactionId, Long walletId, String transactionType,
+    public WalletTransactionDTO(String transactionId, Long walletId, String transactionType,
                                  BigDecimal amount, BigDecimal balanceAfter, Instant createdAt) {
         this.transactionId = transactionId;
         this.walletId = walletId;
@@ -24,8 +24,8 @@ public class WalletTransactionDTO {
         this.createdAt = createdAt;
     }
 
-    public Long getTransactionId() { return transactionId; }
-    public void setTransactionId(Long transactionId) { this.transactionId = transactionId; }
+    public String getTransactionId() { return transactionId; }
+    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
 
     public Long getWalletId() { return walletId; }
     public void setWalletId(Long walletId) { this.walletId = walletId; }
