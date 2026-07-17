@@ -1,13 +1,13 @@
-# TradePulseAI
+# TradePulse
 
-TradePulseAI is a stock-trading simulation platform with a React frontend and a Spring Boot microservices backend. It supports authentication, customer onboarding, watchlists, carts, wallet funding, checkout, orders, portfolio tracking, stock analytics, live featured-stock streaming, and market-session awareness.
+TradePulse is a stock-trading simulation platform with a React frontend and a Spring Boot microservices backend. It supports authentication, customer onboarding, watchlists, carts, wallet funding, checkout, orders, portfolio tracking, stock analytics, live featured-stock streaming, and market-session awareness.
 
 ## What is in this repository
 
-- `tradepulseai-frontend/` — Vite + React + TypeScript web client
-- `tradepulseai-backend/` — Spring Boot microservices, PostgreSQL, Kafka, gRPC, API gateway
-- `tradepulseai-backend/docker-compose.persistent.yml` — main local container stack
-- `tradepulseai-backend/scripts/` — PowerShell helpers for the persistent backend stack
+- `tradepulse-frontend/` — Vite + React + TypeScript web client
+- `tradepulse-backend/` — Spring Boot microservices, PostgreSQL, Kafka, gRPC, API gateway
+- `tradepulse-backend/docker-compose.persistent.yml` — main local container stack
+- `tradepulse-backend/scripts/` — PowerShell helpers for the persistent backend stack
 
 ## Core capabilities
 

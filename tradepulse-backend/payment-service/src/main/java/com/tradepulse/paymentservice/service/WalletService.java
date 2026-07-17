@@ -1,0 +1,218 @@
+package com.tradepulse.paymentservice.service;
+
+import com.tradepulse.paymentservice.kafka.NotificationKafkaProducer;
+import com.tradepulse.paymentservice.model.Wallet;
+import com.tradepulse.paymentservice.model.WalletTransaction;
+import com.tradepulse.paymentservice.repository.WalletRepository;
+import com.tradepulse.paymentservice.repository.WalletTransactionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+
+@Service
+public class WalletService {
+
+    private static final Logger log = LoggerFactory.getLogger(WalletService.class);
+
+    private static final String TYPE_DEPOSIT    = "DEPOSIT";
+    private static final String TYPE_WITHDRAWAL = "WITHDRAWAL";
+    private static final String TYPE_PURCHASE   = "PURCHASE";
+    private static final String TYPE_REFUND     = "REFUND";
+    private static final String TYPE_SELL_CREDIT = "SELL_CREDIT";
+
+    private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final NotificationKafkaProducer notificationKafkaProducer;
+
+    public WalletService(WalletRepository walletRepository,
+                         WalletTransactionRepository walletTransactionRepository,
+                         NotificationKafkaProducer notificationKafkaProducer) {
+        this.walletRepository = walletRepository;
+        this.walletTransactionRepository = walletTransactionRepository;
+        this.notificationKafkaProducer = notificationKafkaProducer;
+    }
+
+    @Transactional
+    public Wallet getOrCreateWallet(Long userId) {
+        return walletRepository.findByUserId(userId).orElseGet(() -> {
+            Wallet wallet = new Wallet();
+            wallet.setUserId(userId);
+            wallet.setBalance(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+            Wallet saved = walletRepository.save(wallet);
+            log.info("Created new wallet for userId={}", userId);
+            return saved;
+        });
+    }
+
+    @Transactional
+    public Wallet deposit(Long userId, BigDecimal amount) {
+        return deposit(userId, null, null, amount);
+    }
+
+    @Transactional
+    public Wallet deposit(Long userId, String firstName, String lastName, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Deposit amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newBalance = wallet.getBalance().add(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        String transactionId = recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
+        log.info("Deposited {} to walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
+
+        publishAfterCommit(() -> {
+            if (firstName != null || lastName != null) {
+                notificationKafkaProducer.publishWalletDeposit(userId, firstName, lastName, transactionId, scaled, newBalance);
+            } else {
+                notificationKafkaProducer.publishWalletDeposit(userId, transactionId, scaled, newBalance);
+            }
+        });
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet withdraw(Long userId, BigDecimal amount) {
+        return withdraw(userId, null, null, amount);
+    }
+
+    @Transactional
+    public Wallet withdraw(Long userId, String firstName, String lastName, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Withdrawal amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+
+        if (wallet.getBalance().compareTo(scaled) < 0) {
+            throw new IllegalStateException("Insufficient wallet balance for withdrawal.");
+        }
+
+        BigDecimal newBalance = wallet.getBalance().subtract(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        String transactionId = recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
+        log.info("Withdrew {} from walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
+
+        publishAfterCommit(() -> {
+            if (firstName != null || lastName != null) {
+                notificationKafkaProducer.publishWalletWithdrawal(userId, firstName, lastName, transactionId, scaled, newBalance);
+            } else {
+                notificationKafkaProducer.publishWalletWithdrawal(userId, transactionId, scaled, newBalance);
+            }
+        });
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet deductForPurchase(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Purchase amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+
+        if (wallet.getBalance().compareTo(scaled) < 0) {
+            throw new IllegalStateException(
+                    "Insufficient wallet balance. Available: $" + wallet.getBalance().toPlainString()
+                    + ", Required: $" + scaled.toPlainString());
+        }
+
+        BigDecimal newBalance = wallet.getBalance().subtract(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_PURCHASE, scaled, newBalance);
+        log.info("Purchase deduction of {} from walletId={}, newBalance={}",
+                scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet refundPurchase(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Refund amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newBalance = wallet.getBalance().add(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_REFUND, scaled, newBalance);
+        log.info("Refund of {} credited to walletId={}, newBalance={}",
+                scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public Wallet creditForSell(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Sell credit amount must be greater than zero.");
+        }
+
+        Wallet wallet = getOrCreateWallet(userId);
+        BigDecimal scaled = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal newBalance = wallet.getBalance().add(scaled);
+        wallet.setBalance(newBalance);
+        walletRepository.save(wallet);
+
+        recordTransaction(wallet.getWalletId(), TYPE_SELL_CREDIT, scaled, newBalance);
+        log.info("Sell credit of {} applied to walletId={}, newBalance={}",
+                scaled, wallet.getWalletId(), newBalance);
+        return wallet;
+    }
+
+    @Transactional
+    public List<WalletTransaction> getTransactions(Long userId) {
+        Wallet wallet = getOrCreateWallet(userId);
+        return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId());
+    }
+
+    @Transactional
+    public Page<WalletTransaction> getTransactionsPage(Long userId, int page, int size) {
+        Wallet wallet = getOrCreateWallet(userId);
+        return walletTransactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getWalletId(), PageRequest.of(page, size));
+    }
+
+    private String recordTransaction(Long walletId, String type, BigDecimal amount, BigDecimal balanceAfter) {
+        WalletTransaction tx = new WalletTransaction();
+        tx.setWalletId(walletId);
+        tx.setTransactionType(type);
+        tx.setAmount(amount);
+        tx.setBalanceAfter(balanceAfter);
+        WalletTransaction saved = walletTransactionRepository.save(tx);
+        return saved.getTransactionId();
+    }
+
+    private void publishAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
+    }
+}
+

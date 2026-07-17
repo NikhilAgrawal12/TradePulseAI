@@ -13,7 +13,7 @@ This document explains how the React frontend is organized and how it interacts 
 
 ## 2. Route map
 
-Defined in `tradepulseai-frontend/src/App.tsx`.
+Defined in `tradepulse-frontend/src/App.tsx`.
 
 | Route | Page |
 |---|---|
@@ -33,7 +33,7 @@ Defined in `tradepulseai-frontend/src/App.tsx`.
 
 ## 3. Shared app state
 
-Mounted in `tradepulseai-frontend/src/main.tsx`:
+Mounted in `tradepulse-frontend/src/main.tsx`:
 
 - `CartProvider`
 - `OrdersProvider`

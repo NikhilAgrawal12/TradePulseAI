@@ -12,7 +12,7 @@ Standalone microservice for portfolio holdings, portfolio transactions, sell ope
 ## Local compile
 
 ```powershell
-cd "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\portfolio-service"
+cd "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\portfolio-service"
 $env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.10'
 .\mvnw clean compile
 ```
@@ -20,7 +20,7 @@ $env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.10'
 ## Docker
 
 ```powershell
-cd "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend"
+cd "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend"
 docker compose -f docker-compose.persistent.yml up -d --build portfolio-service-db portfolio-service
 ```
 

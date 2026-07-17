@@ -1,17 +1,17 @@
 # Saga and Consistency Model
 
-This document explains how TradePulseAI handles cross-service consistency without distributed transactions.
+This document explains how TradePulse handles cross-service consistency without distributed transactions.
 
 ## 1. Why saga-style coordination is needed
 
-TradePulseAI uses database-per-service ownership. Because each service writes only to its own database, there is no shared ACID transaction across services.
+TradePulse uses database-per-service ownership. Because each service writes only to its own database, there is no shared ACID transaction across services.
 
 Therefore, multi-step workflows use orchestration and compensation patterns.
 
 ## 2. Registration saga (Auth user + Customer profile)
 
 Primary orchestrator:
-- `tradepulseai-backend/cust-service/src/main/java/com/tradepulseai/custservice/service/CustomerService.java`
+- `tradepulse-backend/cust-service/src/main/java/com/tradepulse/custservice/service/CustomerService.java`
 
 Entry endpoint:
 - `POST /api/customers/register`
@@ -28,12 +28,12 @@ Compensation logic:
 - this compensation is implemented in `registerCustomer(...)` using `rollbackAuthUser(...)`.
 
 Client used for auth interactions:
-- `tradepulseai-backend/cust-service/src/main/java/com/tradepulseai/custservice/client/AuthServiceClient.java`
+- `tradepulse-backend/cust-service/src/main/java/com/tradepulse/custservice/client/AuthServiceClient.java`
 
 ## 3. Checkout orchestration (order + payment + portfolio sync)
 
 Primary orchestrator:
-- `tradepulseai-backend/order-service/src/main/java/com/tradepulseai/orderservice/service/CartService.java`
+- `tradepulse-backend/order-service/src/main/java/com/tradepulse/orderservice/service/CartService.java`
 
 Entry endpoints:
 - `POST /api/cart/lock-quote`
@@ -99,7 +99,7 @@ Recommended next steps for stronger production guarantees:
 
 ## 8. Recruiter / hiring manager summary
 
-TradePulseAI deliberately avoids distributed two-phase commit and instead uses practical microservice consistency:
+TradePulse deliberately avoids distributed two-phase commit and instead uses practical microservice consistency:
 - orchestrated workflow steps
 - compensation where possible
 - clear ownership per service

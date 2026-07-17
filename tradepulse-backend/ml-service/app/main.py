@@ -15,7 +15,7 @@ from app.ml_pipeline import ACTION_THRESHOLD, FIXED_RETURN_THRESHOLD, build_pred
 from app.schemas import PredictionResponse, TrainRequest, TrainResponse
 from app.settings import settings
 
-app = FastAPI(title="TradePulseAI ML Service", version="1.0.0")
+app = FastAPI(title="TradePulse ML Service", version="1.0.0")
 logger = logging.getLogger(__name__)
 
 repository = StockDataRepository(settings.database_url)

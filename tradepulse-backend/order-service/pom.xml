@@ -13,7 +13,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.tradepulseai</groupId>
+    <groupId>com.tradepulse</groupId>
     <artifactId>order-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>order-service</name>

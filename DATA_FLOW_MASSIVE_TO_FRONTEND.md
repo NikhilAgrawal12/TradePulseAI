@@ -1,6 +1,6 @@
 # Data Flow: Massive API to Frontend
 
-This document explains how market data moves from Massive to the TradePulseAI UI, with exact runtime boundaries.
+This document explains how market data moves from Massive to the TradePulse UI, with exact runtime boundaries.
 
 ## 1. End-to-end path (high level)
 
@@ -17,7 +17,7 @@ Massive Delayed WebSocket (wss://delayed.massive.com/stocks)
 ## 2. Backend ingestion from Massive
 
 Primary component:
-- `tradepulseai-backend/stock-service/src/main/java/com/tradepulseai/stockservice/service/AllStocksLastValueCacheService.java`
+- `tradepulse-backend/stock-service/src/main/java/com/tradepulse/stockservice/service/AllStocksLastValueCacheService.java`
 
 Key behavior:
 - connects to `wss://delayed.massive.com/stocks`
@@ -32,7 +32,7 @@ Important operational note:
 ## 3. Stock-service data serving layer
 
 Public REST/SSE controller:
-- `tradepulseai-backend/stock-service/src/main/java/com/tradepulseai/stockservice/controller/StockController.java`
+- `tradepulse-backend/stock-service/src/main/java/com/tradepulse/stockservice/controller/StockController.java`
 
 Endpoints used by UI:
 - `GET /stocks/featured` (bootstrap featured list)
@@ -59,7 +59,7 @@ Result:
 ## 5. Frontend home-page runtime flow
 
 Main hook:
-- `tradepulseai-frontend/src/utils/useStreamedStocks.ts`
+- `tradepulse-frontend/src/utils/useStreamedStocks.ts`
 
 Behavior today:
 1. if no search term:
@@ -73,7 +73,7 @@ Behavior today:
    - request serial guard prevents older search responses from replacing newer query results
 
 Home-page usage:
-- `tradepulseai-frontend/src/pages/home/HomePage.tsx`
+- `tradepulse-frontend/src/pages/home/HomePage.tsx`
 - UI binds `searchTerm` to `setSearchTerm`, renders `stocks` from the hook
 
 ## 6. Latency profile: featured vs searched

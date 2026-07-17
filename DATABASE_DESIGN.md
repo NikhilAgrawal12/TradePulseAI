@@ -1,6 +1,6 @@
 # Database Design
 
-TradePulseAI uses **database-per-service** ownership. Each main backend service persists to its own PostgreSQL database container in local Docker.
+TradePulse uses **database-per-service** ownership. Each main backend service persists to its own PostgreSQL database container in local Docker.
 
 ## 1. Data ownership model
 

@@ -1,6 +1,6 @@
 # Operations Runbook
 
-This runbook is for running, checking, and supporting TradePulseAI in local or early hosted environments.
+This runbook is for running, checking, and supporting TradePulse in local or early hosted environments.
 
 ## 1. Runtime inventory
 
@@ -70,28 +70,28 @@ This runbook is for running, checking, and supporting TradePulseAI in local or e
 ### Start stack
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\scripts"
 .\up-persistent.ps1
 ```
 
 ### Start existing stack without rebuild
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\scripts"
 .\start-persistent.ps1
 ```
 
 ### Stop stack but keep data
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\scripts"
 .\stop-persistent.ps1
 ```
 
 ### Inspect compose status
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend"
 docker compose --env-file .env -p tradepulse-persistent -f docker-compose.persistent.yml ps
 ```
 
@@ -120,7 +120,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4004/api/stocks/featured/hea
 ### Compose logs for a single service
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend"
 docker compose --env-file .env -p tradepulse-persistent -f docker-compose.persistent.yml logs --tail 200 stock-service
 ```
 

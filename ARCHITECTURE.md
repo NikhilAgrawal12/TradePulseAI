@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the current TradePulseAI architecture based on the live codebase.
+This document describes the current TradePulse architecture based on the live codebase.
 
 Deep dives:
 - `DATA_FLOW_MASSIVE_TO_FRONTEND.md` for exact market-data ingestion and UI streaming path
@@ -51,7 +51,7 @@ The frontend is a Vite + React + TypeScript SPA.
 
 ### App-level state providers
 
-Mounted in `tradepulseai-frontend/src/main.tsx`:
+Mounted in `tradepulse-frontend/src/main.tsx`:
 
 - `CartProvider`
 - `OrdersProvider`

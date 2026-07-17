@@ -1,4 +1,4 @@
-# TradePulseAI ML Service
+# TradePulse ML Service
 
 Python FastAPI service that trains and serves a buy/sell signal model for stocks.
 

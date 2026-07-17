@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.tradepulseai</groupId>
+    <groupId>com.tradepulse</groupId>
     <artifactId>stock-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>stock-service</name>

@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for running TradePulseAI locally on Windows with Docker Desktop, Node.js, and Java.
+This guide is for running TradePulse locally on Windows with Docker Desktop, Node.js, and Java.
 
 ## 1. Prerequisites
 
@@ -20,14 +20,14 @@ This guide is for running TradePulseAI locally on Windows with Docker Desktop, N
 
 ## 2. Repository layout
 
-- frontend: `tradepulseai-frontend/`
-- backend: `tradepulseai-backend/`
-- backend compose stack: `tradepulseai-backend/docker-compose.persistent.yml`
-- backend helper scripts: `tradepulseai-backend/scripts/`
+- frontend: `tradepulse-frontend/`
+- backend: `tradepulse-backend/`
+- backend compose stack: `tradepulse-backend/docker-compose.persistent.yml`
+- backend helper scripts: `tradepulse-backend/scripts/`
 
 ## 3. Backend environment variables
 
-Create `tradepulseai-backend/.env` before starting the backend stack.
+Create `tradepulse-backend/.env` before starting the backend stack.
 
 Minimum variables used by the compose file:
 
@@ -53,14 +53,14 @@ Minimum variables used by the compose file:
 From the repository root, the normal local path is the PowerShell helper:
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\scripts"
 .\up-persistent.ps1
 ```
 
 Useful alternatives:
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\scripts"
 .\start-persistent.ps1
 .\stop-persistent.ps1
 ```
@@ -68,14 +68,14 @@ Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend\scripts"
 Direct compose command:
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-backend"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend"
 docker compose --env-file .env -p tradepulse-persistent -f docker-compose.persistent.yml up -d --build
 ```
 
 ## 5. Start the frontend
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-frontend"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-frontend"
 npm install
 npm run dev
 ```
@@ -85,7 +85,7 @@ The Vite dev server proxies `/api` and `/auth` requests to `http://127.0.0.1:400
 ## 6. Production-style frontend build
 
 ```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulseAI\tradepulseai-frontend"
+Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-frontend"
 npm run build
 ```
 

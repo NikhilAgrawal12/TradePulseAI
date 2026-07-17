@@ -1,0 +1,60 @@
+package com.tradepulse.orderservice.controller;
+
+import com.tradepulse.orderservice.dto.order.OrderResponseDTO;
+import com.tradepulse.orderservice.service.OrderHistoryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/orders")
+@Tag(name = "Orders", description = "API for reading order history")
+public class OrderHistoryController {
+
+    private static final String USER_ID_HEADER = "X-User-Id";
+
+    private final OrderHistoryService orderHistoryService;
+
+    public OrderHistoryController(OrderHistoryService orderHistoryService) {
+        this.orderHistoryService = orderHistoryService;
+    }
+
+    @GetMapping
+    @Operation(summary = "Get full order history for current user")
+    public ResponseEntity<List<OrderResponseDTO>> getOrders(@RequestHeader(USER_ID_HEADER) String userId) {
+        return ResponseEntity.ok(orderHistoryService.getOrders(normalizeUserId(userId)));
+    }
+
+    @GetMapping("/paged")
+    @Operation(summary = "Get paged order history for current user")
+    public ResponseEntity<Page<OrderResponseDTO>> getOrdersPage(
+            @RequestHeader(USER_ID_HEADER) String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), 50);
+        return ResponseEntity.ok(orderHistoryService.getOrdersPage(normalizeUserId(userId), normalizedPage, normalizedSize));
+    }
+
+    private Long normalizeUserId(String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing required header: " + USER_ID_HEADER);
+        }
+
+        try {
+            return Long.parseLong(userId.trim());
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Invalid userId format in header " + USER_ID_HEADER + ": " + userId);
+        }
+    }
+}
+
