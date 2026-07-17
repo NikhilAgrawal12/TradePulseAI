@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -68,14 +70,16 @@ public class WalletService {
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
 
-        Long transactionId = recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
+        String transactionId = recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
         log.info("Deposited {} to walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
 
-        if (firstName != null || lastName != null) {
-            notificationKafkaProducer.publishWalletDeposit(userId, firstName, lastName, transactionId, scaled, newBalance);
-        } else {
-            notificationKafkaProducer.publishWalletDeposit(userId, transactionId, scaled, newBalance);
-        }
+        publishAfterCommit(() -> {
+            if (firstName != null || lastName != null) {
+                notificationKafkaProducer.publishWalletDeposit(userId, firstName, lastName, transactionId, scaled, newBalance);
+            } else {
+                notificationKafkaProducer.publishWalletDeposit(userId, transactionId, scaled, newBalance);
+            }
+        });
         return wallet;
     }
 
@@ -101,14 +105,16 @@ public class WalletService {
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
 
-        Long transactionId = recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
+        String transactionId = recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
         log.info("Withdrew {} from walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
 
-        if (firstName != null || lastName != null) {
-            notificationKafkaProducer.publishWalletWithdrawal(userId, firstName, lastName, transactionId, scaled, newBalance);
-        } else {
-            notificationKafkaProducer.publishWalletWithdrawal(userId, transactionId, scaled, newBalance);
-        }
+        publishAfterCommit(() -> {
+            if (firstName != null || lastName != null) {
+                notificationKafkaProducer.publishWalletWithdrawal(userId, firstName, lastName, transactionId, scaled, newBalance);
+            } else {
+                notificationKafkaProducer.publishWalletWithdrawal(userId, transactionId, scaled, newBalance);
+            }
+        });
         return wallet;
     }
 
@@ -193,6 +199,20 @@ public class WalletService {
         tx.setBalanceAfter(balanceAfter);
         WalletTransaction saved = walletTransactionRepository.save(tx);
         return saved.getTransactionId();
+    }
+
+    private void publishAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 }
 

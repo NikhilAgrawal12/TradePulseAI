@@ -20,6 +20,8 @@ import io.grpc.StatusRuntimeException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -165,9 +167,9 @@ public class PortfolioService {
             portfolioHoldingRepository.save(holding);
         }
 
-        // Fetch customer data for email personalization
+        // Fetch customer data for email personalization.
         CustomerClient.CustomerInfo customerInfo = customerClient.getCustomer(userId);
-        notificationKafkaProducer.publishStockSold(
+        publishAfterCommit(() -> notificationKafkaProducer.publishStockSold(
                 userId,
                 customerInfo.firstName(),
                 customerInfo.lastName(),
@@ -175,7 +177,7 @@ public class PortfolioService {
                 request.getQuantity(),
                 PortfolioMapper.scaleMoney(request.getPrice()),
                 settlementAmount
-        );
+        ));
 
         return getPortfolio(userId);
     }
@@ -286,6 +288,20 @@ public class PortfolioService {
         summary.setTotalUnrealizedPnlPercent(totalUnrealizedPercent.setScale(2, RoundingMode.HALF_UP));
         summary.setTotalRealizedPnl(PortfolioMapper.scaleMoney(totalRealized));
         return summary;
+    }
+
+    private void publishAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 }
 

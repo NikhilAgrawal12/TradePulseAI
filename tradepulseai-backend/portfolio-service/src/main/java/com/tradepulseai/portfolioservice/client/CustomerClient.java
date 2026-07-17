@@ -10,23 +10,25 @@ import org.springframework.web.client.RestClient;
 public class CustomerClient {
 
     private static final Logger log = LoggerFactory.getLogger(CustomerClient.class);
+    private static final String USER_ID_HEADER = "X-User-Id";
 
     private final RestClient restClient;
 
     public CustomerClient(
-            @Value("${cust.service.base-url:http://cust-service:4001}") String custServiceBaseUrl
+            @Value("${cust.service.base-url:http://cust-service:4000}") String custServiceBaseUrl
     ) {
         this.restClient = RestClient.builder().baseUrl(custServiceBaseUrl).build();
     }
 
     /**
-     * Fetch customer data by userId
-     * This call doesn't require authentication headers for inter-service communication
+     * Fetch customer data by userId.
+     * Cust-service requires X-User-Id to authorize access to /customers/user/{userId}.
      */
     public CustomerInfo getCustomer(Long userId) {
         try {
             CustomerResponse response = restClient.get()
                     .uri("/customers/user/{userId}", userId)
+                    .header(USER_ID_HEADER, String.valueOf(userId))
                     .retrieve()
                     .body(CustomerResponse.class);
 

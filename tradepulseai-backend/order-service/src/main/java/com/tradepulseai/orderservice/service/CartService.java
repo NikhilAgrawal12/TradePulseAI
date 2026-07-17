@@ -22,6 +22,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -154,9 +156,14 @@ public class CartService {
 
         cartItemRepository.deleteByIdUserId(userId);
 
-        // Fetch customer data for email personalization
+        // Fetch customer data for email personalization.
         CustomerClient.CustomerInfo customerInfo = customerClient.getCustomer(userId);
-        notificationKafkaProducer.publishStockPurchased(userId, customerInfo.firstName(), customerInfo.lastName(), savedOrder);
+        publishAfterCommit(() -> notificationKafkaProducer.publishStockPurchased(
+                userId,
+                customerInfo.firstName(),
+                customerInfo.lastName(),
+                savedOrder
+        ));
 
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
@@ -321,6 +328,20 @@ public class CartService {
                     refundGrpcException
             );
         }
+    }
+
+    private void publishAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
 }
