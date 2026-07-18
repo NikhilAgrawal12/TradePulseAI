@@ -22,7 +22,6 @@ export type MonthlyReturnHeatmapCell = {
 export type DailyNewsItem = {
   tradingDate: string | null;
   news: string | null;
-  newsCount: number | null;
 };
 
 export type StockInsights = {

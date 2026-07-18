@@ -1,5 +1,22 @@
 server:
   port: 4004 # Gateway listens on port 4004
+  netty:
+    connection-timeout: 60000 # 60 seconds for establishing connections
+  http2:
+    enabled: true
+
+# Spring Cloud Gateway and Netty configuration
+spring:
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 60000
+        response-timeout: 600000 # 10 minutes for SSE streams
+        ssl:
+          useInsecureTrustManager: false
+        wiretap: false
+      httpserver:
+        wiretap: false
 
 auth:
   service:
@@ -57,6 +74,15 @@ spring:
             - StripPrefix=1
             - JwtValidation
             - RateLimit=90,60,user
+
+        - id: stock-sse-stream-route
+          order: -2
+          uri: http://stock-service:4003
+          predicates:
+            - Path=/api/stocks/stream/**
+          filters:
+            - StripPrefix=1
+            - RateLimit=1000,60,ip
 
         - id: stock-service-route
           uri: http://stock-service:4003

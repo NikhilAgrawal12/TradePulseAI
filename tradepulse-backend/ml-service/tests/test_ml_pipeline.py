@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from app.ml_pipeline import _split_train_test_by_date, build_prediction_row, train_and_select_model
+from app.ml_pipeline import _derive_action, _split_train_test_by_date, build_prediction_row, train_and_select_model
 
 
 def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
@@ -83,4 +83,26 @@ def test_prediction_row_contains_latest_stock_record() -> None:
     assert len(row) == 1
     assert int(row.iloc[0]["stock_id"]) == 1
     assert str(row.iloc[0]["symbol"]) == "STK1"
+
+
+def test_derive_action_prefers_higher_sell_probability_when_both_clear_threshold() -> None:
+    action, confidence = _derive_action(probability_sell=0.58, probability_buy=0.52, decision_threshold=0.50)
+
+    assert action == "SELL"
+    assert confidence == 0.58
+
+
+def test_derive_action_prefers_higher_buy_probability_when_both_clear_threshold() -> None:
+    action, confidence = _derive_action(probability_sell=0.51, probability_buy=0.57, decision_threshold=0.50)
+
+    assert action == "BUY"
+    assert confidence == 0.57
+
+
+def test_derive_action_returns_hold_on_exact_tie_above_threshold() -> None:
+    action, confidence = _derive_action(probability_sell=0.55, probability_buy=0.55, decision_threshold=0.50)
+
+    assert action == "HOLD"
+    assert confidence == 0.55
+
 

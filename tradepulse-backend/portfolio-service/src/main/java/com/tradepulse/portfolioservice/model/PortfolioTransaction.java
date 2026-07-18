@@ -15,7 +15,8 @@ import java.time.Instant;
 @Entity
 @Table(name = "portfolio_transactions", indexes = {
     @Index(name = "idx_portfolio_transaction_user_id", columnList = "user_id"),
-    @Index(name = "idx_portfolio_transaction_stock_id", columnList = "stock_id")
+    @Index(name = "idx_portfolio_transaction_stock_id", columnList = "stock_id"),
+    @Index(name = "idx_portfolio_transaction_user_id_executed_at", columnList = "user_id, executed_at")
 })
 public class PortfolioTransaction {
 

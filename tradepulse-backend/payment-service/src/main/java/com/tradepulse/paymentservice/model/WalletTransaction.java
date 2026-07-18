@@ -15,8 +15,7 @@ import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "wallet_transactions", indexes = {
-    @Index(name = "idx_wallet_transaction_wallet_id", columnList = "wallet_id"),
-    @Index(name = "idx_wallet_transaction_created_at", columnList = "created_at")
+    @Index(name = "idx_wallet_transaction_wallet_id_created_at", columnList = "wallet_id, created_at")
 })
 public class WalletTransaction {
 

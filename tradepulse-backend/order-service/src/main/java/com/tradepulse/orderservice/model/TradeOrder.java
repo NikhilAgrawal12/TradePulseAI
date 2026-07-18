@@ -20,7 +20,8 @@ import java.util.List;
 @Entity
 @Table(name = "orders", indexes = {
     @Index(name = "idx_order_user_id", columnList = "user_id"),
-    @Index(name = "idx_order_status", columnList = "status")
+    @Index(name = "idx_order_status", columnList = "status"),
+    @Index(name = "idx_order_user_id_created_at", columnList = "user_id, created_at")
 })
 public class TradeOrder {
 

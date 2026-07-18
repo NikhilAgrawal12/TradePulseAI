@@ -105,8 +105,7 @@ public record StockInsightsResponseDTO(
     public record DailyNewsDTO(
             String tradingDate,
             String news,
-            Double sentimentScore,
-            Integer newsCount
+            Double sentimentScore
     ) {
     }
 

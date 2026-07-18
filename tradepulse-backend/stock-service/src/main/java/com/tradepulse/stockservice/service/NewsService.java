@@ -3,6 +3,7 @@ package com.tradepulse.stockservice.service;
 import com.tradepulse.stockservice.model.Stock;
 import com.tradepulse.stockservice.model.StockMarketData;
 import com.tradepulse.stockservice.repository.StockMarketDataRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,22 +11,34 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
 
 @Service
 public class NewsService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
     private static final double EPSILON = 1e-6;
+    private static final int MAX_HEADLINES = 3;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final Set<String> STOP_WORDS = Set.of(
+            "INC", "INC.", "CORP", "CORP.", "CORPORATION", "CO", "CO.", "COMPANY",
+            "LTD", "LTD.", "LIMITED", "PLC", "GROUP", "HOLDINGS", "HOLDING", "CLASS"
+    );
 
     private final RestClient restClient;
     private final StockMarketDataRepository stockMarketDataRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final String apiKey;
     private final String apiBaseUrl;
     private final boolean newsIntegrationEnabled;
@@ -34,9 +47,11 @@ public class NewsService {
             @Value("${massive.api.base-url}") String apiBaseUrl,
             @Value("${massive.api.key:}") String apiKey,
             @Value("${massive.news.integration-enabled:false}") boolean newsIntegrationEnabled,
-            StockMarketDataRepository stockMarketDataRepository) {
+            StockMarketDataRepository stockMarketDataRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.restClient = RestClient.create();
         this.stockMarketDataRepository = stockMarketDataRepository;
+        this.eventPublisher = eventPublisher;
         this.apiKey = apiKey;
         this.apiBaseUrl = apiBaseUrl;
         this.newsIntegrationEnabled = newsIntegrationEnabled;
@@ -64,20 +79,20 @@ public class NewsService {
 
             if (articles.isEmpty()) {
                 log.debug("No news found for {} on {}", symbol, tradingDate);
-                marketData.setNewsCount(0);
                 marketData.setSentimentScore(BigDecimal.ZERO);
                 marketData.setDailyNews(null);
                 stockMarketDataRepository.save(marketData);
+                publishStockUpdate(marketData);
                 return;
             }
 
             SentimentAggregation sentiment = aggregateSentiment(articles);
 
-            marketData.setNewsCount(articles.size());
             marketData.setSentimentScore(new BigDecimal(sentiment.score).setScale(4, java.math.RoundingMode.HALF_UP));
-            marketData.setDailyNews(buildDailyNewsSummary(articles));
+            marketData.setDailyNews(buildDailyNewsSummary(articles, stock));
 
             stockMarketDataRepository.save(marketData);
+            publishStockUpdate(marketData);
             log.info("Updated sentiment for {} on {} (score: {})",
                     symbol, tradingDate, sentiment.score);
         } catch (Exception e) {
@@ -173,6 +188,11 @@ public class NewsService {
         try {
             NewsArticle article = new NewsArticle();
             article.title = node.get("title") != null ? node.get("title").asText() : "";
+            article.url = node.get("article_url") != null ? node.get("article_url").asText(null) : null;
+            JsonNode publisherNode = node.get("publisher");
+            if (publisherNode != null && publisherNode.isObject() && publisherNode.get("name") != null) {
+                article.publisher = publisherNode.get("name").asText(null);
+            }
 
             JsonNode insights = node.get("insights");
             if (insights != null && insights.isArray() && insights.size() > 0) {
@@ -228,28 +248,129 @@ public class NewsService {
         return agg;
     }
 
-    private String buildDailyNewsSummary(List<NewsArticle> articles) {
+    static String buildDailyNewsSummary(List<NewsArticle> articles, Stock stock) {
+        if (articles == null || articles.isEmpty()) {
+            return null;
+        }
+
+        Set<String> preferredKeywords = buildPreferredHeadlineKeywords(stock);
+        List<NewsArticle> selectedArticles = new ArrayList<>(MAX_HEADLINES);
+        Set<String> seenTitles = new LinkedHashSet<>();
+
+        selectHeadlines(articles, selectedArticles, seenTitles,
+                article -> titleMatchesPreferredKeywords(article.title, preferredKeywords));
+        selectHeadlines(articles, selectedArticles, seenTitles, article -> true);
+
+        if (selectedArticles.isEmpty()) {
+            return null;
+        }
+
+        try {
+            List<StoredHeadline> stored = selectedArticles.stream()
+                    .map(article -> new StoredHeadline(article.title.trim(), article.url, article.publisher))
+                    .toList();
+            return OBJECT_MAPPER.writeValueAsString(stored);
+        } catch (Exception ex) {
+            log.debug("Falling back to legacy daily news serialization: {}", ex.getMessage());
+        }
+
+        List<String> selectedTitles = selectedArticles.stream().map(article -> article.title.trim()).toList();
         StringBuilder sb = new StringBuilder();
-        int count = 0;
-        for (NewsArticle article : articles) {
-            if (article.title == null || article.title.isBlank()) {
-                continue;
-            }
-            if (count > 0) {
+        int appendedCount = 0;
+        for (String title : selectedTitles) {
+            if (sb.length() > 0) {
                 sb.append(" | ");
             }
-            sb.append(article.title.trim());
-            count++;
-            if (count >= 3 || sb.length() >= 700) {
+            sb.append(title);
+            appendedCount++;
+            if (appendedCount >= MAX_HEADLINES || sb.length() >= 700) {
                 break;
             }
         }
         return sb.isEmpty() ? null : sb.toString();
     }
 
+    private static void selectHeadlines(
+            List<NewsArticle> articles,
+            List<NewsArticle> selectedArticles,
+            Set<String> seenTitles,
+            Predicate<NewsArticle> selector
+    ) {
+        for (NewsArticle article : articles) {
+            if (selectedArticles.size() >= MAX_HEADLINES) {
+                return;
+            }
+            if (article == null || article.title == null || article.title.isBlank() || !selector.test(article)) {
+                continue;
+            }
+            String normalizedTitle = article.title.trim();
+            String dedupeKey = normalizedTitle.toLowerCase(Locale.ROOT);
+            if (seenTitles.add(dedupeKey)) {
+                selectedArticles.add(article);
+            }
+        }
+    }
+
+    private static Set<String> buildPreferredHeadlineKeywords(Stock stock) {
+        Set<String> keywords = new LinkedHashSet<>();
+        if (stock == null) {
+            return keywords;
+        }
+
+        addKeyword(keywords, stock.getSymbol());
+        if (stock.getName() != null) {
+            for (String token : stock.getName().split("[^A-Za-z0-9]+")) {
+                if (token == null || token.isBlank()) {
+                    continue;
+                }
+                String normalized = token.trim().toUpperCase(Locale.ROOT);
+                if (normalized.length() < 3 || STOP_WORDS.contains(normalized)) {
+                    continue;
+                }
+                keywords.add(normalized.toLowerCase(Locale.ROOT));
+            }
+        }
+        return keywords;
+    }
+
+    private static void addKeyword(Set<String> keywords, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (normalized.length() >= 2) {
+            keywords.add(normalized);
+        }
+    }
+
+    private static boolean titleMatchesPreferredKeywords(String title, Set<String> preferredKeywords) {
+        if (title == null || title.isBlank() || preferredKeywords.isEmpty()) {
+            return false;
+        }
+        String normalizedTitle = title.toLowerCase(Locale.ROOT);
+        for (String keyword : preferredKeywords) {
+            if (normalizedTitle.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void publishStockUpdate(StockMarketData marketData) {
+        if (marketData == null || marketData.getStock() == null || marketData.getStock().getStockId() == null) {
+            return;
+        }
+        eventPublisher.publishEvent(new StockCacheUpdatedEvent(marketData.getStock().getStockId()));
+    }
+
     static class NewsArticle {
         String title;
+        String url;
+        String publisher;
         String sentiment = "neutral";
+    }
+
+    private record StoredHeadline(String headline, String url, String publisher) {
     }
 
     static class SentimentAggregation {

@@ -7,7 +7,6 @@ export type AnalyticsNewsItem = {
   symbol: string;
   tradingDate: string | null;
   news: string | null;
-  newsCount: number | null;
 };
 
 function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {

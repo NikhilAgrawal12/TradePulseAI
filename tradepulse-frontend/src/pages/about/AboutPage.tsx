@@ -11,8 +11,8 @@ const features = [
 	},
 	{
 		icon: "🤖",
-		title: "AI-Powered Predictions",
-		desc: "Our machine learning models analyse market signals to give you clear Buy, Sell, or Hold recommendations.",
+		title: "ML-Powered Predictions",
+		desc: "Our machine learning models analyze market signals and provide Buy, Sell, or Hold predictions.",
 	},
 	{
 		icon: "📊",
@@ -32,25 +32,7 @@ const features = [
 	{
 		icon: "🔔",
 		title: "Smart Alerts",
-		desc: "Set price alerts and AI-trigger notifications so you never miss a critical market move.",
-	},
-];
-
-const roadmap = [
-	{
-		tag: "Coming soon",
-		title: "LLM-Powered Market Assistant",
-		desc: "Ask anything — from earnings breakdowns to portfolio advice — and get natural-language answers powered by a large language model trained on financial data.",
-	},
-	{
-		tag: "Planned",
-		title: "Sentiment Analysis",
-		desc: "Real-time analysis of news headlines and social signals to surface market sentiment alongside technical indicators.",
-	},
-	{
-		tag: "Planned",
-		title: "Automated Strategy Builder",
-		desc: "Define rule-based or AI-assisted trading strategies and back-test them against historical data before going live.",
+		desc: "Get timely updates for market moves, portfolio activity, and important account events.",
 	},
 ];
 
@@ -68,13 +50,11 @@ export function AboutPage() {
 					<div className="about-hero-inner">
 						<span className="about-eyebrow">Who we are</span>
 						<h1>
-							Smarter trading, <br />powered by AI.
+										Smarter trading, <br />built for real investors.
 						</h1>
 						<p className="about-hero-sub">
-							TradePulse is a next-generation investment platform that combines
-							real-time market data, AI-driven predictions, and seamless trade
-							execution — giving every investor an edge once reserved for
-							institutions.
+										TradePulse combines real-time market data, ML-powered predictions,
+										deep stock insights, and seamless order execution in one platform.
 						</p>
 						<div className="about-hero-ctas">
 							<Link to="/registration" className="about-btn-primary">
@@ -94,17 +74,15 @@ export function AboutPage() {
 				<section className="about-mission">
 					<div className="about-mission-text">
 						<span className="about-eyebrow">Our mission</span>
-						<h2>Democratising intelligent investing.</h2>
+						<h2>Make market decisions clearer and faster.</h2>
 						<p>
-							Wall Street has always had access to sophisticated data science and
-							predictive models. We built TradePulse so that retail investors get
-							the same advantage — actionable AI insights, beautiful dashboards, and
-							the ability to act on them instantly without switching apps.
+							We built TradePulse to help users track markets, review insights,
+							manage portfolios, and place trades from a single dashboard.
 						</p>
 						<p>
-							We believe transparent, data-driven decision-making leads to better
-							outcomes. Every recommendation we surface is explainable, auditable,
-							and yours to act on as you see fit.
+							Our focus is practical tools you can use now: live prices, stock
+							insights, ML predictions, wallet and order flows, and portfolio
+							tracking with clear performance visibility.
 						</p>
 					</div>
 					<div className="about-mission-card" aria-hidden="true">
@@ -117,7 +95,7 @@ export function AboutPage() {
 						<div className="mission-pill yellow">
 							HOLD &nbsp;→ &nbsp;MSFT &nbsp;+0.3%
 						</div>
-						<p className="mission-card-label">AI signal feed</p>
+						<p className="mission-card-label">ML signal feed</p>
 					</div>
 				</section>
 
@@ -133,33 +111,6 @@ export function AboutPage() {
 								<span className="feature-icon">{f.icon}</span>
 								<h3>{f.title}</h3>
 								<p>{f.desc}</p>
-							</div>
-						))}
-					</div>
-				</section>
-
-				{/* ── Roadmap ── */}
-				<section className="about-roadmap">
-					<div className="about-section-header">
-						<span className="about-eyebrow">What's next</span>
-						<h2>The future of TradePulse.</h2>
-						<p className="about-section-sub">
-							We're constantly pushing the boundaries of what's possible at the
-							intersection of finance and artificial intelligence.
-						</p>
-					</div>
-					<div className="about-roadmap-list">
-						{roadmap.map((r) => (
-							<div className="about-roadmap-item" key={r.title}>
-								<span
-									className={`roadmap-tag ${
-										r.tag === "Coming soon" ? "tag-soon" : "tag-planned"
-									}`}
-								>
-									{r.tag}
-								</span>
-								<h3>{r.title}</h3>
-								<p>{r.desc}</p>
 							</div>
 						))}
 					</div>

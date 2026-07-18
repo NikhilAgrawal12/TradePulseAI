@@ -21,6 +21,12 @@ type AxisTick = {
   label: string;
 };
 
+type ParsedNewsHeadline = {
+  headline: string;
+  url: string | null;
+  publisher: string | null;
+};
+
 const RANGE_DAYS: Record<RangeKey, number> = {
   "1M": 31,
   "3M": 92,
@@ -57,6 +63,34 @@ function formatDateShort(value: string | null | undefined): string {
   }
   const parsed = parseDisplayDate(value);
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function splitNewsHeadlines(news: string | null | undefined): ParsedNewsHeadline[] {
+  if (!news) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(news) as Array<{ headline?: string; url?: string | null; publisher?: string | null }>;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => ({
+          headline: (item.headline ?? "").trim(),
+          url: item.url?.trim() || null,
+          publisher: item.publisher?.trim() || null,
+        }))
+        .filter((item) => item.headline.length > 0)
+        .slice(0, 3);
+    }
+  } catch {
+    // Fallback to legacy plain-text format.
+  }
+
+  return news
+    .split("|")
+    .map((headline) => ({ headline: headline.trim(), url: null, publisher: null }))
+    .filter((item) => item.headline.length > 0)
+    .slice(0, 3);
 }
 
 function formatMaybeMoney(value: number | null | undefined): string {
@@ -820,7 +854,18 @@ export function StockInsightsPage() {
    const volumeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], volumeRange), [insights?.history, volumeRange]);
    const movingAverageHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], movingAverageRange), [insights?.history, movingAverageRange]);
    const rollingVolatilityHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], rollingVolatilityRange), [insights?.history, rollingVolatilityRange]);
-   const latestNewsItem = insights?.latestNews?.[0] ?? null;
+   const latestNewsHeadlines = useMemo(
+     () =>
+       (insights?.latestNews ?? [])
+         .flatMap((item) =>
+           splitNewsHeadlines(item.news).map((headline) => ({
+             tradingDate: item.tradingDate,
+             ...headline,
+           })),
+         )
+         .slice(0, 3),
+     [insights?.latestNews],
+   );
 
   const summaryTone = (value: number | null | undefined): "positive" | "negative" | undefined => {
     if (value == null) return undefined;
@@ -897,6 +942,41 @@ export function StockInsightsPage() {
                 />
               </MetricSection>
 
+              <MetricSection title="Latest News">
+                {latestNewsHeadlines.length > 0 ? (
+                  <article className="insights-news-featured-card">
+                    <ol className="insights-news-headline-list">
+                      {latestNewsHeadlines.map((item, index) => (
+                        <li key={`${item.tradingDate ?? "na"}-${index}-${item.headline}`}>
+                          <span className="insights-news-rank">{index + 1}</span>
+                          <div>
+                            {item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="insights-news-link"
+                                title={item.headline}
+                              >
+                                {item.headline}
+                              </a>
+                            ) : (
+                              <p className="insights-news-featured-text" title={item.headline}>{item.headline}</p>
+                            )}
+                            <div className="insights-news-meta">
+                              <span className="insights-news-date">{formatDateLabel(item.tradingDate)}</span>
+                              {item.publisher ? <span className="insights-news-publisher">{item.publisher}</span> : null}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </article>
+                ) : (
+                  <p className="insights-empty-state">No news available yet.</p>
+                )}
+              </MetricSection>
+
               <MetricSection title="52-Week Metrics">
                 <MetricGrid
                   items={[
@@ -939,16 +1019,6 @@ export function StockInsightsPage() {
                     { label: "90-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility90Day) },
                   ]}
                 />
-              </MetricSection>
-
-              <MetricSection title="Latest News">
-                {latestNewsItem ? (
-                  <article className="insights-news-featured-card">
-                    <p className="insights-news-featured-text">{latestNewsItem.news ?? "No headline available."}</p>
-                  </article>
-                ) : (
-                  <p className="insights-empty-state">No news available yet.</p>
-                )}
               </MetricSection>
 
               <section className="insights-ml-section-card">

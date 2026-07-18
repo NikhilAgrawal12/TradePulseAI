@@ -95,9 +95,6 @@ public class StockMarketData {
     @Column(name = "sentiment_score", precision = 5, scale = 4)
     private BigDecimal sentimentScore;
 
-    @Column(name = "news_count")
-    private Integer newsCount;
-
     @Column(name = "daily_news", columnDefinition = "TEXT")
     private String dailyNews;
 
@@ -258,13 +255,6 @@ public class StockMarketData {
         this.sentimentScore = sentimentScore;
     }
 
-    public Integer getNewsCount() {
-        return newsCount;
-    }
-
-    public void setNewsCount(Integer newsCount) {
-        this.newsCount = newsCount;
-    }
 
     public String getDailyNews() {
         return dailyNews;

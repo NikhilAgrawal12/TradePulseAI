@@ -30,9 +30,14 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Service
 public class PortfolioService {
+
+    private static final long PORTFOLIO_CACHE_TTL_MS = 30_000;
+    private static final int PORTFOLIO_CACHE_MAX_ENTRIES = 2_000;
 
     private final PortfolioHoldingRepository portfolioHoldingRepository;
     private final PortfolioTransactionRepository portfolioTransactionRepository;
@@ -40,6 +45,7 @@ public class PortfolioService {
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
     private final NotificationKafkaProducer notificationKafkaProducer;
     private final CustomerClient customerClient;
+    private final ConcurrentMap<Long, CachedValue<PortfolioResponseDTO>> portfolioCache = new ConcurrentHashMap<>();
 
     public PortfolioService(
             PortfolioHoldingRepository portfolioHoldingRepository,
@@ -59,6 +65,11 @@ public class PortfolioService {
 
     @Transactional(readOnly = true)
     public PortfolioResponseDTO getPortfolio(Long userId) {
+        PortfolioResponseDTO cached = getFromCache(userId);
+        if (cached != null) {
+            return cached;
+        }
+
         List<PortfolioHolding> holdings = portfolioHoldingRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
         List<PortfolioTransaction> transactions = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(userId);
 
@@ -85,6 +96,7 @@ public class PortfolioService {
         response.setSummary(toSummary(holdingResponses, analytics));
         response.setHoldings(holdingResponses);
         response.setTransactions(transactionResponses);
+        putIntoCache(userId, response);
         return response;
     }
 
@@ -108,6 +120,7 @@ public class PortfolioService {
             portfolioTransactionRepository.save(PortfolioMapper.toBuyTransaction(userId, item));
         }
 
+        evictPortfolioCache(userId);
         return getPortfolio(userId);
     }
 
@@ -179,7 +192,52 @@ public class PortfolioService {
                 settlementAmount
         ));
 
+        evictPortfolioCache(userId);
         return getPortfolio(userId);
+    }
+
+    private PortfolioResponseDTO getFromCache(Long userId) {
+        CachedValue<PortfolioResponseDTO> cached = portfolioCache.get(userId);
+        if (cached == null) {
+            return null;
+        }
+        if (cached.expiresAtEpochMs() < System.currentTimeMillis()) {
+            portfolioCache.remove(userId, cached);
+            return null;
+        }
+        return cached.value();
+    }
+
+    private void putIntoCache(Long userId, PortfolioResponseDTO value) {
+        evictExpiredEntries();
+        if (portfolioCache.size() >= PORTFOLIO_CACHE_MAX_ENTRIES) {
+            evictOldestEntry();
+        }
+        portfolioCache.put(userId, new CachedValue<>(value, System.currentTimeMillis() + PORTFOLIO_CACHE_TTL_MS));
+    }
+
+    private void evictPortfolioCache(Long userId) {
+        portfolioCache.remove(userId);
+    }
+
+    private void evictExpiredEntries() {
+        long now = System.currentTimeMillis();
+        portfolioCache.entrySet().removeIf(entry -> entry.getValue().expiresAtEpochMs() < now);
+    }
+
+    private void evictOldestEntry() {
+        Long oldestKey = null;
+        long oldestTimestamp = Long.MAX_VALUE;
+        for (Map.Entry<Long, CachedValue<PortfolioResponseDTO>> entry : portfolioCache.entrySet()) {
+            long createdAt = entry.getValue().createdAtEpochMs();
+            if (createdAt < oldestTimestamp) {
+                oldestTimestamp = createdAt;
+                oldestKey = entry.getKey();
+            }
+        }
+        if (oldestKey != null) {
+            portfolioCache.remove(oldestKey);
+        }
     }
 
     private void validateRecordCompletedOrderRequest(Long userId, RecordPortfolioOrderRequestDTO request) {
@@ -302,6 +360,12 @@ public class PortfolioService {
                 action.run();
             }
         });
+    }
+
+    private record CachedValue<T>(T value, long expiresAtEpochMs, long createdAtEpochMs) {
+        private CachedValue(T value, long expiresAtEpochMs) {
+            this(value, expiresAtEpochMs, System.currentTimeMillis());
+        }
     }
 }
 

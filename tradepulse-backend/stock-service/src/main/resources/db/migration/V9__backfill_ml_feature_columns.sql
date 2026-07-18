@@ -117,8 +117,6 @@ WHERE d.stock_id = subq.stock_id
 
 -- Backfill sentiment defaults for rows with no news data yet
 UPDATE stock_daily_ohlc
-SET
-    sentiment_score = 0.0000,
-    news_count = 0
-WHERE sentiment_score IS NULL OR news_count IS NULL;
+SET sentiment_score = 0.0000
+WHERE sentiment_score IS NULL;
 

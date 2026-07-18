@@ -59,7 +59,6 @@ NUMERIC_FEATURES = [
     "macd_signal",
     # News
     "sentiment_score",
-    "news_count",
 ]
 CATEGORICAL_FEATURES: list[str] = []
 
@@ -103,15 +102,12 @@ def _engineer_features(
 
     if "sentiment_score" not in data.columns:
         data["sentiment_score"] = 0.0
-    if "news_count" not in data.columns:
-        data["news_count"] = 0.0
     # Backfill stored technical columns if absent (e.g. in unit tests)
     for col in ["return_5d", "momentum_20d", "rsi_14", "macd", "macd_signal"]:
         if col not in data.columns:
             data[col] = np.nan
 
     data["sentiment_score"] = data["sentiment_score"].fillna(0.0)
-    data["news_count"] = data["news_count"].fillna(0.0)
 
     grouped = data.groupby("stock_id", group_keys=False)
 
@@ -209,9 +205,19 @@ def _get_probability_columns(estimator: Any, probabilities: np.ndarray) -> tuple
 
 
 def _derive_action(probability_sell: float, probability_buy: float, decision_threshold: float) -> tuple[str, float]:
-    if probability_buy >= decision_threshold:
+    buy_clears_threshold = probability_buy >= decision_threshold
+    sell_clears_threshold = probability_sell >= decision_threshold
+
+    if buy_clears_threshold and sell_clears_threshold:
+        if probability_buy > probability_sell:
+            return ACTION_BUY, probability_buy
+        if probability_sell > probability_buy:
+            return ACTION_SELL, probability_sell
+        return ACTION_HOLD, probability_buy
+
+    if buy_clears_threshold:
         return ACTION_BUY, probability_buy
-    if probability_sell >= decision_threshold:
+    if sell_clears_threshold:
         return ACTION_SELL, probability_sell
     return ACTION_HOLD, max(probability_buy, probability_sell)
 

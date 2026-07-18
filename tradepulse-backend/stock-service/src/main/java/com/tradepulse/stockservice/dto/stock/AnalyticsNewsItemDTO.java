@@ -5,8 +5,7 @@ public record AnalyticsNewsItemDTO(
         String symbol,
         String tradingDate,
         String news,
-        Double sentimentScore,
-        Integer newsCount
+        Double sentimentScore
 ) {
 }
 

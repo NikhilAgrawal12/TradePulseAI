@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,7 +102,11 @@ public class FeaturedStockSSEService {
         } catch (IOException ex) {
             emitters.remove(emitter);
             emitterSearchTerms.remove(emitterId);
-            log.debug("Failed to send initial cached data to new client: {}", ex.getMessage());
+            log.warn("Failed to send initial cached data to new client (IO error): {}", ex.getMessage());
+        } catch (Exception ex) {
+            emitters.remove(emitter);
+            emitterSearchTerms.remove(emitterId);
+            log.warn("Failed to send initial cached data to new client (general error): {}", ex.getMessage(), ex);
         }
 
         log.debug("New SSE client subscribed. Total emitters: {}", emitters.size());
@@ -114,27 +119,41 @@ public class FeaturedStockSSEService {
      */
     private void sendInitialCachedData(SseEmitter emitter, String searchTerm) throws IOException {
         Map<Long, AllStocksLastValueCache> realtimeByStockId = new HashMap<>();
-        allStocksLastValueCacheService.getCacheSnapshotValues()
-                .forEach(entry -> realtimeByStockId.put(entry.getStock().getStockId(), entry));
+        try {
+            allStocksLastValueCacheService.getCacheSnapshotValues()
+                    .forEach(entry -> realtimeByStockId.put(entry.getStock().getStockId(), entry));
+        } catch (Exception ex) {
+            log.debug("Failed to get realtime cache snapshot: {}", ex.getMessage());
+        }
 
         Map<Long, StockMarketData> latestByStockId = new HashMap<>();
         if (realtimeByStockId.isEmpty()) {
-            stockMarketDataRepository.findLatestForAllStocks()
-                    .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
+            try {
+                stockMarketDataRepository.findLatestForAllStocks()
+                        .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
+            } catch (Exception ex) {
+                log.debug("Failed to query latest stock market data: {}", ex.getMessage());
+            }
         }
 
-        List<StockResponseDTO> initialData = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
-                .stream()
-                .limit(50)
-                .map(cache -> {
-                    AllStocksLastValueCache realtime = realtimeByStockId.get(cache.getStock().getStockId());
-                    if (realtime != null) {
-                        return StockMapper.toDTO(realtime);
-                    }
-                    StockMarketData latestData = latestByStockId.get(cache.getStock().getStockId());
-                    return StockMapper.toDTO(cache.getStock(), latestData);
-                })
-                .toList();
+        List<StockResponseDTO> initialData;
+        try {
+            initialData = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
+                    .stream()
+                    .limit(50)
+                    .map(cache -> {
+                        AllStocksLastValueCache realtime = realtimeByStockId.get(cache.getStock().getStockId());
+                        if (realtime != null) {
+                            return StockMapper.toDTO(realtime);
+                        }
+                        StockMarketData latestData = latestByStockId.get(cache.getStock().getStockId());
+                        return StockMapper.toDTO(cache.getStock(), latestData);
+                    })
+                    .toList();
+        } catch (Exception ex) {
+            log.debug("Failed to query featured stocks cache: {}", ex.getMessage());
+            initialData = new ArrayList<>();
+        }
 
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
             String normalizedSearch = searchTerm.trim().toLowerCase();

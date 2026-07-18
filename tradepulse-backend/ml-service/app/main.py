@@ -11,7 +11,15 @@ import joblib
 from fastapi import FastAPI, HTTPException
 
 from app.data import StockDataRepository
-from app.ml_pipeline import ACTION_THRESHOLD, FIXED_RETURN_THRESHOLD, build_prediction_row, predict_action, train_and_select_model
+from app.ml_pipeline import (
+    ACTION_THRESHOLD,
+    CATEGORICAL_FEATURES,
+    FIXED_RETURN_THRESHOLD,
+    NUMERIC_FEATURES,
+    build_prediction_row,
+    predict_action,
+    train_and_select_model,
+)
 from app.schemas import PredictionResponse, TrainRequest, TrainResponse
 from app.settings import settings
 
@@ -37,6 +45,27 @@ scheduler_thread: Thread | None = None
 startup_training_thread: Thread | None = None
 
 
+def _expected_feature_names() -> list[str]:
+    return [*NUMERIC_FEATURES, *CATEGORICAL_FEATURES]
+
+
+def _extract_artifact_feature_names(artifact: dict[str, Any]) -> list[str] | None:
+    saved_feature_names = artifact.get("feature_names")
+    if isinstance(saved_feature_names, list) and all(isinstance(name, str) for name in saved_feature_names):
+        return saved_feature_names
+
+    estimator = artifact.get("estimator")
+    if estimator is None or not hasattr(estimator, "named_steps"):
+        return None
+
+    preprocessor = estimator.named_steps.get("preprocessor")
+    feature_names_in = getattr(preprocessor, "feature_names_in_", None)
+    if feature_names_in is None:
+        return None
+
+    return [str(name) for name in feature_names_in.tolist()]
+
+
 def _persist_trained_model(trained: Any) -> None:
 
     artifact = {
@@ -47,6 +76,7 @@ def _persist_trained_model(trained: Any) -> None:
         "positive_return_threshold": trained.positive_return_threshold,
         "neutral_return_band": float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band)),
         "decision_threshold": trained.decision_threshold,
+        "feature_names": _expected_feature_names(),
     }
     _save_model_to_disk(artifact)
 
@@ -144,6 +174,24 @@ def _load_model_from_disk() -> bool:
         return False
 
     artifact = joblib.load(model_file)
+    artifact_feature_names = _extract_artifact_feature_names(artifact)
+    expected_feature_names = _expected_feature_names()
+    if artifact_feature_names != expected_feature_names:
+        state["estimator"] = None
+        state["model_name"] = None
+        state["model_version"] = None
+        state["horizon_days"] = None
+        state["positive_return_threshold"] = None
+        state["neutral_return_band"] = None
+        state["decision_threshold"] = ACTION_THRESHOLD
+        state["training_status"] = "artifact_incompatible"
+        state["training_error"] = (
+            "Saved model features do not match current ML feature set. "
+            f"Expected {expected_feature_names!r}, got {artifact_feature_names!r}."
+        )
+        logger.warning("Ignoring incompatible saved ML model at %s", model_file)
+        return False
+
     state["estimator"] = artifact["estimator"]
     state["model_name"] = artifact["model_name"]
     state["model_version"] = artifact["model_version"]
@@ -254,23 +302,9 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         decision_threshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
     )
 
-    symbol = str(prediction_row.iloc[0]["symbol"])
-    repository.save_prediction(
-        {
-            "model_version": state["model_version"],
-            "stock_id": stock_id,
-            "symbol": symbol,
-            "action": signal["action"],
-            "confidence": signal["confidence"],
-            "probability_buy": signal["probability_buy"],
-            "probability_sell": signal["probability_sell"],
-            "horizon_days": int(state["horizon_days"]),
-        }
-    )
-
     return PredictionResponse(
         stockId=stock_id,
-        symbol=symbol,
+        symbol=str(prediction_row.iloc[0]["symbol"]),
         action=signal["action"],
         confidence=signal["confidence"],
         probabilityBuy=signal["probability_buy"],

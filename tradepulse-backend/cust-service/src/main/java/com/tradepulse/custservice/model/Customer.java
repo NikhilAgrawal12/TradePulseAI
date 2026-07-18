@@ -7,7 +7,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "customer")
+@Table(name = "customer", indexes = {
+    @Index(name = "idx_customer_user_id", columnList = "user_id")
+})
 public class Customer {
 
     @Id

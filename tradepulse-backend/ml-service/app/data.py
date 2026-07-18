@@ -45,35 +45,18 @@ class StockDataRepository:
                         model_rank INTEGER NOT NULL,
                         is_selected BOOLEAN NOT NULL DEFAULT FALSE,
                         cv_f1 DOUBLE PRECISION NOT NULL,
-                         test_f1 DOUBLE PRECISION NOT NULL,
-                         test_balanced_accuracy DOUBLE PRECISION NOT NULL,
-                         test_precision DOUBLE PRECISION,
-                         test_recall DOUBLE PRECISION,
-                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                         UNIQUE (model_version, model_name)
-                     )
-                    """
-                )
-            )
-
-            connection.execute(
-                text(
-                    """
-                    CREATE TABLE IF NOT EXISTS ml_predictions (
-                        prediction_id BIGSERIAL PRIMARY KEY,
-                        model_version VARCHAR(64) NOT NULL,
-                        stock_id BIGINT NOT NULL,
-                        symbol VARCHAR(20) NOT NULL,
-                        action VARCHAR(20) NOT NULL,
-                        confidence DOUBLE PRECISION NOT NULL,
-                        probability_buy DOUBLE PRECISION NOT NULL,
-                        probability_sell DOUBLE PRECISION NOT NULL,
-                        horizon_days INTEGER NOT NULL,
-                        generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                        test_f1 DOUBLE PRECISION NOT NULL,
+                        test_balanced_accuracy DOUBLE PRECISION NOT NULL,
+                        test_precision DOUBLE PRECISION,
+                        test_recall DOUBLE PRECISION,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        UNIQUE (model_version, model_name)
                     )
                     """
                 )
             )
+
+            connection.execute(text("DROP TABLE IF EXISTS ml_predictions"))
 
     def fetch_training_data(self, days_back: int, max_training_stocks: int, max_training_rows: int) -> pd.DataFrame:
         query = text(
@@ -108,8 +91,7 @@ class StockDataRepository:
                 d.rsi_14,
                 d.macd,
                 d.macd_signal,
-                d.sentiment_score,
-                d.news_count
+                d.sentiment_score
             FROM stock_daily_ohlc d
             JOIN ranked_stocks rs ON rs.stock_id = d.stock_id
             WHERE d.trading_date >= CURRENT_DATE - make_interval(days => :days_back)
@@ -131,7 +113,7 @@ class StockDataRepository:
     def fetch_latest_stock_row(self, stock_id: int) -> pd.DataFrame:
         """Fetch only the single most-recent trading row for a stock.
 
-        All 18 ML features are pre-stored in the table, so prediction
+        All ML features are pre-stored in the table, so prediction
         needs exactly 1 row — no rolling computation required.
         """
         query = text(
@@ -157,8 +139,7 @@ class StockDataRepository:
                 d.rsi_14,
                 d.macd,
                 d.macd_signal,
-                d.sentiment_score,
-                d.news_count
+                d.sentiment_score
             FROM stock_daily_ohlc d
             JOIN stocks s ON s.stock_id = d.stock_id
             WHERE d.stock_id = :stock_id
@@ -311,37 +292,3 @@ class StockDataRepository:
             "test_recall": float(row["test_recall"]) if pd.notna(row["test_recall"]) else None,
         }
 
-    def save_prediction(self, payload: dict[str, Any]) -> None:
-        with self._engine.begin() as connection:
-            connection.execute(
-                text(
-                    """
-                    INSERT INTO ml_predictions (
-                        model_version,
-                        stock_id,
-                        symbol,
-                        action,
-                        confidence,
-                        probability_buy,
-                        probability_sell,
-                        horizon_days,
-                        generated_at
-                    )
-                    VALUES (
-                        :model_version,
-                        :stock_id,
-                        :symbol,
-                        :action,
-                        :confidence,
-                        :probability_buy,
-                        :probability_sell,
-                        :horizon_days,
-                        :generated_at
-                    )
-                    """
-                ),
-                {
-                    **payload,
-                    "generated_at": datetime.now(timezone.utc),
-                },
-            )

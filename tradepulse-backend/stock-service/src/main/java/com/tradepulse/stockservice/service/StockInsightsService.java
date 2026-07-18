@@ -10,6 +10,7 @@ import com.tradepulse.stockservice.model.StockMetrics;
 import com.tradepulse.stockservice.repository.StockMarketDataRepository;
 import com.tradepulse.stockservice.repository.StockMetricsRepository;
 import com.tradepulse.stockservice.repository.StockRepository;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 @Service
@@ -29,11 +32,14 @@ public class StockInsightsService {
     private static final int HISTORY_LOOKBACK_ROWS = 1100; // 730-day training window + warmup buffer
     private static final MathContext MATH_CONTEXT = new MathContext(12, RoundingMode.HALF_UP);
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
+    private static final long INSIGHTS_CACHE_TTL_MS = 30_000;
+    private static final int INSIGHTS_CACHE_MAX_ENTRIES = 1_000;
 
     private final StockRepository stockRepository;
     private final StockMarketDataRepository stockMarketDataRepository;
     private final StockMetricsRepository stockMetricsRepository;
     private final AllStocksLastValueCacheService allStocksLastValueCacheService;
+    private final ConcurrentMap<Long, CachedValue<StockInsightsResponseDTO>> insightsCache = new ConcurrentHashMap<>();
 
     public StockInsightsService(
             StockRepository stockRepository,
@@ -48,6 +54,11 @@ public class StockInsightsService {
     }
 
     public StockInsightsResponseDTO getInsights(Long stockId) {
+        StockInsightsResponseDTO cached = getFromCache(insightsCache, stockId);
+        if (cached != null) {
+            return cached;
+        }
+
         Stock stock = stockRepository.findById(stockId)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with id: " + stockId));
 
@@ -114,7 +125,7 @@ public class StockInsightsService {
         List<StockInsightsResponseDTO.MonthlyReturnHeatmapCellDTO> monthlyReturnsHeatmap = resolveMonthlyReturnsHeatmap(metrics);
         List<StockInsightsResponseDTO.StockHistoryPointDTO> historyPoints = buildHistoryPoints(historyAsc);
 
-        return new StockInsightsResponseDTO(
+        StockInsightsResponseDTO response = new StockInsightsResponseDTO(
                 String.valueOf(stock.getStockId()),
                 stock.getSymbol(),
                 stock.getName(),
@@ -183,6 +194,8 @@ public class StockInsightsService {
                 monthlyReturnsHeatmap,
                 historyPoints
         );
+        putIntoCache(insightsCache, stockId, response, INSIGHTS_CACHE_TTL_MS, INSIGHTS_CACHE_MAX_ENTRIES);
+        return response;
     }
 
     public List<AnalyticsNewsItemDTO> getLatestMarketNews(int limit) {
@@ -200,11 +213,65 @@ public class StockInsightsService {
                     row.getStock().getSymbol(),
                     row.getTradingDate() == null ? null : row.getTradingDate().toString(),
                     row.getDailyNews(),
-                    toDouble(row.getSentimentScore()),
-                    row.getNewsCount()
+                    toDouble(row.getSentimentScore())
             ));
         }
         return response;
+    }
+
+    @EventListener
+    public void onStockCacheUpdated(StockCacheUpdatedEvent event) {
+        if (event == null || event.stockId() == null) {
+            insightsCache.clear();
+            return;
+        }
+        insightsCache.remove(event.stockId());
+    }
+
+    private <K, V> V getFromCache(ConcurrentMap<K, CachedValue<V>> cache, K key) {
+        CachedValue<V> cached = cache.get(key);
+        if (cached == null) {
+            return null;
+        }
+        if (cached.expiresAtEpochMs() < System.currentTimeMillis()) {
+            cache.remove(key, cached);
+            return null;
+        }
+        return cached.value();
+    }
+
+    private <K, V> void putIntoCache(
+            ConcurrentMap<K, CachedValue<V>> cache,
+            K key,
+            V value,
+            long ttlMs,
+            int maxEntries
+    ) {
+        evictExpiredEntries(cache);
+        if (cache.size() >= maxEntries) {
+            evictOldestEntry(cache);
+        }
+        cache.put(key, new CachedValue<>(value, System.currentTimeMillis() + ttlMs));
+    }
+
+    private <K, V> void evictExpiredEntries(ConcurrentMap<K, CachedValue<V>> cache) {
+        long now = System.currentTimeMillis();
+        cache.entrySet().removeIf(entry -> entry.getValue().expiresAtEpochMs() < now);
+    }
+
+    private <K, V> void evictOldestEntry(ConcurrentMap<K, CachedValue<V>> cache) {
+        K oldestKey = null;
+        long oldestTimestamp = Long.MAX_VALUE;
+        for (Map.Entry<K, CachedValue<V>> entry : cache.entrySet()) {
+            long createdAt = entry.getValue().createdAtEpochMs();
+            if (createdAt < oldestTimestamp) {
+                oldestTimestamp = createdAt;
+                oldestKey = entry.getKey();
+            }
+        }
+        if (oldestKey != null) {
+            cache.remove(oldestKey);
+        }
     }
 
     private String resolveExchange(Stock stock) {
@@ -289,8 +356,7 @@ public class StockInsightsService {
             rows.add(new StockInsightsResponseDTO.DailyNewsDTO(
                     point.getTradingDate() == null ? null : point.getTradingDate().toString(),
                     point.getDailyNews(),
-                    toDouble(point.getSentimentScore()),
-                    point.getNewsCount()
+                    toDouble(point.getSentimentScore())
             ));
             if (rows.size() >= 5) {
                 break;
@@ -372,6 +438,12 @@ public class StockInsightsService {
 
 
     private record DrawdownSummary(BigDecimal maxDrawdown, LocalDate peakDate, LocalDate troughDate) {
+    }
+
+    private record CachedValue<T>(T value, long expiresAtEpochMs, long createdAtEpochMs) {
+        private CachedValue(T value, long expiresAtEpochMs) {
+            this(value, expiresAtEpochMs, System.currentTimeMillis());
+        }
     }
 
 }

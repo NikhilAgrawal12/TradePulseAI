@@ -95,8 +95,8 @@ ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS macd_signal     NUMERIC(12
 
 -- Ensure sentiment columns exist
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sentiment_score NUMERIC(5, 4);
-ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS news_count      INT DEFAULT 0;
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS daily_news      TEXT;
+ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS news_count;
 
 -- -----------------------------------------------------------------------
 -- Backfill newly added technical indicator columns for ALL existing rows.
@@ -205,7 +205,4 @@ UPDATE stock_daily_ohlc
 SET sentiment_score = 0.0000
 WHERE sentiment_score IS NULL;
 
-UPDATE stock_daily_ohlc
-SET news_count = 0
-WHERE news_count IS NULL;
 

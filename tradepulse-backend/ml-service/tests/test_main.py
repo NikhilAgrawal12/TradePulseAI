@@ -202,3 +202,74 @@ def test_persist_trained_model_saves_candidate_metrics(monkeypatch) -> None:
     assert len(candidate_payload["metrics"]) == 2
 
 
+def test_load_model_from_disk_rejects_incompatible_feature_set(monkeypatch) -> None:
+    _reset_state()
+
+    class FakePath:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def exists(self) -> bool:
+            return True
+
+    monkeypatch.setattr(main, "Path", FakePath)
+    monkeypatch.setattr(
+        main.joblib,
+        "load",
+        lambda _path: {
+            "estimator": object(),
+            "model_name": "xgboost",
+            "model_version": "v20260718000000",
+            "horizon_days": 5,
+            "positive_return_threshold": 0.015,
+            "neutral_return_band": 0.015,
+            "decision_threshold": 0.55,
+            "feature_names": [*main.NUMERIC_FEATURES, "news_count"],
+        },
+    )
+
+    loaded = main._load_model_from_disk()
+
+    assert loaded is False
+    assert main.state["estimator"] is None
+    assert main.state["training_status"] == "artifact_incompatible"
+    assert "Saved model features do not match current ML feature set" in str(main.state["training_error"])
+
+
+def test_startup_retrains_when_saved_artifact_is_incompatible(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "settings", SimpleNamespace(
+        train_on_startup=True,
+        retrain_interval_hours=0,
+        default_days_back=730,
+        default_horizon_days=5,
+        default_positive_return_threshold=0.0,
+        default_neutral_return_band=0.015,
+        max_training_stocks=100,
+        max_training_rows=100000,
+        model_path="/tmp/tradepulse_model.joblib",
+    ))
+    monkeypatch.setattr(main.repository, "initialize_tables", lambda: None)
+    monkeypatch.setattr(main, "_load_model_from_disk", lambda: False)
+
+    created_threads: list[object] = []
+
+    class FakeThread:
+        def __init__(self, target=None, daemon=None, name=None):
+            self.target = target
+            self.daemon = daemon
+            self.name = name
+            created_threads.append(self)
+
+        def start(self):
+            return None
+
+    monkeypatch.setattr(main, "Thread", FakeThread)
+
+    main.startup()
+
+    assert main.state["training_status"] == "training"
+    assert len(created_threads) == 1
+
+
