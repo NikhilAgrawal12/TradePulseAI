@@ -127,7 +127,7 @@ TradePulse includes **12 comprehensive documentation files** covering every aspe
 - Individual service responsibilities
 - External REST shapes
 - Internal dependencies
-- Service overview (7 services)
+- Service overview (9 services)
 - Service ports and communication
 
 **`FRONTEND_ARCHITECTURE.md`**

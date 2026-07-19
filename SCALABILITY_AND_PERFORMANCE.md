@@ -506,11 +506,13 @@ TradePulse is designed for Kubernetes:
 deployment.yaml:
 ├── api-gateway: 3-10 replicas
 ├── auth-service: 2-5 replicas
+├── cust-service: 2-5 replicas
 ├── stock-service: 3-10 replicas (high CPU)
 ├── order-service: 2-5 replicas
 ├── payment-service: 3-8 replicas
-├── analytics-service: 1-3 replicas
 ├── portfolio-service: 2-5 replicas
+├── notification-service: 1-3 replicas
+├── ml-service: 1-2 replicas (CPU/GPU profile dependent)
 
 services.yaml:
 ├── ClusterIP for internal communication

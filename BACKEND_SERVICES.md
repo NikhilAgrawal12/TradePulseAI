@@ -98,3 +98,13 @@ This document summarizes the live responsibilities of each backend service in th
 - model training and retraining
 - prediction endpoints / internal ML APIs
 - reads from stock-service database
+
+## notification-service
+
+### Main responsibilities
+
+- consumes Kafka topic `tradepulse.notifications`
+- resolves user email via auth-service lookup
+- sends email notifications for account, order, and wallet lifecycle events
+- runs as an asynchronous background consumer (no frontend-facing REST routes)
+

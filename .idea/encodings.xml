@@ -8,6 +8,14 @@
     <file url="file://$PROJECT_DIR$/gate/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/gateway/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/test-module2/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/api-gateway/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/auth-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/cust-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/notification-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/order-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/payment-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/portfolio-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/tradepulse-backend/stock-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/tradepulseai-backend/analytics-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/tradepulseai-backend/api-gateway/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/tradepulseai-backend/auth-service/src/main/java" charset="UTF-8" />

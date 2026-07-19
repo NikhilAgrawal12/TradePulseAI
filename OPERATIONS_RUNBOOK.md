@@ -21,8 +21,10 @@ This runbook is for running, checking, and supporting TradePulse in local or ear
 - cust-service
 - order-service
 - payment-service
+- portfolio-service
 - stock-service
-- analytics-service
+- notification-service
+- ml-service
 - frontend dev/build artifact
 
 ## 2. Critical environment variables
@@ -130,7 +132,9 @@ Swap `stock-service` with:
 - `cust-service`
 - `order-service`
 - `payment-service`
-- `analytics-service`
+- `portfolio-service`
+- `notification-service`
+- `ml-service`
 
 ## 6. Incident hints by symptom
 
@@ -155,14 +159,14 @@ Check:
 - order-service logs first
 - payment-service gRPC availability
 - stock-service gRPC availability
-- customer-service gRPC availability
+- portfolio-service gRPC availability
 - wallet balance and quote-lock behavior
 
 ### Portfolio looks stale or incomplete
 
 Check:
 - whether order completion succeeded fully
-- customer-service portfolio sync logs
+- portfolio-service sync logs
 - stock-service quote fetch behavior used in portfolio reads
 
 ### Home page shows no stocks
@@ -213,7 +217,8 @@ The codebase is workable, but these should still be planned:
 - formal migration tooling instead of relying on schema auto-update
 - resilient retry/circuit-breaker strategy for internal service calls
 - more exhaustive automated test suites
-- analytics-service evolution beyond basic event logging
+- notification-service template/channel expansion
+- ML monitoring and retraining governance
 
 ## 10. Support rule of thumb
 

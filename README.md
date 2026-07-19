@@ -1,12 +1,13 @@
 # TradePulse
 
-TradePulse is a production-grade stock trading simulation platform built with Spring Boot microservices, React + TypeScript, and a comprehensive infrastructure stack. It covers authentication, stock market data, watchlists, cart, wallet, checkout, order history, and portfolio management.
+TradePulse is a production-grade stock trading simulation platform built with Spring Boot microservices, React + TypeScript, and a comprehensive infrastructure stack. It covers authentication, stock market data, watchlists, cart, wallet, checkout, order history, portfolio management, and ML-driven trade signal generation.
 
 ---
 
 ## What Makes This Project Interesting
 
-- **7 independent Spring Boot microservices** with clear domain ownership
+- **8 independent Spring Boot microservices + 1 Python ML service** with clear domain ownership
+- **Dedicated Python ML service** (FastAPI) for scheduled training and on-demand prediction serving
 - **Real-time market data** streamed from Massive WebSocket API → SSE → UI
 - **Distributed transaction orchestration** using the Saga pattern (no 2PC)
 - **API Gateway security** — JWT validated at the edge, trusted `X-User-Id` injected for all downstream services
@@ -41,9 +42,9 @@ TradePulse/
 │   ├── stock-service (4003)
 │   ├── order-service (4006)
 │   ├── payment-service (4001)
-│   ├── portfolio-service
-│   ├── analytics-service (4002)
-│   ├── ml-service
+│   ├── portfolio-service (4007)
+│   ├── notification-service (4008)
+│   ├── ml-service (4010)
 │   └── docker-compose.persistent.yml
 │
 └── tradepulse-frontend/
@@ -94,9 +95,13 @@ TradePulse/
 - Market-session-aware sell operations
 - Portfolio sync after successful checkout
 
-### Analytics
-- Customer lifecycle events published to Kafka (Protobuf)
-- Analytics service consuming and processing events
+### Events & ML
+- Domain notification events published to Kafka topic `tradepulse.notifications`
+- Notification service consuming events and sending email notifications
+- ML service (`tradepulse-backend/ml-service`) with:
+  - `POST /v1/train` for model training
+  - `GET /v1/predictions/{stock_id}` for signal inference
+  - Startup + scheduled retraining support
 
 ---
 
@@ -124,6 +129,7 @@ Full setup details in `QUICK_START.md`.
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Java 21, Spring Boot 3.x, Spring Security, Spring Cloud Gateway |
+| **ML Service** | Python, FastAPI, scikit-learn, XGBoost, TensorFlow, statsmodels |
 | **Data Access** | Spring Data JPA, Hibernate, PostgreSQL |
 | **Messaging** | Apache Kafka, Protobuf |
 | **RPC** | gRPC with Protocol Buffers |
@@ -140,22 +146,28 @@ See `TECH_STACK.md` for the full breakdown.
 
 ```
 React Frontend
-    │ HTTP / SSE
-    ▼
-API Gateway (4004) — JWT validation, X-User-Id injection
-    │
-    ├── Auth Service (4005)      ← users, JWT
-    ├── Customer Service (4000)  ← profiles, watchlists
-    ├── Stock Service (4003)     ← catalog, SSE, insights
-    ├── Order Service (4006)     ← cart, orders, orchestration
-    └── Payment Service (4001)  ← wallets, transactions
+    | HTTP / SSE
+    v
+API Gateway (4004) - JWT validation, X-User-Id injection
+    |
+    +-- Auth Service (4005)      <- users, JWT
+    +-- Customer Service (4000)  <- profiles, watchlists
+    +-- Stock Service (4003)     <- catalog, SSE, insights
+    +-- Order Service (4006)     <- cart, orders, orchestration
+    +-- Payment Service (4001)   <- wallets, transactions
+    +-- Portfolio Service (4007) <- holdings and PnL
+    +-- Notification Service (4008) <- Kafka email notifications
 
 Order Service gRPC:
-    → Payment Service (9002)    ← complete payment
-    → Stock Service (9003)      ← fresh quote
-    → Portfolio Service (9004)  ← sync holdings
+    -> Payment Service (9002)    <- complete payment
+    -> Stock Service (9003)      <- fresh quote
+    -> Portfolio Service (9005)  <- sync holdings
 
-Customer Service → Kafka → Analytics Service
+ML flow:
+    Stock Service DB -> ML Service (4010) training data
+    ML Service -> prediction endpoints for downstream consumers
+
+Customer / Order / Payment / Portfolio -> Kafka -> Notification Service
 ```
 
 See `ARCHITECTURE.md` for full diagrams and flow descriptions.
@@ -190,6 +202,7 @@ See `ARCHITECTURE.md` for full diagrams and flow descriptions.
 | `PROJECT_HIGHLIGHTS.md` | Skills, patterns, and feature completeness overview |
 | `OPERATIONS_RUNBOOK.md` | Env vars, deployment, health checks, troubleshooting |
 | `DOCUMENTATION_INDEX.md` | Reading paths by role and topic cross-references |
+| `tradepulse-backend/ml-service/README.md` | ML service API, env vars, local run, retraining behavior |
 
 ---
 
@@ -213,8 +226,8 @@ gRPC provides typed contracts via Protocol Buffers, lower latency than REST for 
 
 | Metric | Value |
 |--------|-------|
-| Backend services | 7 |
-| PostgreSQL databases | 5 |
+| Backend services | 9 |
+| PostgreSQL databases | 6 |
 | REST endpoints | 40+ |
 | Frontend routes | 12 |
 | Context providers | 5 |
@@ -225,7 +238,8 @@ gRPC provides typed contracts via Protocol Buffers, lower latency than REST for 
 
 ## Future Enhancements
 
-- Machine learning stock recommendations (ml-service foundation in place)
+- Expand ML model governance (artifact versioning policy, model registry promotion workflow)
+- Add model monitoring (data drift, prediction drift, confidence distribution alerts)
 - Advanced observability: Prometheus, Grafana, distributed tracing
 - Secrets management: HashiCorp Vault
 - Outbox pattern for at-least-once event delivery guarantees

@@ -92,6 +92,12 @@ Routed through gateway to auth-service.
 - `GET /api/wallet/transactions`
 - `GET /api/wallet/transactions/paged`
 
+### ML routes (internal/service-to-service)
+
+- Served by `ml-service` (FastAPI)
+- `POST /v1/train`
+- `GET /v1/predictions/{stock_id}`
+
 ## 3. SSE endpoints
 
 ### Featured stocks stream
@@ -149,9 +155,11 @@ Purpose:
 
 ## 5. Kafka event contract
 
-There is also protobuf usage outside gRPC:
+There is also protobuf/JSON event usage outside gRPC:
 
-- customer-service publishes customer events to Kafka topic `customer`
+- customer-service, order-service, payment-service, and portfolio-service publish notification events to Kafka topic `tradepulse.notifications`
+- `notification-service` consumes `tradepulse.notifications` and sends email notifications
+- `notification-service` does not expose frontend-facing REST routes in the current design
 
 Important note:
 - `customer_event.proto` is protobuf-based messaging, not a gRPC API

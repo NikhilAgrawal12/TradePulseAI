@@ -19,14 +19,18 @@ API Gateway (4004)
     +--> Stock Service (4003)
     +--> Order Service (4006)
     +--> Payment Service (4001)
+    +--> Portfolio Service (4007)
 
 Order Service gRPC calls:
     -> Payment Service (9002)
     -> Stock Service (9003)
-    -> Customer Service / Portfolio Sync (9004)
+    -> Portfolio Service / Portfolio Sync (9005)
 
 Eventing:
-Customer Service -> Kafka topic `customer` -> Analytics Service
+Customer/Order/Payment/Portfolio Services -> Kafka topic `tradepulse.notifications` -> Notification Service (4008)
+
+ML:
+Stock Service <-> ML Service (4010)
 ```
 
 ## 2. Frontend architecture
@@ -70,6 +74,18 @@ Mounted in `tradepulse-frontend/src/main.tsx`:
 
 ## 3. Backend service ownership
 
+Canonical backend service ids in this repository:
+
+- `api-gateway`
+- `auth-service`
+- `cust-service`
+- `stock-service`
+- `order-service`
+- `payment-service`
+- `portfolio-service`
+- `notification-service`
+- `ml-service`
+
 ### API Gateway
 
 Responsibilities:
@@ -99,8 +115,6 @@ Responsibilities:
 
 - customer profile CRUD
 - watchlist management
-- portfolio holdings and transaction history
-- portfolio sell flow
 - registration saga coordination with auth-service
 - customer Kafka event publishing
 
@@ -138,6 +152,31 @@ Responsibilities:
 - payment records
 - payment gRPC service
 
+### Portfolio Service
+
+Responsibilities:
+
+- portfolio holdings read model
+- portfolio buy/sell transaction history
+- sell flow and PnL views
+- portfolio sync gRPC service for completed orders
+
+### Notification Service
+
+Responsibilities:
+
+- consumes notification events from Kafka topic `tradepulse.notifications`
+- fetches user email metadata from auth-service
+- sends email notifications asynchronously
+
+### ML Service
+
+Responsibilities:
+
+- trains forecasting/classification models from stock-service data
+- serves prediction endpoints consumed by stock-service
+- supports startup and scheduled retraining
+
 ### Analytics Service
 
 Responsibilities today:
@@ -156,7 +195,7 @@ It currently acts as the starting point of analytics/event processing.
 3. Customer service calls auth-service to create auth user
 4. Customer service stores customer profile
 5. Customer service publishes a customer event to Kafka
-6. Analytics service consumes the event
+6. Notification service consumes notification events and sends user email alerts
 
 ### B. Login flow
 
@@ -214,7 +253,7 @@ Used for:
 
 ### Kafka for asynchronous events
 
-Used for customer events from customer service to analytics service.
+Used for domain notification events published by multiple services and consumed by notification-service.
 
 ### SSE for live UI data
 
@@ -251,6 +290,7 @@ This is a service-owned data model, not a shared-schema monolith.
 - edge rate limiting and abuse controls
 - refresh-token or shorter access-token strategy
 - stronger automated integration testing between services
-- analytics-service expansion beyond event logging
+- notification templates/channel expansion (email + optional push/SMS)
+- ML model governance and drift monitoring
 - production-grade secrets management outside `.env`
 

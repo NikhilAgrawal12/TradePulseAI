@@ -9,7 +9,7 @@
 ## 🏗️ Architecture Highlights
 
 ### Microservices Architecture
-- **7 independent Spring Boot services** with clear domain boundaries
+- **8 independent Spring Boot services + 1 Python ML service** with clear domain boundaries
 - **Database-per-service** ownership pattern for true service autonomy
 - **API Gateway** with JWT validation and header injection for security
 - **gRPC for internal synchronous orchestration** between services
@@ -39,7 +39,7 @@
 
 ### 3. **Event-Driven Architecture**
 - **Protobuf-based Kafka events** for customer lifecycle events
-- **Analytics service** consuming customer registration and activity events
+- **Notification service** consuming domain events and dispatching email notifications
 - **Decoupled event producers and consumers** following publish-subscribe pattern
 
 ### 4. **Data Persistence Strategies**
@@ -54,7 +54,7 @@
 
 ### Backend (Spring Boot Ecosystem)
 ✅ **Microservices Development**
-- 7 services: API Gateway, Auth, Customer, Stock, Order, Payment, Portfolio, Analytics
+- 9 services: `api-gateway`, `auth-service`, `cust-service`, `stock-service`, `order-service`, `payment-service`, `portfolio-service`, `notification-service`, `ml-service`
 - Service-to-service communication via REST, gRPC, and Kafka
 - Decoupled domain models with clear ownership boundaries
 
@@ -223,7 +223,7 @@
 
 ### Event-Driven Decoupling
 - Kafka enables asynchronous processing
-- Analytics service can be replicated for high-volume event consumption
+- Notification service can scale consumer instances for higher event throughput
 - Saga patterns allow long-running processes without blocking
 
 ### Caching Strategy
@@ -292,7 +292,7 @@
 **Current Status**: Feature-complete simulation platform with strong architecture foundations
 
 **Future Enhancements**:
-- Machine learning predictions for stock recommendations
+- Improved ML governance (versioned model registry and drift monitoring)
 - Advanced observability (Prometheus, Grafana, tracing)
 - Secrets management (HashiCorp Vault)
 - Event sourcing with outbox pattern
