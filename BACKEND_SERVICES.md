@@ -11,7 +11,7 @@ This document summarizes the live responsibilities of each backend service in th
 - forgot-password / reset-password flow
 - user lookup and lifecycle operations used by other services
 
-## cust-service
+## customer-service
 
 ### Main responsibilities
 

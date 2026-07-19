@@ -11,7 +11,7 @@ Therefore, multi-step workflows use orchestration and compensation patterns.
 ## 2. Registration saga (Auth user + Customer profile)
 
 Primary orchestrator:
-- `tradepulse-backend/cust-service/src/main/java/com/tradepulse/custservice/service/CustomerService.java`
+- `tradepulse-backend/customer-service/src/main/java/com/tradepulse/customerService/service/CustomerService.java`
 
 Entry endpoint:
 - `POST /api/customers/register`
@@ -28,7 +28,7 @@ Compensation logic:
 - this compensation is implemented in `registerCustomer(...)` using `rollbackAuthUser(...)`.
 
 Client used for auth interactions:
-- `tradepulse-backend/cust-service/src/main/java/com/tradepulse/custservice/client/AuthServiceClient.java`
+- `tradepulse-backend/customer-service/src/main/java/com/tradepulse/customerService/client/AuthServiceClient.java`
 
 ## 3. Checkout orchestration (order + payment + portfolio sync)
 
@@ -54,7 +54,7 @@ Design intent:
 ## 4. Consistency boundaries by domain
 
 - auth-service: user credentials and identity
-- cust-service: customer profile, watchlist, portfolio state
+- customer-service: customer profile, watchlist, portfolio state
 - payment-service: wallet and payment ledger
 - order-service: cart/order lifecycle
 - stock-service: market data, quotes, insights

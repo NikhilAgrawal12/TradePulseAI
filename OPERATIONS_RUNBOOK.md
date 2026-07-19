@@ -8,7 +8,7 @@ This runbook is for running, checking, and supporting TradePulse in local or ear
 
 - PostgreSQL databases:
   - auth-service-db
-  - cust-service-db
+  - customer-service-db
   - order-service-db
   - payment-service-db
   - stock-service-db
@@ -18,7 +18,7 @@ This runbook is for running, checking, and supporting TradePulse in local or ear
 
 - api-gateway
 - auth-service
-- cust-service
+- customer-service
 - order-service
 - payment-service
 - portfolio-service
@@ -129,7 +129,7 @@ docker compose --env-file .env -p tradepulse-persistent -f docker-compose.persis
 Swap `stock-service` with:
 - `api-gateway`
 - `auth-service`
-- `cust-service`
+- `customer-service`
 - `order-service`
 - `payment-service`
 - `portfolio-service`

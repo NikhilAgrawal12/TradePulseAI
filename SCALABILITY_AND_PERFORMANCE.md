@@ -53,7 +53,7 @@ Monolithic Approach Problems:
 
 TradePulse Solution (Database-Per-Service):
 ├── auth-service-db (independent scaling)
-├── cust-service-db (independent scaling)
+├── customer-service-db (independent scaling)
 ├── stock-service-db (independent scaling - highest read volume)
 ├── order-service-db (independent scaling)
 └── payment-service-db (independent scaling)
@@ -506,7 +506,7 @@ TradePulse is designed for Kubernetes:
 deployment.yaml:
 ├── api-gateway: 3-10 replicas
 ├── auth-service: 2-5 replicas
-├── cust-service: 2-5 replicas
+├── customer-service: 2-5 replicas
 ├── stock-service: 3-10 replicas (high CPU)
 ├── order-service: 2-5 replicas
 ├── payment-service: 3-8 replicas

@@ -7,7 +7,7 @@ TradePulse uses **database-per-service** ownership. Each main backend service pe
 | Service | Database Container | Owns |
 |---|---|---|
 | Auth Service | `auth-service-db` | users and credentials |
-| Customer Service | `cust-service-db` | customer profiles, watchlists, portfolios |
+| Customer Service | `customer-service-db` | customer profiles, watchlists, portfolios |
 | Order Service | `order-service-db` | carts, orders, order items |
 | Payment Service | `payment-service-db` | wallets, wallet transactions, payments |
 | Stock Service | `stock-service-db` | stock catalog, OHLC history, metrics, caches |

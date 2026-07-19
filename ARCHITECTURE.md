@@ -78,7 +78,7 @@ Canonical backend service ids in this repository:
 
 - `api-gateway`
 - `auth-service`
-- `cust-service`
+- `customer-service`
 - `stock-service`
 - `order-service`
 - `payment-service`
@@ -267,7 +267,7 @@ Used for:
 Each major service owns its own PostgreSQL database container in local Docker.
 
 - auth-service-db
-- cust-service-db
+- customer-service-db
 - order-service-db
 - payment-service-db
 - stock-service-db

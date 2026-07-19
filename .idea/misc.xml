@@ -6,7 +6,7 @@
       <list>
         <option value="$PROJECT_DIR$/tradepulse-backend/api-gateway/pom.xml" />
         <option value="$PROJECT_DIR$/tradepulse-backend/auth-service/pom.xml" />
-        <option value="$PROJECT_DIR$/tradepulse-backend/cust-service/pom.xml" />
+        <option value="$PROJECT_DIR$/tradepulse-backend/customer-service/pom.xml" />
         <option value="$PROJECT_DIR$/tradepulse-backend/notification-service/pom.xml" />
         <option value="$PROJECT_DIR$/tradepulse-backend/order-service/pom.xml" />
         <option value="$PROJECT_DIR$/tradepulse-backend/payment-service/pom.xml" />

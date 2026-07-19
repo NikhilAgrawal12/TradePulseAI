@@ -15,14 +15,14 @@ public class CustomerClient {
     private final RestClient restClient;
 
     public CustomerClient(
-            @Value("${cust.service.base-url:http://cust-service:4000}") String custServiceBaseUrl
+            @Value("${customer.service.base-url:http://customer-service:4000}") String customerServiceBaseUrl
     ) {
-        this.restClient = RestClient.builder().baseUrl(custServiceBaseUrl).build();
+        this.restClient = RestClient.builder().baseUrl(customerServiceBaseUrl).build();
     }
 
     /**
      * Fetch customer data by userId.
-     * Cust-service requires X-User-Id to authorize access to /customers/user/{userId}.
+     * Customer-service requires X-User-Id to authorize access to /customers/user/{userId}.
      */
     public CustomerInfo getCustomer(Long userId) {
         try {

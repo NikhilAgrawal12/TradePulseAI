@@ -38,7 +38,7 @@ TradePulse/
 ├── tradepulse-backend/
 │   ├── api-gateway (4004)
 │   ├── auth-service (4005)
-│   ├── cust-service (4000)
+│   ├── customer-service (4000)
 │   ├── stock-service (4003)
 │   ├── order-service (4006)
 │   ├── payment-service (4001)

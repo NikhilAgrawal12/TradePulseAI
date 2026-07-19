@@ -5,7 +5,6 @@
       <module fileurl="file://$PROJECT_DIR$/TradePulse.iml" filepath="$PROJECT_DIR$/TradePulse.iml" />
       <module fileurl="file://$PROJECT_DIR$/tradepulse-backend/api-gateway/api-gateway.iml" filepath="$PROJECT_DIR$/tradepulse-backend/api-gateway/api-gateway.iml" />
       <module fileurl="file://$PROJECT_DIR$/tradepulse-backend/auth-service/auth-service.iml" filepath="$PROJECT_DIR$/tradepulse-backend/auth-service/auth-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/tradepulse-backend/cust-service/cust-service.iml" filepath="$PROJECT_DIR$/tradepulse-backend/cust-service/cust-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/tradepulse-backend/notification-service/notification-service.iml" filepath="$PROJECT_DIR$/tradepulse-backend/notification-service/notification-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/tradepulse-backend/order-service/order-service.iml" filepath="$PROJECT_DIR$/tradepulse-backend/order-service/order-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/tradepulse-backend/payment-service/payment-service.iml" filepath="$PROJECT_DIR$/tradepulse-backend/payment-service/payment-service.iml" />

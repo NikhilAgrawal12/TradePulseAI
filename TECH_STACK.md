@@ -473,7 +473,7 @@ POST /api/portfolio/sell/{stockId}
 ```
 api-gateway:4004 (Spring Cloud Gateway)
 auth-service:4005 (Auth microservice)
-cust-service:4000 (Customer microservice)
+customer-service:4000 (Customer microservice)
 stock-service:4003 (Stock microservice)
 order-service:4006 (Order microservice)
 payment-service:4001 (Payment microservice)
@@ -482,7 +482,7 @@ notification-service:4008 (Notification microservice)
 ml-service:4010 (FastAPI ML microservice)
 
 auth-service-db:5000 (PostgreSQL)
-cust-service-db:5001 (PostgreSQL)
+customer-service-db:5001 (PostgreSQL)
 stock-service-db:5002 (PostgreSQL)
 order-service-db:5003 (PostgreSQL)
 payment-service-db:5004 (PostgreSQL)

@@ -17,26 +17,6 @@ spring:
         wiretap: false
       httpserver:
         wiretap: false
-
-auth:
-  service:
-    url: ${AUTH_SERVICE_URL:http://auth-service:4005}
-
-customer:
-  service:
-    url: ${CUSTOMER_SERVICE_URL:http://cust-service:4000}
-
-portfolio:
-  service:
-    url: ${PORTFOLIO_SERVICE_URL:http://portfolio-service:4007}
-
-stock:
-  service:
-    url: ${STOCK_SERVICE_URL:http://stock-service:4003}
-
-spring:
-  cloud:
-    gateway:
       routes:
 
         - id: auth-service-route
@@ -49,7 +29,7 @@ spring:
 
         - id: customer-register-route
           order: -1
-          uri: http://cust-service:4000
+          uri: http://customer-service:4000
           predicates:
             - Path=/api/customers/register
             - Method=POST
@@ -58,7 +38,7 @@ spring:
             - RateLimit=15,60,ip
 
         - id: customer-service-route
-          uri: http://cust-service:4000
+          uri: http://customer-service:4000
           predicates:
             - Path=/api/customers,/api/customers/**
           filters:
@@ -94,7 +74,7 @@ spring:
 
 
         - id: watchlist-service-route
-          uri: http://cust-service:4000
+          uri: http://customer-service:4000
           predicates:
             - Path=/api/watchlist,/api/watchlist/**
           filters:
@@ -122,7 +102,7 @@ spring:
             - RateLimit=80,60,user
 
         - id: api-docs-customer-route
-          uri: http://cust-service:4000
+          uri: http://customer-service:4000
           predicates:
             - Path=/api-docs/customers
           filters:
@@ -141,3 +121,19 @@ spring:
             - Path=/api-docs/orders
           filters:
             - RewritePath=/api-docs/orders,/v3/api-docs
+
+auth:
+  service:
+    url: ${AUTH_SERVICE_URL:http://auth-service:4005}
+
+customer:
+  service:
+    url: ${CUSTOMER_SERVICE_URL:http://customer-service:4000}
+
+portfolio:
+  service:
+    url: ${PORTFOLIO_SERVICE_URL:http://portfolio-service:4007}
+
+stock:
+  service:
+    url: ${STOCK_SERVICE_URL:http://stock-service:4003}

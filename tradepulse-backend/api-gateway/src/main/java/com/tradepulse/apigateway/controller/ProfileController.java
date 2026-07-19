@@ -27,7 +27,7 @@ public class ProfileController {
     public ProfileController(
             WebClient.Builder webClientBuilder,
             @Value("${auth.service.url:http://auth-service:4005}") String authServiceUrl,
-            @Value("${customer.service.url:http://cust-service:4000}") String customerServiceUrl
+            @Value("${customer.service.url:http://customer-service:4000}") String customerServiceUrl
     ) {
         this.authServiceClient = webClientBuilder.baseUrl(authServiceUrl).build();
         this.customerServiceClient = webClientBuilder.baseUrl(customerServiceUrl).build();

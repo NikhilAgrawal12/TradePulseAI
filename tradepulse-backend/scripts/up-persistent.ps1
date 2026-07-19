@@ -7,14 +7,14 @@ $envFile = Join-Path $PSScriptRoot "..\.env"
 # Stop legacy containers that commonly conflict on the same ports.
 $legacyContainers = @(
     "auth-service",
-    "cust-service",
+    "customer-service",
     "order-service",
     "payment-service",
     "stock-service",
     "analytics-service",
     "api-gateway",
     "auth-service-db",
-    "cust-service-db",
+    "customer-service-db",
     "order-service-db",
     "payment-service-db",
     "stock-service-db",

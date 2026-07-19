@@ -54,7 +54,7 @@
 
 ### Backend (Spring Boot Ecosystem)
 ✅ **Microservices Development**
-- 9 services: `api-gateway`, `auth-service`, `cust-service`, `stock-service`, `order-service`, `payment-service`, `portfolio-service`, `notification-service`, `ml-service`
+- 9 services: `api-gateway`, `auth-service`, `customer-service`, `stock-service`, `order-service`, `payment-service`, `portfolio-service`, `notification-service`, `ml-service`
 - Service-to-service communication via REST, gRPC, and Kafka
 - Decoupled domain models with clear ownership boundaries
 
