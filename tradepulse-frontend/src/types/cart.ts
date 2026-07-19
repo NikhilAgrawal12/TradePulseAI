@@ -24,13 +24,11 @@ export type CompleteOrderResponse = {
 
 export type LockQuoteRequest = {
   items: CartItem[];
-  subtotal: number;
   total: number;
 };
 
 export type LockQuoteResponse = {
   items: CartItem[];
-  subtotal: number;
   total: number;
   lockSeconds: number;
 };

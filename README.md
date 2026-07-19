@@ -1,85 +1,240 @@
 # TradePulse
 
-TradePulse is a stock-trading simulation platform with a React frontend and a Spring Boot microservices backend. It supports authentication, customer onboarding, watchlists, carts, wallet funding, checkout, orders, portfolio tracking, stock analytics, live featured-stock streaming, and market-session awareness.
+TradePulse is a production-grade stock trading simulation platform built with Spring Boot microservices, React + TypeScript, and a comprehensive infrastructure stack. It covers authentication, stock market data, watchlists, cart, wallet, checkout, order history, and portfolio management.
 
-## What is in this repository
+---
 
-- `tradepulse-frontend/` — Vite + React + TypeScript web client
-- `tradepulse-backend/` — Spring Boot microservices, PostgreSQL, Kafka, gRPC, API gateway
-- `tradepulse-backend/docker-compose.persistent.yml` — main local container stack
-- `tradepulse-backend/scripts/` — PowerShell helpers for the persistent backend stack
+## What Makes This Project Interesting
 
-## Core capabilities
+- **7 independent Spring Boot microservices** with clear domain ownership
+- **Real-time market data** streamed from Massive WebSocket API → SSE → UI
+- **Distributed transaction orchestration** using the Saga pattern (no 2PC)
+- **API Gateway security** — JWT validated at the edge, trusted `X-User-Id` injected for all downstream services
+- **Kafka + Protobuf** for asynchronous customer lifecycle events
+- **gRPC** for synchronous service-to-service calls during checkout
 
-- User registration and login with JWT-based authentication
-- Customer profile storage and account management
-- Live featured stock feed over SSE
-- Backend-cached market-status feed with 60-second freshness rules
-- Watchlist and cart management
-- Wallet deposit, withdrawal, and purchase deduction flows
-- Order completion with fresh quote validation and portfolio sync
-- Portfolio holdings, transactions, realized/unrealized PnL
-- Stock insight pages backed by historical OHLC and derived metrics
-- Kafka customer events for analytics consumption
+---
 
-## Current architecture snapshot
+## Repository Layout
 
-- **Frontend** talks only to the **API Gateway** using `/api/**` and `/auth/**`
-- **API Gateway** validates JWTs with `auth-service` and injects the trusted `X-User-Id` header
-- **order-service** orchestrates checkout via gRPC to `payment-service`, `stock-service`, and `cust-service`
-- **stock-service** owns stock catalog, featured stocks, SSE streams, market session cache, and stock insights
-- **cust-service** owns customers, watchlists, and portfolios
-- **payment-service** owns wallets, wallet transactions, and payment records
-- **analytics-service** currently consumes customer Kafka events
+```
+TradePulse/
+├── README.md
+├── QUICK_START.md
+├── ARCHITECTURE.md
+├── API_SURFACE.md
+├── DATABASE_DESIGN.md
+├── BACKEND_SERVICES.md
+├── FRONTEND_ARCHITECTURE.md
+├── DATA_FLOW_MASSIVE_TO_FRONTEND.md
+├── SAGA_AND_CONSISTENCY.md
+├── TECH_STACK.md
+├── SCALABILITY_AND_PERFORMANCE.md
+├── PROJECT_HIGHLIGHTS.md
+├── DOCUMENTATION_INDEX.md
+├── OPERATIONS_RUNBOOK.md
+│
+├── tradepulse-backend/
+│   ├── api-gateway (4004)
+│   ├── auth-service (4005)
+│   ├── cust-service (4000)
+│   ├── stock-service (4003)
+│   ├── order-service (4006)
+│   ├── payment-service (4001)
+│   ├── portfolio-service
+│   ├── analytics-service (4002)
+│   ├── ml-service
+│   └── docker-compose.persistent.yml
+│
+└── tradepulse-frontend/
+    ├── src/
+    │   ├── pages/ (12 routes)
+    │   ├── components/
+    │   ├── context/ (5 providers)
+    │   ├── utils/
+    │   └── types/
+    ├── vite.config.ts
+    └── package.json
+```
 
-## Documentation map
+---
 
-This repository now uses a 10-document set based on the live code:
+## Core Features
 
-1. `README.md` — project overview and document map
-2. `QUICK_START.md` — local setup and verification steps
-3. `ARCHITECTURE.md` — system design, runtime flows, and integrations
-4. `DATABASE_DESIGN.md` — storage ownership, tables, and indexing notes
-5. `BACKEND_SERVICES.md` — backend service responsibilities and ports
-6. `FRONTEND_ARCHITECTURE.md` — routes, contexts, state, and streaming behavior
-7. `API_SURFACE.md` — gateway routes, auth model, SSE, and gRPC contracts
-8. `OPERATIONS_RUNBOOK.md` — deployment, operations, env vars, and support procedures
-9. `DATA_FLOW_MASSIVE_TO_FRONTEND.md` — exact market-data path from Massive -> stock-service -> gateway -> frontend
-10. `SAGA_AND_CONSISTENCY.md` — registration saga, checkout orchestration, compensation, and consistency boundaries
+### User Management
+- Registration with coordinated auth + customer profile creation (saga with compensation)
+- Login with stateless JWT-based session management
+- Forgot password with email verification flow
+- Full customer profile CRUD with address data
+- Account deletion with cascade cleanup
 
-## Recommended reading order
+### Trading & Market Data
+- 5000+ stocks from Polygon.io / Massive API
+- Live featured stock feed via Server-Sent Events
+- Real-time stock search with SSE-backed live filtering
+- Market status tracking (open/closed) with 60-second freshness enforcement
+- Stock insights with historical OHLC, SMA (20/50/200), volatility, RSI, MACD, Sharpe/Sortino
 
-If you are new to the project, read in this order:
+### Cart & Orders
+- Cart management (add, update quantity, remove, clear)
+- Price locking before checkout with fresh quote validation via gRPC
+- Order completion orchestrated through payment and portfolio sync
+- Paginated order history
 
-1. `README.md`
-2. `QUICK_START.md`
-3. `ARCHITECTURE.md`
-4. `DATABASE_DESIGN.md`
-5. `API_SURFACE.md`
-6. `DATA_FLOW_MASSIVE_TO_FRONTEND.md`
-7. `SAGA_AND_CONSISTENCY.md`
+### Wallet & Payments
+- Wallet with deposit and withdrawal
+- Immutable transaction ledger (balance + balance_after per entry)
+- Purchase deduction on order completion via gRPC
+- Compensation/refund on portfolio sync failure
 
-## Production-readiness notes
+### Portfolio
+- Holdings per user/stock with average buy price
+- Buy/sell transaction history
+- Realized/unrealized PnL
+- Market-session-aware sell operations
+- Portfolio sync after successful checkout
 
-Recent hardening work reflected in the codebase includes:
+### Analytics
+- Customer lifecycle events published to Kafka (Protobuf)
+- Analytics service consuming and processing events
 
-- Market status is cached and shared at the app level instead of page-local state
-- Market status freshness is enforced against a 60-second backend timestamp window
-- API gateway now injects the validated user id instead of trusting the client-sent `X-User-Id`
-- Customer profile reads/updates/deletes now require path-user-id and authenticated-user-id alignment
-- Frontend HTTP handling now clears invalid sessions on `401` and syncs auth changes across tabs
-- Wallet transaction reads no longer rely on read-only transactions that may create rows
+---
 
-## Current boundaries
+## Quick Start
 
-This repository is close to an end-to-end application, but still has obvious next-phase work:
+```bash
+# Backend — Terminal 1
+cd tradepulse-backend/scripts
+.\up-persistent.ps1
 
-- machine-learning components are not implemented yet
-- observability is basic and not yet standardized with metrics/tracing dashboards
-- secrets management is environment-based and should move to a proper secret manager in hosted environments
-- integration and end-to-end automated tests should be expanded before public release
+# Frontend — Terminal 2
+cd tradepulse-frontend
+npm install
+npm run dev
 
-## License and usage
+# Open http://localhost:5173
+```
 
-No project-wide license file is defined in this repository snapshot. Add one before external distribution.
+Full setup details in `QUICK_START.md`.
 
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Java 21, Spring Boot 3.x, Spring Security, Spring Cloud Gateway |
+| **Data Access** | Spring Data JPA, Hibernate, PostgreSQL |
+| **Messaging** | Apache Kafka, Protobuf |
+| **RPC** | gRPC with Protocol Buffers |
+| **Frontend** | React 18, TypeScript, Vite, React Router, Axios |
+| **State** | React Context API (Cart, Wallet, Orders, Watchlist, MarketStatus) |
+| **Real-Time** | Server-Sent Events (SSE), Massive WebSocket API |
+| **Infra** | Docker Compose, 5 PostgreSQL containers, Kafka broker |
+
+See `TECH_STACK.md` for the full breakdown.
+
+---
+
+## Architecture Summary
+
+```
+React Frontend
+    │ HTTP / SSE
+    ▼
+API Gateway (4004) — JWT validation, X-User-Id injection
+    │
+    ├── Auth Service (4005)      ← users, JWT
+    ├── Customer Service (4000)  ← profiles, watchlists
+    ├── Stock Service (4003)     ← catalog, SSE, insights
+    ├── Order Service (4006)     ← cart, orders, orchestration
+    └── Payment Service (4001)  ← wallets, transactions
+
+Order Service gRPC:
+    → Payment Service (9002)    ← complete payment
+    → Stock Service (9003)      ← fresh quote
+    → Portfolio Service (9004)  ← sync holdings
+
+Customer Service → Kafka → Analytics Service
+```
+
+See `ARCHITECTURE.md` for full diagrams and flow descriptions.
+
+---
+
+## Security Model
+
+- JWT validated at the API Gateway (not per downstream service)
+- Client-supplied `X-User-Id` is stripped and replaced with a gateway-validated value
+- User-scoped data access enforced at query level
+- Password hashing with BCrypt
+- Email uniqueness enforced at database level
+
+---
+
+## Documentation Set
+
+| File | What it covers |
+|------|----------------|
+| `README.md` | Project overview and navigation |
+| `QUICK_START.md` | Prerequisites, setup, first-run checklist |
+| `ARCHITECTURE.md` | System topology, service responsibilities, request flows |
+| `API_SURFACE.md` | REST routes, auth model, SSE and gRPC contracts |
+| `DATABASE_DESIGN.md` | Schemas, indexes, cross-service identity model |
+| `BACKEND_SERVICES.md` | Per-service responsibilities and dependencies |
+| `FRONTEND_ARCHITECTURE.md` | React patterns, routes, state providers, SSE usage |
+| `DATA_FLOW_MASSIVE_TO_FRONTEND.md` | Market data path from Massive API → SSE → UI |
+| `SAGA_AND_CONSISTENCY.md` | Registration saga, checkout orchestration, compensation |
+| `TECH_STACK.md` | Full technology inventory with rationale |
+| `SCALABILITY_AND_PERFORMANCE.md` | Caching layers, horizontal scaling, DB replication, Kubernetes readiness |
+| `PROJECT_HIGHLIGHTS.md` | Skills, patterns, and feature completeness overview |
+| `OPERATIONS_RUNBOOK.md` | Env vars, deployment, health checks, troubleshooting |
+| `DOCUMENTATION_INDEX.md` | Reading paths by role and topic cross-references |
+
+---
+
+## Design Decisions
+
+### Why database-per-service?
+Each service owns its schema, scales independently, and evolves its data model without coordinating with other teams. No shared database means no accidental cross-service coupling.
+
+### Why Saga pattern instead of distributed transactions?
+Two-phase commit sacrifices availability and tightly couples services. Sagas use explicit orchestration steps with compensation logic — each service handles its own database and failure is handled at the workflow level.
+
+### Why SSE for market data?
+SSE is simpler than WebSockets for one-way server push, works natively with HTTP/2 and load balancers, and the browser EventSource API handles reconnection automatically.
+
+### Why gRPC for internal calls?
+gRPC provides typed contracts via Protocol Buffers, lower latency than REST for synchronous service calls, and explicit failure semantics needed during checkout orchestration.
+
+---
+
+## Project Statistics
+
+| Metric | Value |
+|--------|-------|
+| Backend services | 7 |
+| PostgreSQL databases | 5 |
+| REST endpoints | 40+ |
+| Frontend routes | 12 |
+| Context providers | 5 |
+| gRPC services | 3 |
+| Kafka topics | 1+ |
+
+---
+
+## Future Enhancements
+
+- Machine learning stock recommendations (ml-service foundation in place)
+- Advanced observability: Prometheus, Grafana, distributed tracing
+- Secrets management: HashiCorp Vault
+- Outbox pattern for at-least-once event delivery guarantees
+- End-to-end integration tests
+- GraphQL API layer
+- Mobile app (React Native)
+
+---
+
+## License
+
+No project-wide license defined. Add one before external distribution.

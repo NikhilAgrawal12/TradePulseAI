@@ -124,7 +124,6 @@ Key columns:
 - `user_id`
 - `order_number`
 - `status`
-- `subtotal`
 - `total`
 - `created_at`
 

@@ -97,12 +97,12 @@ Recommended next steps for stronger production guarantees:
 4. Add saga status audit table for support/debug visibility.
 5. Expand integration tests for partial-failure scenarios.
 
-## 8. Recruiter / hiring manager summary
+## 8. Design philosophy summary
 
 TradePulse deliberately avoids distributed two-phase commit and instead uses practical microservice consistency:
 - orchestrated workflow steps
 - compensation where possible
 - clear ownership per service
 
-This is a realistic pattern used in production microservice systems where availability and service autonomy are prioritized.
+This is a realistic pattern used in production microservice systems where availability and service autonomy are prioritized over strong global consistency.
 

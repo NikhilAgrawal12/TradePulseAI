@@ -36,7 +36,7 @@ public class OrderPaymentGrpcClient {
      * Sends a single payment request for an entire order.
      *
      * @param orderId    the persisted order id
-     * @param totalAmount the complete order total (subtotal + tax)
+     * @param totalAmount the complete order total
      * @param userId  the buyer's user id
      */
     public OrderPaymentResponse completeOrderPayment(String orderId, BigDecimal totalAmount, Long userId) {

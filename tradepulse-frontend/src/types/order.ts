@@ -12,7 +12,6 @@ export type OrderHistoryEntry = {
   userId: number;
   status: string;
   createdAtIso: string;
-  subtotal: number;
   total: number;
   items: OrderItem[];
 };

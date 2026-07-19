@@ -64,7 +64,6 @@ public class OrderMapper {
         dto.setUserId(order.getUserId());
         dto.setStatus(order.getStatus());
         dto.setCreatedAtIso(order.getCreatedAt());
-        dto.setSubtotal(OrderItemMapper.scaleMoney(order.getSubtotal()));
         dto.setTotal(OrderItemMapper.scaleMoney(order.getTotal()));
         dto.setItems(order.getItems().stream().map(OrderItemMapper::toDTO).toList());
         return dto;

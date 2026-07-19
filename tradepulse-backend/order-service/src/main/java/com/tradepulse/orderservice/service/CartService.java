@@ -180,7 +180,6 @@ public class CartService {
         CompleteOrderRequestDTO quotedRequest = buildFreshQuotedRequest(request);
         LockedOrderQuoteResponseDTO response = new LockedOrderQuoteResponseDTO();
         response.setItems(quotedRequest.getItems());
-        response.setSubtotal(quotedRequest.getSubtotal());
         response.setTotal(quotedRequest.getTotal());
         response.setLockSeconds(PRICE_LOCK_SECONDS);
         return response;
@@ -291,7 +290,7 @@ public class CartService {
                 })
                 .toList();
 
-        BigDecimal subtotal = OrderItemMapper.scaleMoney(
+        BigDecimal total = OrderItemMapper.scaleMoney(
                 quotedItems.stream()
                         .map(item -> item.getPrice().multiply(item.getQuantity()))
                         .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -299,8 +298,7 @@ public class CartService {
 
         CompleteOrderRequestDTO quotedRequest = new CompleteOrderRequestDTO();
         quotedRequest.setItems(quotedItems);
-        quotedRequest.setSubtotal(subtotal);
-        quotedRequest.setTotal(subtotal);
+        quotedRequest.setTotal(total);
         return quotedRequest;
     }
 

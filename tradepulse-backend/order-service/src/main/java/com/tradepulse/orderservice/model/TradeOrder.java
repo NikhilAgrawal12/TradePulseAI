@@ -88,13 +88,6 @@ public class TradeOrder {
         this.status = status;
     }
 
-    public BigDecimal getSubtotal() {
-        return subtotal;
-    }
-
-    public void setSubtotal(BigDecimal subtotal) {
-        this.subtotal = subtotal;
-    }
 
     public BigDecimal getTotal() {
         return total;
