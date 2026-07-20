@@ -46,12 +46,7 @@ public class AuthServiceClient {
     }
 
     public AuthUser registerUser(CustomerRegistrationRequestDTO request) {
-        RegisterPayload payload = new RegisterPayload(
-                request.getEmail(),
-                request.getPassword(),
-                request.getFirstName(),
-                request.getLastName()
-        );
+        RegisterPayload payload = new RegisterPayload(request.getEmail(), request.getPassword());
         return restClient.post()
                 .uri("/register")
                 .body(payload)
@@ -86,7 +81,7 @@ public class AuthServiceClient {
                 .toBodilessEntity();
     }
 
-    private record RegisterPayload(String email, String password, String firstName, String lastName) {
+    private record RegisterPayload(String email, String password) {
     }
 
     public record AuthUser(Long userId, String email, String role) {

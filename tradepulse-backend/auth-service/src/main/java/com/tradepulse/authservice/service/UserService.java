@@ -31,16 +31,10 @@ public class UserService {
     }
 
     public User createUser(String email, String encodedPassword, String role) {
-        return createUser(email, encodedPassword, role, null, null);
-    }
-
-    public User createUser(String email, String encodedPassword, String role, String firstName, String lastName) {
         User user = new User();
         user.setEmail(email.trim().toLowerCase());
         user.setPassword(encodedPassword);
         user.setRole(role);
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
         return userRepository.save(user);
     }
 

@@ -17,12 +17,6 @@ public class RegisterRequestDTO {
     @ValidPassword(message = "Password must contain at least one letter, one digit, and one special character")
     private String password;
 
-    @Size(max = 100, message = "First name cannot exceed 100 characters")
-    private String firstName;
-
-    @Size(max = 100, message = "Last name cannot exceed 100 characters")
-    private String lastName;
-
     public RegisterRequestDTO() {}
 
     public RegisterRequestDTO(String email, String password) {
@@ -44,22 +38,6 @@ public class RegisterRequestDTO {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
     }
 }
 

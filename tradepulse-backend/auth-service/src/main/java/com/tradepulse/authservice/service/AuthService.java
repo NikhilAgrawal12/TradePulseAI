@@ -55,14 +55,8 @@ public class AuthService {
         }
         // Encode password using BCryptPasswordEncoder bean
         String encodedPassword = passwordEncoder.encode(registerRequestDTO.getPassword());
-        // Create user with role "User" as default, storing first/last name if provided
-        return userService.createUser(
-                normalizedEmail,
-                encodedPassword,
-                "User",
-                registerRequestDTO.getFirstName(),
-                registerRequestDTO.getLastName()
-        );
+        // Create user with role "User" as default
+        return userService.createUser(normalizedEmail, encodedPassword, "User");
     }
 
     public CredentialsResponseDTO getCredentials(Long userId) {
