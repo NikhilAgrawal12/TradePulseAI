@@ -10,6 +10,7 @@
         <module name="auth-service" />
         <module name="payment-service" />
         <module name="customer-service" />
+        <module name="infrastructure" />
         <module name="api-gateway" />
         <module name="order-service" />
         <module name="notification-service" />
@@ -37,6 +38,7 @@
       <module name="customer-service" options="-parameters" />
       <module name="gate" options="-parameters" />
       <module name="gateway" options="-parameters" />
+      <module name="infrastructure" options="-parameters" />
       <module name="notification-service" options="-parameters" />
       <module name="order-service" options="-parameters" />
       <module name="payment-service" options="-parameters" />

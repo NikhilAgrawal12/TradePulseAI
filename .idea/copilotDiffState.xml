@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/tradepulse-backend/infrastructure/src/main/java/com/tradepulseai/infrastructure/InfrastructureApplication.java">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/tradepulse-backend/infrastructure/src/main/java/com/tradepulseai/infrastructure/InfrastructureApplication.java" />
+              <option name="originalContent" value="package com.tradepulse.infrastructure;&#10;&#10;import org.springframework.boot.SpringApplication;&#10;import org.springframework.boot.autoconfigure.SpringBootApplication;&#10;&#10;@SpringBootApplication&#10;public class InfrastructureApplication {&#10;&#10;    public static void main(String[] args) {&#10;        SpringApplication.run(InfrastructureApplication.class, args);&#10;    }&#10;&#10;}&#10;" />
+              <option name="updatedContent" value="package com.tradepulseai.infrastructurelegacy;&#10;&#10;import org.springframework.boot.SpringApplication;&#10;import org.springframework.boot.autoconfigure.SpringBootApplication;&#10;&#10;@SpringBootApplication&#10;class InfrastructureApplicationLegacy {&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/tradepulse-backend/infrastructure/src/test/java/com/tradepulseai/infrastructure/InfrastructureApplicationTests.java">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/tradepulse-backend/infrastructure/src/test/java/com/tradepulseai/infrastructure/InfrastructureApplicationTests.java" />
+              <option name="originalContent" value="package com.tradepulse.infrastructure;&#10;&#10;import org.junit.jupiter.api.Test;&#10;import org.springframework.boot.test.context.SpringBootTest;&#10;&#10;@SpringBootTest&#10;class InfrastructureApplicationTests {&#10;&#10;    @Test&#10;    void contextLoads() {&#10;    }&#10;&#10;}&#10;" />
+              <option name="updatedContent" value="package com.tradepulseai.infrastructurelegacy;&#10;&#10;import org.junit.jupiter.api.Test;&#10;import org.springframework.boot.test.context.SpringBootTest;&#10;&#10;@SpringBootTest&#10;class InfrastructureApplicationTestsLegacy {&#10;&#10;    @Test&#10;    void contextLoads() {&#10;    }&#10;&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
