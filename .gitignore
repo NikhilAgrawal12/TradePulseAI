@@ -1,0 +1,27 @@
+# IntelliJ build output
+out/
+
+# Maven build output
+**/target/
+
+# CDK synthesized output
+**/cdk.out/
+
+# IntelliJ project files (optional - keep .idea for team settings)
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+
