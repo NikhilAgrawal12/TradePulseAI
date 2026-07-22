@@ -1,6 +1,7 @@
 package com.tradepulse.stack;
 
 import software.amazon.awscdk.*;
+import software.amazon.awscdk.services.ec2.Vpc;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,9 +10,21 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 public class LocalStack extends Stack {
 
+    private final Vpc vpc;
     public LocalStack(final App scope, final String id, final StackProps props) {
         super(scope, id, props);
+
+        this.vpc = createVpc();
     }
+
+
+    private Vpc createVpc() {
+        return Vpc.Builder.create(this, "TradePulseVPC")
+                .vpcName("TradePulseVPC")
+                .maxAzs(2)
+                .build();
+    }
+
 
     public static void main(final String[] args) {
         System.out.println("App synthesizing in progress...");
