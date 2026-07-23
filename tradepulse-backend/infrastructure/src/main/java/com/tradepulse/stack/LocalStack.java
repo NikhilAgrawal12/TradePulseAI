@@ -3,19 +3,28 @@ package com.tradepulse.stack;
 import software.amazon.awscdk.*;
 import software.amazon.awscdk.services.ec2.*;
 import software.amazon.awscdk.services.ec2.InstanceType;
+import software.amazon.awscdk.services.ecs.*;
+import software.amazon.awscdk.services.logs.LogGroup;
+import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.services.msk.CfnCluster;
 import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.route53.CfnHealthCheck;
 
+import software.amazon.awscdk.services.ecs.Protocol;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
 
 public class LocalStack extends Stack {
 
     private final Vpc vpc;
+    private final Cluster ecsCluster;
+
     public LocalStack(final App scope, final String id, final StackProps props) {
         super(scope, id, props);
 
@@ -36,6 +45,10 @@ public class LocalStack extends Stack {
         CfnHealthCheck portfolioDbHealthCheck = createDbHealthCheck(portfolioServiceDb, "PortfolioServiceDBHealthCheck");
 
         CfnCluster mskCluster = createMskCluster();
+
+        this.ecsCluster = createEcsCluster();
+
+
     }
 
 
@@ -83,6 +96,40 @@ public class LocalStack extends Stack {
                 .build();
     }
 
+
+    private Cluster createEcsCluster() {
+        return Cluster.Builder.create(this, "TradePulseCluster")
+                .vpc(vpc)
+                .defaultCloudMapNamespace(CloudMapNamespaceOptions.builder()
+                        .name("tradepulse.local")
+                        .build())
+                .build();
+    }
+
+    private FargateService createFargateService(String id, String imageName, List<Integer> ports, DatabaseInstance db, Map<String, String> additionalEnvVars) {
+        FargateTaskDefinition taskDefinition = FargateTaskDefinition.Builder.create(this, id + "Task")
+                .cpu(256)
+                .memoryLimitMiB(512)
+                .build();
+
+        ContainerDefinitionOptions containerDefinitionOptions = ContainerDefinitionOptions.builder()
+                .image(ContainerImage.fromRegistry(imageName))
+                .portMappings(ports.stream()
+                        .map(port -> PortMapping.builder()
+                                .containerPort(port)
+                                .hostPort(port)
+                                .protocol(Protocol.TCP)
+                                .build())
+                        .toList())
+                .logging(LogDriver.awsLogs(AwsLogDriverProps.builder()
+                        .logGroup(LogGroup.Builder.create(this, id + "LogGroup")
+                                .logGroupName("/ecs/" + imageName)
+                                .removalPolicy(RemovalPolicy.DESTROY)
+                                .retention(RetentionDays.ONE_DAY)
+                                .build())
+                        .build()))
+                .build();
+    }
 
     public static void main(final String[] args) {
         System.out.println("App synthesizing in progress...");
