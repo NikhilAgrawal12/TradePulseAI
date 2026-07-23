@@ -6,6 +6,7 @@ import software.amazon.awscdk.services.ec2.InstanceSize;
 import software.amazon.awscdk.services.ec2.InstanceType;
 import software.amazon.awscdk.services.ec2.Vpc;
 import software.amazon.awscdk.services.rds.*;
+import software.amazon.awscdk.services.route53.CfnHealthCheck;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,6 +27,14 @@ public class LocalStack extends Stack {
         DatabaseInstance orderServiceDb = createDatabaseInstance("OrderServiceDB", "order_service_db");
         DatabaseInstance paymentServiceDb = createDatabaseInstance("PaymentServiceDB", "payment_service_db");
         DatabaseInstance portfolioServiceDb = createDatabaseInstance("PortfolioServiceDB", "portfolio_service_db");
+
+        CfnHealthCheck authDbHealthCheck = createDbHealthCheck(authServiceDb, "AuthServiceDBHealthCheck");
+        CfnHealthCheck customerDbHealthCheck = createDbHealthCheck(customerServiceDb, "CustomerServiceDBHealthCheck");
+        CfnHealthCheck stockDbHealthCheck = createDbHealthCheck(stockServiceDb, "StockServiceDBHealthCheck");
+        CfnHealthCheck orderDbHealthCheck = createDbHealthCheck(orderServiceDb, "OrderServiceDBHealthCheck");
+        CfnHealthCheck paymentDbHealthCheck = createDbHealthCheck(paymentServiceDb, "PaymentServiceDBHealthCheck");
+        CfnHealthCheck portfolioDbHealthCheck = createDbHealthCheck(portfolioServiceDb, "PortfolioServiceDBHealthCheck");
+
     }
 
 
@@ -46,6 +55,18 @@ public class LocalStack extends Stack {
                 .credentials(Credentials.fromGeneratedSecret("admin_user"))
                 .databaseName(dbName)
                 .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+    }
+
+    private CfnHealthCheck createDbHealthCheck(DatabaseInstance db, String id) {
+        return CfnHealthCheck.Builder.create(this, id)
+                .healthCheckConfig(CfnHealthCheck.HealthCheckConfigProperty.builder()
+                        .type("TCP")
+                        .port(Token.asNumber(db.getDbInstanceEndpointPort()))
+                        .ipAddress(db.getDbInstanceEndpointAddress())
+                        .requestInterval(30)
+                        .failureThreshold(3)
+                        .build())
                 .build();
     }
 
