@@ -264,7 +264,6 @@ public class CartService {
 
         CompleteOrderRequestDTO lockedRequest = new CompleteOrderRequestDTO();
         lockedRequest.setItems(lockedItems);
-        lockedRequest.setSubtotal(recalculatedSubtotal);
         lockedRequest.setTotal(recalculatedSubtotal);
         return lockedRequest;
     }

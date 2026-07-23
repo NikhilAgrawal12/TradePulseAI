@@ -102,8 +102,12 @@ public class StockInsightsService {
         BigDecimal average30DayVolume = metrics == null ? null : metrics.getAvgVolume30d();
         BigDecimal relativeVolume = metrics == null ? null : metrics.getRelativeVolume();
 
-        BigDecimal volatility30Day = metrics == null ? null : metrics.getVolatility30d();
-        BigDecimal volatility90Day = metrics == null ? null : metrics.getVolatility90d();
+        // Technical indicators come from the latest OHLC row to decouple reads from stock_metrics.
+        BigDecimal volatility5Day = latestHistorical.getVolatility5d();
+        BigDecimal volatility20Day = latestHistorical.getVolatility20d();
+        BigDecimal volatility60Day = latestHistorical.getVolatility60d();
+        BigDecimal volatility90Day = latestHistorical.getVolatility90d();
+        BigDecimal volatility120Day = latestHistorical.getVolatility120d();
 
         BigDecimal sma20 = latestHistorical.getSma20();
         BigDecimal sma50 = latestHistorical.getSma50();
@@ -111,11 +115,10 @@ public class StockInsightsService {
         Boolean goldenCross = metrics == null ? null : metrics.getGoldenCross();
         Boolean deathCross = metrics == null ? null : metrics.getDeathCross();
 
-        BigDecimal rsi14 = metrics == null ? null : metrics.getRsi14();
+        BigDecimal rsi14 = latestHistorical.getRsi14();
         MacdResult macdResult = new MacdResult(
-                metrics == null ? null : metrics.getMacd(),
-                metrics == null ? null : metrics.getMacdSignal());
-        BigDecimal momentum30Day = metrics == null ? null : metrics.getMomentum30d();
+                latestHistorical.getMacd(),
+                latestHistorical.getMacdSignal());
         RiskSummary riskSummary = new RiskSummary(
                 metrics == null ? null : metrics.getSharpeRatio(),
                 metrics == null ? null : metrics.getSortinoRatio());
@@ -159,8 +162,11 @@ public class StockInsightsService {
                         toDouble(relativeVolume)
                 ),
                 new StockInsightsResponseDTO.VolatilityMetricsDTO(
-                        toDouble(volatility30Day),
-                        toDouble(volatility90Day)
+                        toDouble(volatility5Day),
+                        toDouble(volatility20Day),
+                        toDouble(volatility60Day),
+                        toDouble(volatility90Day),
+                        toDouble(volatility120Day)
                 ),
                 new StockInsightsResponseDTO.TrendMetricsDTO(
                         toDouble(sma20),
@@ -172,8 +178,7 @@ public class StockInsightsService {
                 new StockInsightsResponseDTO.MomentumMetricsDTO(
                         toDouble(rsi14),
                         toDouble(macdResult.macd()),
-                        toDouble(macdResult.signal()),
-                        toDouble(momentum30Day)
+                        toDouble(macdResult.signal())
                 ),
                 new StockInsightsResponseDTO.RiskMetricsDTO(
                         toDouble(riskSummary.sharpeRatio()),
@@ -338,9 +343,12 @@ public class StockInsightsService {
                     toDouble(point.getSma20()),
                     toDouble(point.getSma50()),
                     toDouble(point.getSma200()),
-                    toDouble(point.getVolatility30d()),
+                    toDouble(point.getVolatility5d()),
+                    toDouble(point.getVolatility20d()),
+                    toDouble(point.getVolatility60d()),
                     toDouble(point.getVolatility90d()),
-                    toDouble(point.getDailyReturnPercent())
+                    toDouble(point.getVolatility120d()),
+                    toDouble(point.getReturn1d())
             ));
         }
          return points;

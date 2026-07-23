@@ -1,0 +1,36 @@
+{
+  "loaded_rows": 50051,
+  "trained_rows": 49348,
+  "stocks": 100,
+  "days_back": 730,
+  "metrics": [
+    {
+      "model_name": "logistic_regression",
+      "test_f1": 0.3467864707827445,
+      "test_balanced_accuracy": 0.5006536628131286,
+      "test_precision": 0.5467148884870403,
+      "test_recall": 0.5006536628131286
+    },
+    {
+      "model_name": "random_forest",
+      "test_f1": 0.4047082199606886,
+      "test_balanced_accuracy": 0.4971535042873452,
+      "test_precision": 0.49145553405549425,
+      "test_recall": 0.4971535042873452
+    },
+    {
+      "model_name": "gradient_boosting",
+      "test_f1": 0.36216586994258243,
+      "test_balanced_accuracy": 0.5005639975455213,
+      "test_precision": 0.506476349391267,
+      "test_recall": 0.5005639975455213
+    },
+    {
+      "model_name": "xgboost",
+      "test_f1": 0.41916920412061787,
+      "test_balanced_accuracy": 0.4900309291956457,
+      "test_precision": 0.478743963462549,
+      "test_recall": 0.4900309291956457
+    }
+  ]
+}

@@ -58,8 +58,11 @@ public record StockInsightsResponseDTO(
     }
 
     public record VolatilityMetricsDTO(
-            Double volatility30Day,
-            Double volatility90Day
+            Double volatility5Day,
+            Double volatility20Day,
+            Double volatility60Day,
+            Double volatility90Day,
+            Double volatility120Day
     ) {
     }
 
@@ -75,8 +78,7 @@ public record StockInsightsResponseDTO(
     public record MomentumMetricsDTO(
             Double rsi14,
             Double macd,
-            Double macdSignal,
-            Double momentum30Day
+            Double macdSignal
     ) {
     }
 
@@ -127,9 +129,12 @@ public record StockInsightsResponseDTO(
             Double sma20,
             Double sma50,
             Double sma200,
-            Double volatility30Day,
+            Double volatility5Day,
+            Double volatility20Day,
+            Double volatility60Day,
             Double volatility90Day,
-            Double dailyReturnPercent
+            Double volatility120Day,
+            Double return1d
     ) {
     }
 }

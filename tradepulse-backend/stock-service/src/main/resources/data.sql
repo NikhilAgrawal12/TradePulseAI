@@ -43,9 +43,16 @@ CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_aggregate_ts ON all_stocks_last_
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sma_20 NUMERIC(12, 2);
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sma_50 NUMERIC(12, 2);
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS sma_200 NUMERIC(12, 2);
-ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_30d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_5d       NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_90d      NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_5d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_20d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_60d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_120d NUMERIC(12, 2);
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12, 2);
-ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS daily_return_percent NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_1d NUMERIC(12, 2);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS forward_return_5d NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS target_week_direction VARCHAR(16);
 
 -- Ensure stock_metrics has all returns windows used by Insights Returns tab
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS three_month_return NUMERIC(12, 2);
@@ -57,8 +64,6 @@ ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS avg_volume_30d NUMERIC(20, 2)
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_trading_day_volume BIGINT;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_trading_date DATE;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS relative_volume NUMERIC(12, 4);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_30d NUMERIC(12, 2);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12, 2);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS positive_days_1y INT;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS negative_days_1y INT;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS flat_days_1y INT;
@@ -68,10 +73,6 @@ ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS drawdown_peak_date DATE;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS drawdown_trough_date DATE;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS sharpe_ratio NUMERIC(12, 2);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS sortino_ratio NUMERIC(12, 2);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS rsi_14 NUMERIC(12, 2);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS macd NUMERIC(12, 2);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS macd_signal NUMERIC(12, 2);
-ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS momentum_30d NUMERIC(12, 2);
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS golden_cross BOOLEAN;
 ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS death_cross BOOLEAN;
 
@@ -81,14 +82,24 @@ ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_20;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200;
 ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_1y;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_30d;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_90d;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS rsi_14;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS macd;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS macd_signal;
+ALTER TABLE stock_metrics DROP COLUMN IF EXISTS momentum_30d;
 
 -- Drop unused stock_daily_ohlc columns no longer fetched from API
 ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS is_otc;
 ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS adjusted;
+ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS momentum_20d;
+ALTER TABLE stock_daily_ohlc DROP COLUMN IF EXISTS volatility_30d;
 
 -- Ensure ML feature columns exist (guard for services that skip Flyway)
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_5d       NUMERIC(12, 4);
-ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS momentum_20d    NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_20d      NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_60d      NUMERIC(12, 4);
+ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_120d     NUMERIC(12, 4);
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS rsi_14          NUMERIC(8,  4);
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS macd            NUMERIC(12, 4);
 ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS macd_signal     NUMERIC(12, 4);
@@ -125,24 +136,117 @@ WHERE d.stock_id = subq.stock_id
   AND d.return_5d IS NULL
   AND subq.return_5d IS NOT NULL;
 
--- momentum_20d: 20-day % change in close price
+-- return_20d / return_60d / return_120d: multi-horizon % changes in close price
 UPDATE stock_daily_ohlc d
-SET momentum_20d = subq.momentum_20d
+SET
+    return_20d = subq.return_20d,
+    return_60d = subq.return_60d,
+    return_120d = subq.return_120d
 FROM (
     SELECT
         stock_id,
         trading_date,
         ROUND(
-            (close_price - LAG(close_price, 20) OVER (PARTITION BY stock_id ORDER BY trading_date))
-            / NULLIF(LAG(close_price, 20) OVER (PARTITION BY stock_id ORDER BY trading_date), 0) * 100,
+            (close_price - LAG(close_price, 20) OVER w)
+            / NULLIF(LAG(close_price, 20) OVER w, 0) * 100,
             4
-        ) AS momentum_20d
+        ) AS return_20d,
+        ROUND(
+            (close_price - LAG(close_price, 60) OVER w)
+            / NULLIF(LAG(close_price, 60) OVER w, 0) * 100,
+            4
+        ) AS return_60d,
+        ROUND(
+            (close_price - LAG(close_price, 120) OVER w)
+            / NULLIF(LAG(close_price, 120) OVER w, 0) * 100,
+            4
+        ) AS return_120d
     FROM stock_daily_ohlc
+    WINDOW w AS (PARTITION BY stock_id ORDER BY trading_date)
 ) subq
 WHERE d.stock_id = subq.stock_id
   AND d.trading_date = subq.trading_date
-  AND d.momentum_20d IS NULL
-  AND subq.momentum_20d IS NOT NULL;
+  AND (
+      d.return_20d IS NULL
+      OR d.return_60d IS NULL
+      OR d.return_120d IS NULL
+  );
+
+-- volatility windows aligned to return horizons (exclude 1d)
+UPDATE stock_daily_ohlc d
+SET
+    volatility_5d = subq.volatility_5d,
+    volatility_20d = subq.volatility_20d,
+    volatility_60d = subq.volatility_60d,
+    volatility_120d = subq.volatility_120d
+FROM (
+    WITH daily_returns AS (
+        SELECT
+            stock_id,
+            trading_date,
+            (close_price - LAG(close_price, 1) OVER w)
+            / NULLIF(LAG(close_price, 1) OVER w, 0) AS ret_1d
+        FROM stock_daily_ohlc
+        WINDOW w AS (PARTITION BY stock_id ORDER BY trading_date)
+    )
+    SELECT
+        stock_id,
+        trading_date,
+        CASE
+            WHEN COUNT(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) = 5
+            THEN ROUND(
+                (
+                    STDDEV_SAMP(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
+                    * SQRT(252) * 100
+                )::NUMERIC,
+                2
+            )
+            ELSE NULL
+        END AS volatility_5d,
+        CASE
+            WHEN COUNT(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) = 20
+            THEN ROUND(
+                (
+                    STDDEV_SAMP(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW)
+                    * SQRT(252) * 100
+                )::NUMERIC,
+                2
+            )
+            ELSE NULL
+        END AS volatility_20d,
+        CASE
+            WHEN COUNT(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) = 60
+            THEN ROUND(
+                (
+                    STDDEV_SAMP(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 59 PRECEDING AND CURRENT ROW)
+                    * SQRT(252) * 100
+                )::NUMERIC,
+                2
+            )
+            ELSE NULL
+        END AS volatility_60d,
+        CASE
+            WHEN COUNT(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 119 PRECEDING AND CURRENT ROW) = 120
+            THEN ROUND(
+                (
+                    STDDEV_SAMP(ret_1d) OVER (PARTITION BY stock_id ORDER BY trading_date ROWS BETWEEN 119 PRECEDING AND CURRENT ROW)
+                    * SQRT(252) * 100
+                )::NUMERIC,
+                2
+            )
+            ELSE NULL
+        END AS volatility_120d
+    FROM daily_returns
+) subq
+WHERE d.stock_id = subq.stock_id
+  AND d.trading_date = subq.trading_date
+  AND (
+      d.volatility_5d IS NULL
+      OR d.volatility_20d IS NULL
+      OR d.volatility_60d IS NULL
+      OR d.volatility_120d IS NULL
+  );
+
 
 -- rsi_14: approximated via 14-period average gain/loss window
 UPDATE stock_daily_ohlc d
@@ -204,5 +308,33 @@ WHERE d.stock_id = subq.stock_id
 UPDATE stock_daily_ohlc
 SET sentiment_score = 0.0000
 WHERE sentiment_score IS NULL;
+
+-- forward_return_5d and target_week_direction: label next-week direction for ML
+UPDATE stock_daily_ohlc d
+SET
+    forward_return_5d = subq.forward_return_5d,
+    target_week_direction = CASE
+        WHEN subq.forward_return_5d > 0 THEN 'POSITIVE'
+        WHEN subq.forward_return_5d < 0 THEN 'NEGATIVE'
+        WHEN subq.forward_return_5d = 0 THEN 'FLAT'
+        ELSE NULL
+    END
+FROM (
+    SELECT
+        stock_id,
+        trading_date,
+        ROUND(
+            (LEAD(close_price, 5) OVER (PARTITION BY stock_id ORDER BY trading_date) - close_price)
+            / NULLIF(close_price, 0) * 100,
+            4
+        ) AS forward_return_5d
+    FROM stock_daily_ohlc
+) subq
+WHERE d.stock_id = subq.stock_id
+  AND d.trading_date = subq.trading_date
+  AND (
+      d.forward_return_5d IS NULL
+      OR d.target_week_direction IS NULL
+  );
 
 

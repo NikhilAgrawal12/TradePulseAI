@@ -19,9 +19,12 @@ function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {
     sma20: point.sma20 == null ? null : toMoney(point.sma20),
     sma50: point.sma50 == null ? null : toMoney(point.sma50),
     sma200: point.sma200 == null ? null : toMoney(point.sma200),
-    volatility30Day: point.volatility30Day == null ? null : toMoney(point.volatility30Day),
+    volatility5Day: point.volatility5Day == null ? null : toMoney(point.volatility5Day),
+    volatility20Day: point.volatility20Day == null ? null : toMoney(point.volatility20Day),
+    volatility60Day: point.volatility60Day == null ? null : toMoney(point.volatility60Day),
     volatility90Day: point.volatility90Day == null ? null : toMoney(point.volatility90Day),
-    dailyReturnPercent: point.dailyReturnPercent == null ? null : toMoney(point.dailyReturnPercent),
+    volatility120Day: point.volatility120Day == null ? null : toMoney(point.volatility120Day),
+    return1d: point.return1d == null ? null : toMoney(point.return1d),
   };
 }
 
@@ -57,8 +60,11 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
       relativeVolume: data.volumeMetrics.relativeVolume == null ? null : toMoney(data.volumeMetrics.relativeVolume),
     },
     volatilityMetrics: {
-      volatility30Day: data.volatilityMetrics.volatility30Day == null ? null : toMoney(data.volatilityMetrics.volatility30Day),
+      volatility5Day: data.volatilityMetrics.volatility5Day == null ? null : toMoney(data.volatilityMetrics.volatility5Day),
+      volatility20Day: data.volatilityMetrics.volatility20Day == null ? null : toMoney(data.volatilityMetrics.volatility20Day),
+      volatility60Day: data.volatilityMetrics.volatility60Day == null ? null : toMoney(data.volatilityMetrics.volatility60Day),
       volatility90Day: data.volatilityMetrics.volatility90Day == null ? null : toMoney(data.volatilityMetrics.volatility90Day),
+      volatility120Day: data.volatilityMetrics.volatility120Day == null ? null : toMoney(data.volatilityMetrics.volatility120Day),
     },
     trendMetrics: {
       ...data.trendMetrics,
@@ -70,7 +76,6 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
       rsi14: data.momentumMetrics.rsi14 == null ? null : toMoney(data.momentumMetrics.rsi14),
       macd: data.momentumMetrics.macd == null ? null : toMoney(data.momentumMetrics.macd),
       macdSignal: data.momentumMetrics.macdSignal == null ? null : toMoney(data.momentumMetrics.macdSignal),
-      momentum30Day: data.momentumMetrics.momentum30Day == null ? null : toMoney(data.momentumMetrics.momentum30Day),
     },
     riskMetrics: {
       sharpeRatio: data.riskMetrics.sharpeRatio == null ? null : toMoney(data.riskMetrics.sharpeRatio),

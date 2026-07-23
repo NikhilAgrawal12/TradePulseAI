@@ -28,25 +28,40 @@ def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
                     "high_price": high_price,
                     "low_price": low_price,
                     "close_price": close,
-                    "volume": float(1_000_000 + rng.normal(0, 70_000)),
-                    "sma_20": close + rng.normal(0, 0.5),
-                    "sma_50": close + rng.normal(0, 0.9),
-                    "sma_200": close + rng.normal(0, 1.2),
-                    "volatility_30d": abs(rng.normal(2.0, 0.6)),
-                    "volatility_90d": abs(rng.normal(2.4, 0.7)),
-                    "daily_return_percent": rng.normal(0.1, 1.5),
+                    "volatility_5d": abs(rng.normal(1.6, 0.5)),
+                    "volatility_20d": abs(rng.normal(1.9, 0.5)),
+                    "volatility_60d": abs(rng.normal(2.1, 0.6)),
+                    "volatility_90d": abs(rng.normal(2.3, 0.7)),
+                    "volatility_120d": abs(rng.normal(2.5, 0.8)),
+                    "return_1d": rng.normal(0.1, 1.5),
                     "return_5d": rng.normal(0.5, 2.5),
-                    "momentum_20d": rng.normal(1.0, 4.0),
-                    "rsi_14": float(rng.uniform(20, 80)),
-                    "macd": rng.normal(0.0, 0.5),
-                    "macd_signal": rng.normal(0.0, 0.4),
+                    "return_20d": rng.normal(1.2, 4.5),
+                    "return_60d": rng.normal(3.0, 8.0),
+                    "return_90d": rng.normal(4.5, 10.0),
+                    "return_120d": rng.normal(6.0, 12.0),
                 }
             )
     return pd.DataFrame(records)
 
 
+def add_week_targets(frame: pd.DataFrame) -> pd.DataFrame:
+    enriched = frame.sort_values(["stock_id", "trading_date"]).reset_index(drop=True).copy()
+    grouped = enriched.groupby("stock_id", group_keys=False)
+    enriched["forward_return_5d"] = (
+        grouped["close_price"].shift(-5).subtract(enriched["close_price"])
+        .divide(enriched["close_price"])
+        .mul(100)
+    )
+    enriched["target_week_direction"] = np.where(
+        enriched["forward_return_5d"] > 0,
+        "POSITIVE",
+        np.where(enriched["forward_return_5d"] < 0, "NEGATIVE", np.where(enriched["forward_return_5d"].isna(), None, "FLAT")),
+    )
+    return enriched
+
+
 def test_training_selects_model() -> None:
-    frame = synthetic_frame()
+    frame = add_week_targets(synthetic_frame())
     bundle = train_and_select_model(frame, horizon_days=5, positive_return_threshold=0.015, neutral_return_band=0.015)
 
     assert bundle.estimator is not None
@@ -62,7 +77,7 @@ def test_training_selects_model() -> None:
 
 
 def test_temporal_split_uses_unique_trading_dates() -> None:
-    frame = synthetic_frame(rows_per_stock=80, stocks=3)
+    frame = add_week_targets(synthetic_frame(rows_per_stock=80, stocks=3))
     bundle_input = frame.sort_values(["trading_date", "stock_id"]).reset_index(drop=True)
 
     train_df, test_df = _split_train_test_by_date(bundle_input)
@@ -77,12 +92,24 @@ def test_temporal_split_uses_unique_trading_dates() -> None:
 
 
 def test_prediction_row_contains_latest_stock_record() -> None:
-    frame = synthetic_frame(rows_per_stock=80, stocks=1)
+    frame = add_week_targets(synthetic_frame(rows_per_stock=80, stocks=1))
     row = build_prediction_row(frame)
 
     assert len(row) == 1
     assert int(row.iloc[0]["stock_id"]) == 1
     assert str(row.iloc[0]["symbol"]) == "STK1"
+
+
+def test_engineered_targets_skip_null_and_flat_rows() -> None:
+    frame = add_week_targets(synthetic_frame(rows_per_stock=40, stocks=1))
+    frame.loc[0, "target_week_direction"] = "FLAT"
+    bundle_input = frame.copy()
+
+    from app.ml_pipeline import _engineer_features
+
+    engineered = _engineer_features(bundle_input, horizon_days=5, positive_return_threshold=0.015, neutral_return_band=0.015)
+    assert pd.isna(engineered.iloc[0]["target"])
+    assert engineered.tail(5)["target"].isna().all()
 
 
 def test_derive_action_prefers_higher_sell_probability_when_both_clear_threshold() -> None:

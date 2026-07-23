@@ -675,7 +675,7 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
           const barWidth = Math.max(innerWidth / Math.max(data.length * 1.6, 20), 2);
           const barHeight = (volume / maxVolume) * innerHeight;
           const y = top + innerHeight - barHeight;
-           const isPositive = (point.dailyReturnPercent ?? 0) >= 0;
+           const isPositive = (point.return1d ?? 0) >= 0;
            return <rect key={`${point.tradingDate}-${index}`} x={x - barWidth / 2} y={y} width={barWidth} height={barHeight} fill={isPositive ? "#16a34a" : "#dc2626"} rx="1" />;
         })}
          <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
@@ -1015,8 +1015,11 @@ export function StockInsightsPage() {
               <MetricSection title="Volatility">
                 <MetricGrid
                   items={[
-                    { label: "30-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility30Day) },
+                    { label: "5-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility5Day) },
+                    { label: "20-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility20Day) },
+                    { label: "60-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility60Day) },
                     { label: "90-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility90Day) },
+                    { label: "120-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility120Day) },
                   ]}
                 />
               </MetricSection>
@@ -1128,7 +1131,7 @@ export function StockInsightsPage() {
                 />
               </ChartCard>
 
-              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 30-day and 90-day windows">
+              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 20-day, 60-day, and 90-day windows">
                 <section className="insights-range-row" aria-label="Rolling volatility range selector">
                   {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
@@ -1139,8 +1142,9 @@ export function StockInsightsPage() {
                 <MultiLineChart
                   data={rollingVolatilityHistory}
                   lines={[
-                    { key: "volatility30Day", label: "30D Volatility", color: "#dc2626" },
-                    { key: "volatility90Day", label: "90D Volatility", color: "#0f766e" },
+                    { key: "volatility20Day", label: "20D Volatility", color: "#0f766e" },
+                    { key: "volatility60Day", label: "60D Volatility", color: "#2563eb" },
+                    { key: "volatility90Day", label: "90D Volatility", color: "#dc2626" },
                   ]}
                   valueFormatter={(value) => `${formatMoney(value)}%`}
                 />
@@ -1185,7 +1189,6 @@ export function StockInsightsPage() {
                     { label: "RSI (14)", value: formatMaybePlain(insights.momentumMetrics.rsi14) },
                     { label: "MACD", value: formatMaybePlain(insights.momentumMetrics.macd), tone: summaryTone(insights.momentumMetrics.macd) },
                     { label: "MACD Signal", value: formatMaybePlain(insights.momentumMetrics.macdSignal), tone: summaryTone(insights.momentumMetrics.macdSignal) },
-                    { label: "Momentum (30 Day)", value: formatMaybePercent(insights.momentumMetrics.momentum30Day), tone: summaryTone(insights.momentumMetrics.momentum30Day) },
                   ]}
                 />
               </MetricSection>

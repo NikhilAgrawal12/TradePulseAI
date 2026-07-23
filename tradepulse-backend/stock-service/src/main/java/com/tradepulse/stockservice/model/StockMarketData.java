@@ -65,14 +65,24 @@ public class StockMarketData {
     @Column(name = "sma_200", precision = 12, scale = 2)
     private BigDecimal sma200;
 
-    @Column(name = "volatility_30d", precision = 12, scale = 2)
-    private BigDecimal volatility30d;
+
+    @Column(name = "volatility_5d", precision = 12, scale = 2)
+    private BigDecimal volatility5d;
+
+    @Column(name = "volatility_20d", precision = 12, scale = 2)
+    private BigDecimal volatility20d;
+
+    @Column(name = "volatility_60d", precision = 12, scale = 2)
+    private BigDecimal volatility60d;
+
+    @Column(name = "volatility_120d", precision = 12, scale = 2)
+    private BigDecimal volatility120d;
 
     @Column(name = "volatility_90d", precision = 12, scale = 2)
     private BigDecimal volatility90d;
 
-    @Column(name = "daily_return_percent", precision = 12, scale = 2)
-    private BigDecimal dailyReturnPercent;
+    @Column(name = "return_1d", precision = 12, scale = 2)
+    private BigDecimal return1d;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -80,8 +90,23 @@ public class StockMarketData {
     @Column(name = "return_5d", precision = 12, scale = 4)
     private BigDecimal return5d;
 
-    @Column(name = "momentum_20d", precision = 12, scale = 4)
-    private BigDecimal momentum20d;
+    @Column(name = "return_90d", precision = 12, scale = 4)
+    private BigDecimal return90d;
+
+    @Column(name = "return_20d", precision = 12, scale = 4)
+    private BigDecimal return20d;
+
+    @Column(name = "return_60d", precision = 12, scale = 4)
+    private BigDecimal return60d;
+
+    @Column(name = "return_120d", precision = 12, scale = 4)
+    private BigDecimal return120d;
+
+    @Column(name = "forward_return_5d", precision = 12, scale = 4)
+    private BigDecimal forwardReturn5d;
+
+    @Column(name = "target_week_direction", length = 16)
+    private String targetWeekDirection;
 
     @Column(name = "rsi_14", precision = 8, scale = 4)
     private BigDecimal rsi14;
@@ -200,12 +225,36 @@ public class StockMarketData {
         this.sma200 = sma200;
     }
 
-    public BigDecimal getVolatility30d() {
-        return volatility30d;
+    public BigDecimal getVolatility5d() {
+        return volatility5d;
     }
 
-    public void setVolatility30d(BigDecimal volatility30d) {
-        this.volatility30d = volatility30d;
+    public void setVolatility5d(BigDecimal volatility5d) {
+        this.volatility5d = volatility5d;
+    }
+
+    public BigDecimal getVolatility20d() {
+        return volatility20d;
+    }
+
+    public void setVolatility20d(BigDecimal volatility20d) {
+        this.volatility20d = volatility20d;
+    }
+
+    public BigDecimal getVolatility60d() {
+        return volatility60d;
+    }
+
+    public void setVolatility60d(BigDecimal volatility60d) {
+        this.volatility60d = volatility60d;
+    }
+
+    public BigDecimal getVolatility120d() {
+        return volatility120d;
+    }
+
+    public void setVolatility120d(BigDecimal volatility120d) {
+        this.volatility120d = volatility120d;
     }
 
     public BigDecimal getVolatility90d() {
@@ -216,12 +265,12 @@ public class StockMarketData {
         this.volatility90d = volatility90d;
     }
 
-    public BigDecimal getDailyReturnPercent() {
-        return dailyReturnPercent;
+    public BigDecimal getReturn1d() {
+        return return1d;
     }
 
-    public void setDailyReturnPercent(BigDecimal dailyReturnPercent) {
-        this.dailyReturnPercent = dailyReturnPercent;
+    public void setReturn1d(BigDecimal return1d) {
+        this.return1d = return1d;
     }
 
     public Instant getUpdatedAt() {
@@ -235,8 +284,34 @@ public class StockMarketData {
     public BigDecimal getReturn5d() { return return5d; }
     public void setReturn5d(BigDecimal return5d) { this.return5d = return5d; }
 
-    public BigDecimal getMomentum20d() { return momentum20d; }
-    public void setMomentum20d(BigDecimal momentum20d) { this.momentum20d = momentum20d; }
+    public BigDecimal getReturn90d() { return return90d; }
+    public void setReturn90d(BigDecimal return90d) { this.return90d = return90d; }
+
+    public BigDecimal getReturn20d() { return return20d; }
+    public void setReturn20d(BigDecimal return20d) { this.return20d = return20d; }
+
+    public BigDecimal getReturn60d() { return return60d; }
+    public void setReturn60d(BigDecimal return60d) { this.return60d = return60d; }
+
+    public BigDecimal getReturn120d() { return return120d; }
+    public void setReturn120d(BigDecimal return120d) { this.return120d = return120d; }
+
+    public BigDecimal getForwardReturn5d() {
+        return forwardReturn5d;
+    }
+
+    public void setForwardReturn5d(BigDecimal forwardReturn5d) {
+        this.forwardReturn5d = forwardReturn5d;
+    }
+
+    public String getTargetWeekDirection() {
+        return targetWeekDirection;
+    }
+
+    public void setTargetWeekDirection(String targetWeekDirection) {
+        this.targetWeekDirection = targetWeekDirection;
+    }
+
 
     public BigDecimal getRsi14() { return rsi14; }
     public void setRsi14(BigDecimal rsi14) { this.rsi14 = rsi14; }

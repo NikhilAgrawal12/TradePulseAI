@@ -6,7 +6,6 @@ import java.util.List;
 public class LockedOrderQuoteResponseDTO {
 
     private List<CompleteOrderItemRequestDTO> items;
-    private BigDecimal subtotal;
     private BigDecimal total;
     private int lockSeconds;
 

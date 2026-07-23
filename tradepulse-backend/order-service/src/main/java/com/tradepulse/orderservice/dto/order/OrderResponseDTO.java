@@ -11,7 +11,6 @@ public class OrderResponseDTO {
     private Long userId;
     private String status;
     private Instant createdAtIso;
-    private BigDecimal subtotal;
     private BigDecimal total;
     private List<OrderItemResponseDTO> items;
 

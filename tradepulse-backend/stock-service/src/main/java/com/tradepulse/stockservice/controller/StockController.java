@@ -11,6 +11,7 @@ import com.tradepulse.stockservice.service.NewsIntegrationScheduler;
 import com.tradepulse.stockservice.service.MarketStatusCacheService;
 import com.tradepulse.stockservice.service.StockInsightsService;
 import com.tradepulse.stockservice.service.MlPredictionService;
+import com.tradepulse.stockservice.service.StockMetricsRefreshService;
 import com.tradepulse.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @RestController
 @RequestMapping("/stocks")
@@ -41,6 +43,8 @@ public class StockController {
     private final MarketStatusCacheService marketStatusCacheService;
     private final StockInsightsService stockInsightsService;
     private final MlPredictionService mlPredictionService;
+    private final StockMetricsRefreshService stockMetricsRefreshService;
+    private final AtomicBoolean ohlcRecomputeRunning = new AtomicBoolean(false);
 
     public StockController(StockService stockService,
                           FeaturedStockRefreshService featuredStockRefreshService,
@@ -48,7 +52,8 @@ public class StockController {
                            NewsIntegrationScheduler newsIntegrationScheduler,
                           MarketStatusCacheService marketStatusCacheService,
                           StockInsightsService stockInsightsService,
-                          MlPredictionService mlPredictionService) {
+                            MlPredictionService mlPredictionService,
+                            StockMetricsRefreshService stockMetricsRefreshService) {
         this.stockService = stockService;
         this.featuredStockRefreshService = featuredStockRefreshService;
         this.featuredStockSSEService = featuredStockSSEService;
@@ -56,6 +61,7 @@ public class StockController {
         this.marketStatusCacheService = marketStatusCacheService;
         this.stockInsightsService = stockInsightsService;
         this.mlPredictionService = mlPredictionService;
+          this.stockMetricsRefreshService = stockMetricsRefreshService;
     }
 
     @GetMapping
@@ -136,6 +142,31 @@ public class StockController {
     @Operation(summary = "Get current or most recent historical news backfill status")
     public ResponseEntity<Map<String, Object>> getNewsBackfillStatus() {
         return ResponseEntity.ok(newsIntegrationScheduler.getBackfillStatus());
+    }
+
+    @PostMapping("/admin/recompute-ohlc-indicators")
+    @Operation(summary = "Recompute OHLC-derived indicators for all rows, including non-annualized volatility")
+    public ResponseEntity<Map<String, Object>> recomputeOhlcIndicators() {
+        Map<String, Object> response = new HashMap<>();
+        if (!ohlcRecomputeRunning.compareAndSet(false, true)) {
+            response.put("accepted", false);
+            response.put("message", "OHLC recompute is already running.");
+            return ResponseEntity.status(409).body(response);
+        }
+
+        Thread worker = new Thread(() -> {
+            try {
+                stockMetricsRefreshService.refreshAllForLatestOhlc("manual-admin");
+            } finally {
+                ohlcRecomputeRunning.set(false);
+            }
+        }, "manual-ohlc-recompute");
+        worker.setDaemon(true);
+        worker.start();
+
+        response.put("accepted", true);
+        response.put("message", "OHLC indicator recompute started for all rows.");
+        return ResponseEntity.accepted().body(response);
     }
 
     @GetMapping("/featured/health")

@@ -8,9 +8,12 @@ export type StockHistoryPoint = {
   sma20: number | null;
   sma50: number | null;
   sma200: number | null;
-  volatility30Day: number | null;
+  volatility5Day: number | null;
+  volatility20Day: number | null;
+  volatility60Day: number | null;
   volatility90Day: number | null;
-  dailyReturnPercent: number | null;
+  volatility120Day: number | null;
+  return1d: number | null;
 };
 
 export type MonthlyReturnHeatmapCell = {
@@ -58,8 +61,11 @@ export type StockInsights = {
     relativeVolume: number | null;
   };
   volatilityMetrics: {
-    volatility30Day: number | null;
+    volatility5Day: number | null;
+    volatility20Day: number | null;
+    volatility60Day: number | null;
     volatility90Day: number | null;
+    volatility120Day: number | null;
   };
   trendMetrics: {
     sma20: number | null;
@@ -72,7 +78,6 @@ export type StockInsights = {
     rsi14: number | null;
     macd: number | null;
     macdSignal: number | null;
-    momentum30Day: number | null;
   };
   riskMetrics: {
     sharpeRatio: number | null;

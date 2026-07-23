@@ -16,7 +16,6 @@ export type PaginatedResponse<T> = {
 function normalizeOrders(orders: OrderHistoryEntry[]): OrderHistoryEntry[] {
   return orders.map((order) => ({
     ...order,
-    subtotal: toMoney(order.subtotal),
     total: toMoney(order.total),
     items: order.items.map((item) => ({
       ...item,

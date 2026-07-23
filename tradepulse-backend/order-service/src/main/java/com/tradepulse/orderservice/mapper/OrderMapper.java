@@ -27,7 +27,6 @@ public class OrderMapper {
 
         BigDecimal scaledTotal = OrderItemMapper.scaleMoney(subtotal);
 
-        order.setSubtotal(scaledTotal);
         order.setTotal(scaledTotal);
         order.setItems(
                 cartItems.stream()
@@ -45,7 +44,6 @@ public class OrderMapper {
 
         BigDecimal scaledTotal = OrderItemMapper.scaleMoney(request.getTotal());
 
-        order.setSubtotal(scaledTotal);
         order.setTotal(scaledTotal);
         order.setItems(
                 request.getItems().stream()

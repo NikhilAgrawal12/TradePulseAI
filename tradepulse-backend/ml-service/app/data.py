@@ -58,7 +58,7 @@ class StockDataRepository:
 
             connection.execute(text("DROP TABLE IF EXISTS ml_predictions"))
 
-    def fetch_training_data(self, days_back: int, max_training_stocks: int, max_training_rows: int) -> pd.DataFrame:
+    def fetch_training_data(self, days_back: int, max_training_stocks: int) -> pd.DataFrame:
         query = text(
             """
             WITH ranked_stocks AS (
@@ -75,29 +75,25 @@ class StockDataRepository:
                 rs.ticker AS symbol,
                 rs.market,
                 d.trading_date,
-                d.open_price,
-                d.high_price,
-                d.low_price,
                 d.close_price,
-                d.volume,
-                d.sma_20,
-                d.sma_50,
-                d.sma_200,
-                d.volatility_30d,
+                d.volatility_5d,
+                d.volatility_20d,
+                d.volatility_60d,
+                d.volatility_120d,
                 d.volatility_90d,
-                d.daily_return_percent,
+                d.return_1d,
                 d.return_5d,
-                d.momentum_20d,
-                d.rsi_14,
-                d.macd,
-                d.macd_signal,
-                d.sentiment_score
+                d.return_20d,
+                d.return_60d,
+                d.return_90d,
+                d.return_120d,
+                d.forward_return_5d,
+                d.target_week_direction
             FROM stock_daily_ohlc d
             JOIN ranked_stocks rs ON rs.stock_id = d.stock_id
             WHERE d.trading_date >= CURRENT_DATE - make_interval(days => :days_back)
               AND rs.stock_rank <= :max_training_stocks
             ORDER BY rs.market_cap DESC, d.stock_id, d.trading_date
-            LIMIT :max_training_rows
             """
         )
         return pd.read_sql_query(
@@ -106,7 +102,6 @@ class StockDataRepository:
             params={
                 "days_back": days_back,
                 "max_training_stocks": max_training_stocks,
-                "max_training_rows": max_training_rows,
             },
         )
 
@@ -123,23 +118,20 @@ class StockDataRepository:
                 s.ticker AS symbol,
                 COALESCE(s.market, 'UNKNOWN') AS market,
                 d.trading_date,
-                d.open_price,
-                d.high_price,
-                d.low_price,
                 d.close_price,
-                d.volume,
-                d.sma_20,
-                d.sma_50,
-                d.sma_200,
-                d.volatility_30d,
+                d.volatility_5d,
+                d.volatility_20d,
+                d.volatility_60d,
+                d.volatility_120d,
                 d.volatility_90d,
-                d.daily_return_percent,
+                d.return_1d,
                 d.return_5d,
-                d.momentum_20d,
-                d.rsi_14,
-                d.macd,
-                d.macd_signal,
-                d.sentiment_score
+                d.return_20d,
+                d.return_60d,
+                d.return_90d,
+                d.return_120d,
+                d.forward_return_5d,
+                d.target_week_direction
             FROM stock_daily_ohlc d
             JOIN stocks s ON s.stock_id = d.stock_id
             WHERE d.stock_id = :stock_id

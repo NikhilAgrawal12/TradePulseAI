@@ -1,40 +1,40 @@
 {
-  "trained_rows": 50042,
-  "seconds": 1759.6,
+  "trained_rows": 50051,
+  "seconds": 593.7,
   "selected_model": "random_forest",
-  "model_version": "v20260709185725",
+  "model_version": "v20260723184356",
   "metrics": [
     {
       "model_name": "random_forest",
-      "cv_f1": 0.5100806647854592,
-      "test_f1": 0.49480002461356964,
-      "test_balanced_accuracy": 0.4963940624065779,
-      "test_precision": 0.4962848922177566,
-      "test_recall": 0.4963940624065779
-    },
-    {
-      "model_name": "gradient_boosting",
-      "cv_f1": 0.5057039855542214,
-      "test_f1": 0.4898099250945549,
-      "test_balanced_accuracy": 0.5022653437797692,
-      "test_precision": 0.5026649617532469,
-      "test_recall": 0.5022653437797692
+      "cv_f1": 0.5012277442432556,
+      "test_f1": 0.3958816316838124,
+      "test_balanced_accuracy": 0.49076078238398196,
+      "test_precision": 0.4717934126611607,
+      "test_recall": 0.49076078238398196
     },
     {
       "model_name": "xgboost",
-      "cv_f1": 0.5102733282157557,
-      "test_f1": 0.4605958346475153,
-      "test_balanced_accuracy": 0.4932453889249313,
-      "test_precision": 0.49010719494895005,
-      "test_recall": 0.4932453889249313
+      "cv_f1": 0.50428057347768,
+      "test_f1": 0.36625142050260584,
+      "test_balanced_accuracy": 0.49993521609108593,
+      "test_precision": 0.499416771524855,
+      "test_recall": 0.49993521609108593
     },
     {
       "model_name": "logistic_regression",
-      "cv_f1": 0.5102512911406607,
-      "test_f1": 0.4257717055539674,
-      "test_balanced_accuracy": 0.4995036270293352,
-      "test_precision": 0.4987743324956777,
-      "test_recall": 0.4995036270293352
+      "cv_f1": 0.5041186211260706,
+      "test_f1": 0.3467864707827445,
+      "test_balanced_accuracy": 0.5006536628131286,
+      "test_precision": 0.5467148884870403,
+      "test_recall": 0.5006536628131286
+    },
+    {
+      "model_name": "gradient_boosting",
+      "cv_f1": 0.4988089780307241,
+      "test_f1": 0.34480520877678583,
+      "test_balanced_accuracy": 0.49990374789974423,
+      "test_precision": 0.4899795116240174,
+      "test_recall": 0.49990374789974423
     }
   ]
 }

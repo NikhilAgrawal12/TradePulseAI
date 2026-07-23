@@ -8,7 +8,6 @@ import com.tradepulse.stockservice.repository.StockMetricsRepository;
 import com.tradepulse.stockservice.repository.StockRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +17,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +27,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class StockMetricsRefreshService {
 
     private static final Logger log = LoggerFactory.getLogger(StockMetricsRefreshService.class);
-    private static final int LOOKBACK_ROWS = 1100; // 730-day training window + 200 SMA-200 warmup + safety buffer
     private static final int ONE_WEEK_PERIODS = 5;
     private static final int ONE_MONTH_PERIODS = 21;
     private static final int THREE_MONTH_PERIODS = 63;
@@ -76,15 +73,14 @@ public class StockMetricsRefreshService {
                 continue;
             }
 
-            List<StockMarketData> historyDesc = stockMarketDataRepository.findRecentByStockId(stockId, PageRequest.of(0, LOOKBACK_ROWS));
-            if (historyDesc.isEmpty()) {
+            List<StockMarketData> historyAsc = stockMarketDataRepository.findAllByStockIdOrderByTradingDateAsc(stockId);
+            if (historyAsc.isEmpty()) {
                 continue;
             }
 
-            historyDesc.sort(Comparator.comparing(StockMarketData::getTradingDate));
-            applyIndicatorsToHistory(historyDesc);
-            indicatorRows.addAll(historyDesc);
-            StockMetrics metrics = buildMetrics(stockId, historyDesc);
+            applyIndicatorsToHistory(historyAsc);
+            indicatorRows.addAll(historyAsc);
+            StockMetrics metrics = buildMetrics(stockId, historyAsc);
             metricsRows.add(metrics);
         }
 
@@ -123,24 +119,27 @@ public class StockMetricsRefreshService {
             row.setSma20(scaleNullable(simpleMovingAverageAt(closes, index, 20)));
             row.setSma50(scaleNullable(simpleMovingAverageAt(closes, index, 50)));
             row.setSma200(scaleNullable(simpleMovingAverageAt(closes, index, 200)));
-            row.setVolatility30d(scaleNullable(computeAnnualizedVolatilityAt(closes, index, 30)));
-            row.setVolatility90d(scaleNullable(computeAnnualizedVolatilityAt(closes, index, 90)));
+            row.setVolatility5d(scaleNullable(computeHistoricalVolatilityAt(closes, index, 5)));
+            row.setVolatility20d(scaleNullable(computeHistoricalVolatilityAt(closes, index, 20)));
+            row.setVolatility60d(scaleNullable(computeHistoricalVolatilityAt(closes, index, 60)));
+            row.setVolatility120d(scaleNullable(computeHistoricalVolatilityAt(closes, index, 120)));
+            row.setVolatility90d(scaleNullable(computeHistoricalVolatilityAt(closes, index, 90)));
 
             BigDecimal dailyReturn = null;
             if (index > 0) {
                 dailyReturn = percentChange(closes.get(index - 1), closes.get(index));
             }
-            row.setDailyReturnPercent(scaleNullable(dailyReturn));
+            row.setReturn1d(scaleNullable(dailyReturn));
 
-            // 5-day return
-            BigDecimal return5d = index >= 5
-                    ? percentChange(closes.get(index - 5), closes.get(index)) : null;
-            row.setReturn5d(return5d == null ? null : return5d.setScale(4, RoundingMode.HALF_UP));
+            row.setReturn5d(scaleNullable4(computeWindowReturnAt(closes, index, 5)));
+            row.setReturn20d(scaleNullable4(computeWindowReturnAt(closes, index, 20)));
+            row.setReturn60d(scaleNullable4(computeWindowReturnAt(closes, index, 60)));
+            row.setReturn90d(scaleNullable4(computeWindowReturnAt(closes, index, 90)));
+            row.setReturn120d(scaleNullable4(computeWindowReturnAt(closes, index, 120)));
 
-            // 20-day momentum (same as 20-day return expressed as % change)
-            BigDecimal momentum20d = index >= 20
-                    ? percentChange(closes.get(index - 20), closes.get(index)) : null;
-            row.setMomentum20d(momentum20d == null ? null : momentum20d.setScale(4, RoundingMode.HALF_UP));
+            BigDecimal forwardReturn5d = computeForwardWindowReturnAt(closes, index, 5);
+            row.setForwardReturn5d(scaleNullable4(forwardReturn5d));
+            row.setTargetWeekDirection(toWeekDirectionLabel(forwardReturn5d));
 
             // RSI 14 using a rolling window up to this index
             BigDecimal rsi14 = computeRsi(closes.subList(0, index + 1), 14);
@@ -188,14 +187,9 @@ public class StockMetricsRefreshService {
                 || average30DayVolume.compareTo(BigDecimal.ZERO) == 0
                 ? null
                 : BigDecimal.valueOf(latestTradingDayVolume).divide(average30DayVolume, MATH_CONTEXT);
-        BigDecimal volatility30d = computeAnnualizedVolatility(closes, 30);
-        BigDecimal volatility90d = computeAnnualizedVolatility(closes, 90);
         int[] distribution = computeDistribution(historyAsc, ONE_YEAR_PERIODS);
         DrawdownSummary drawdownSummary = computeDrawdownSummary(historyAsc);
         RiskSummary riskSummary = computeRiskSummary(closes);
-        BigDecimal rsi14 = computeRsi(closes, 14);
-        MacdResult macdResult = computeMacd(closes);
-        BigDecimal momentum30d = computeReturn(closes, 30);
         BigDecimal sma50 = simpleMovingAverage(closes, 50);
         BigDecimal sma200 = simpleMovingAverage(closes, 200);
         Boolean goldenCross = sma50 != null && sma200 != null ? sma50.compareTo(sma200) > 0 : null;
@@ -218,8 +212,6 @@ public class StockMetricsRefreshService {
         row.setLatestTradingDayVolume(latestTradingDayVolume);
         row.setLatestTradingDate(latest.getTradingDate());
         row.setRelativeVolume(scaleNullable(relativeVolume));
-        row.setVolatility30d(scaleNullable(volatility30d));
-        row.setVolatility90d(scaleNullable(volatility90d));
         row.setPositiveDays1y(distribution[0]);
         row.setNegativeDays1y(distribution[1]);
         row.setFlatDays1y(distribution[2]);
@@ -229,10 +221,6 @@ public class StockMetricsRefreshService {
         row.setDrawdownTroughDate(drawdownSummary.troughDate());
         row.setSharpeRatio(scaleNullable(riskSummary.sharpeRatio()));
         row.setSortinoRatio(scaleNullable(riskSummary.sortinoRatio()));
-        row.setRsi14(scaleNullable(rsi14));
-        row.setMacd(scaleNullable(macdResult.macd()));
-        row.setMacdSignal(scaleNullable(macdResult.signal()));
-        row.setMomentum30d(scaleNullable(momentum30d));
         row.setGoldenCross(goldenCross);
         row.setDeathCross(deathCross);
         return row;
@@ -331,7 +319,8 @@ public class StockMetricsRefreshService {
         return sum.divide(BigDecimal.valueOf(count), MATH_CONTEXT);
     }
 
-    private BigDecimal computeAnnualizedVolatility(List<BigDecimal> closes, int periods) {
+    // Historical volatility stored as daily sample std-dev percentage (no annualization).
+    private BigDecimal computeHistoricalVolatility(List<BigDecimal> closes, int periods) {
         List<Double> returns = dailyReturns(closes, periods);
         if (returns.size() < 2) {
             return null;
@@ -346,15 +335,44 @@ public class StockMetricsRefreshService {
 
         double variance = sumSquaredDiff / (returns.size() - 1);
         double stdDev = Math.sqrt(variance);
-        return BigDecimal.valueOf(stdDev * SQRT_252 * 100.0d);
+        return BigDecimal.valueOf(stdDev * 100.0d);
     }
 
-    private BigDecimal computeAnnualizedVolatilityAt(List<BigDecimal> closes, int inclusiveIndex, int periods) {
+    private BigDecimal computeHistoricalVolatilityAt(List<BigDecimal> closes, int inclusiveIndex, int periods) {
         if (inclusiveIndex < periods) {
             return null;
         }
         List<BigDecimal> subset = closes.subList(0, inclusiveIndex + 1);
-        return computeAnnualizedVolatility(subset, periods);
+        return computeHistoricalVolatility(subset, periods);
+    }
+
+    private BigDecimal computeWindowReturnAt(List<BigDecimal> closes, int inclusiveIndex, int periods) {
+        if (inclusiveIndex < periods) {
+            return null;
+        }
+        return percentChange(closes.get(inclusiveIndex - periods), closes.get(inclusiveIndex));
+    }
+
+    private BigDecimal computeForwardWindowReturnAt(List<BigDecimal> closes, int currentIndex, int periodsAhead) {
+        int futureIndex = currentIndex + periodsAhead;
+        if (futureIndex >= closes.size()) {
+            return null;
+        }
+        return percentChange(closes.get(currentIndex), closes.get(futureIndex));
+    }
+
+    private String toWeekDirectionLabel(BigDecimal forwardReturn) {
+        if (forwardReturn == null) {
+            return null;
+        }
+        int sign = forwardReturn.compareTo(BigDecimal.ZERO);
+        if (sign > 0) {
+            return "POSITIVE";
+        }
+        if (sign < 0) {
+            return "NEGATIVE";
+        }
+        return "FLAT";
     }
 
     private DrawdownSummary computeDrawdownSummary(List<StockMarketData> historyAsc) {
@@ -504,37 +522,6 @@ public class StockMetricsRefreshService {
         return HUNDRED.subtract(HUNDRED.divide(BigDecimal.ONE.add(rs), MATH_CONTEXT));
     }
 
-    private MacdResult computeMacd(List<BigDecimal> closes) {
-        if (closes.size() < 26) {
-            return new MacdResult(null, null);
-        }
-        List<Double> closeValues = closes.stream()
-                .map(value -> value == null ? null : value.doubleValue())
-                .filter(java.util.Objects::nonNull)
-                .toList();
-        if (closeValues.size() < 26) {
-            return new MacdResult(null, null);
-        }
-
-        List<Double> ema12 = emaSeries(closeValues, 12);
-        List<Double> ema26 = emaSeries(closeValues, 26);
-        List<Double> macdSeries = new ArrayList<>();
-        for (int index = 0; index < closeValues.size(); index++) {
-            Double shortValue = ema12.get(index);
-            Double longValue = ema26.get(index);
-            macdSeries.add(shortValue == null || longValue == null ? null : shortValue - longValue);
-        }
-
-        List<Double> compactMacd = macdSeries.stream().filter(java.util.Objects::nonNull).toList();
-        if (compactMacd.isEmpty()) {
-            return new MacdResult(null, null);
-        }
-        List<Double> signalSeries = emaSeries(compactMacd, 9);
-        Double macd = compactMacd.get(compactMacd.size() - 1);
-        Double signal = signalSeries.get(signalSeries.size() - 1);
-        return new MacdResult(BigDecimal.valueOf(macd), signal == null ? null : BigDecimal.valueOf(signal));
-    }
-
     private List<Double> emaSeries(List<Double> values, int periods) {
         List<Double> ema = new ArrayList<>(values.size());
         double multiplier = 2.0d / (periods + 1.0d);
@@ -608,7 +595,5 @@ public class StockMetricsRefreshService {
     private record RiskSummary(BigDecimal sharpeRatio, BigDecimal sortinoRatio) {
     }
 
-    private record MacdResult(BigDecimal macd, BigDecimal signal) {
-    }
 
 }

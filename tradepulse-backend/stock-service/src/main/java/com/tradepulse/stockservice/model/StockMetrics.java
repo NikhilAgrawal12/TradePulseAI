@@ -3,7 +3,6 @@ package com.tradepulse.stockservice.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -62,12 +61,6 @@ public class StockMetrics {
     @Column(name = "relative_volume", precision = 12, scale = 4)
     private BigDecimal relativeVolume;
 
-    @Column(name = "volatility_30d", precision = 12, scale = 2)
-    private BigDecimal volatility30d;
-
-    @Column(name = "volatility_90d", precision = 12, scale = 2)
-    private BigDecimal volatility90d;
-
     @Column(name = "positive_days_1y")
     private Integer positiveDays1y;
 
@@ -94,18 +87,6 @@ public class StockMetrics {
 
     @Column(name = "sortino_ratio", precision = 12, scale = 2)
     private BigDecimal sortinoRatio;
-
-    @Column(name = "rsi_14", precision = 12, scale = 2)
-    private BigDecimal rsi14;
-
-    @Column(name = "macd", precision = 12, scale = 2)
-    private BigDecimal macd;
-
-    @Column(name = "macd_signal", precision = 12, scale = 2)
-    private BigDecimal macdSignal;
-
-    @Column(name = "momentum_30d", precision = 12, scale = 2)
-    private BigDecimal momentum30d;
 
     @Column(name = "golden_cross")
     private Boolean goldenCross;
@@ -242,23 +223,6 @@ public class StockMetrics {
         this.relativeVolume = relativeVolume;
     }
 
-    public BigDecimal getVolatility30d() {
-        return volatility30d;
-    }
-
-    public void setVolatility30d(BigDecimal volatility30d) {
-        this.volatility30d = volatility30d;
-    }
-
-    public BigDecimal getVolatility90d() {
-        return volatility90d;
-    }
-
-    public void setVolatility90d(BigDecimal volatility90d) {
-        this.volatility90d = volatility90d;
-    }
-
-
     public Instant getUpdatedAt() {
         return updatedAt;
     }
@@ -333,38 +297,6 @@ public class StockMetrics {
 
     public void setSortinoRatio(BigDecimal sortinoRatio) {
         this.sortinoRatio = sortinoRatio;
-    }
-
-    public BigDecimal getRsi14() {
-        return rsi14;
-    }
-
-    public void setRsi14(BigDecimal rsi14) {
-        this.rsi14 = rsi14;
-    }
-
-    public BigDecimal getMacd() {
-        return macd;
-    }
-
-    public void setMacd(BigDecimal macd) {
-        this.macd = macd;
-    }
-
-    public BigDecimal getMacdSignal() {
-        return macdSignal;
-    }
-
-    public void setMacdSignal(BigDecimal macdSignal) {
-        this.macdSignal = macdSignal;
-    }
-
-    public BigDecimal getMomentum30d() {
-        return momentum30d;
-    }
-
-    public void setMomentum30d(BigDecimal momentum30d) {
-        this.momentum30d = momentum30d;
     }
 
     public Boolean getGoldenCross() {

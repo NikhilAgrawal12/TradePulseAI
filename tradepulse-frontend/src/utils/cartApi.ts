@@ -62,12 +62,11 @@ export async function clearCartItems(): Promise<CartItem[]> {
   return normalizeCartItems(response.data);
 }
 
-export async function completeOrder(payload: { items: CartItem[]; subtotal: number; total: number }): Promise<CompleteOrderResponse> {
+export async function completeOrder(payload: { items: CartItem[]; total: number }): Promise<CompleteOrderResponse> {
   try {
     const normalizedPayload = {
       ...payload,
       items: normalizeCartItems(payload.items),
-      subtotal: toMoney(payload.subtotal),
       total: toMoney(payload.total),
     };
     const response = await axios.post<CompleteOrderResponse>(
@@ -99,7 +98,6 @@ export async function lockOrderQuote(payload: LockQuoteRequest): Promise<LockQuo
   const normalizedPayload = {
     ...payload,
     items: normalizeCartItems(payload.items),
-    subtotal: toMoney(payload.subtotal),
     total: toMoney(payload.total),
   };
 
@@ -114,7 +112,6 @@ export async function lockOrderQuote(payload: LockQuoteRequest): Promise<LockQuo
   return {
     ...response.data,
     items: normalizeCartItems(response.data.items ?? []),
-    subtotal: toMoney(response.data.subtotal),
     total: toMoney(response.data.total),
     lockSeconds: Number.isFinite(response.data.lockSeconds) ? response.data.lockSeconds : 15,
   };

@@ -13,7 +13,6 @@ const PRICE_LOCK_SECONDS = 15;
 
 type LockedQuoteState = {
   items: CartItem[];
-  subtotal: number;
   total: number;
   lockSeconds: number;
 };
@@ -43,7 +42,6 @@ export function PaymentPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const state = location.state as {
-    subtotal?: number;
     total?: number;
     items?: CartItem[];
   } | null;
@@ -65,7 +63,6 @@ export function PaymentPage() {
         const fallbackTotal = roundMoney(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
         const response = await lockOrderQuote({
           items,
-          subtotal: fallbackTotal,
           total: fallbackTotal,
         });
         if (cancelled) {
@@ -74,7 +71,6 @@ export function PaymentPage() {
         const normalizedLockSeconds = response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS;
         setLockedQuote({
           items: response.items,
-          subtotal: roundMoney(response.subtotal),
           total: roundMoney(response.total),
           lockSeconds: normalizedLockSeconds,
         });
@@ -103,11 +99,10 @@ export function PaymentPage() {
 
   const displayItems = lockedQuote?.items ?? [];
 
-  const subtotal = useMemo(
-    () => lockedQuote?.subtotal ?? roundMoney(displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)),
+  const total = useMemo(
+    () => lockedQuote?.total ?? roundMoney(displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)),
     [displayItems, lockedQuote],
   );
-  const total = useMemo(() => lockedQuote?.total ?? roundMoney(subtotal), [lockedQuote, subtotal]);
   const priceUpdated = useMemo(() => {
     if (!lockedQuote || items.length === 0) {
       return false;
@@ -158,7 +153,6 @@ export function PaymentPage() {
     try {
       const response = await completeOrder({
         items: displayItems,
-        subtotal,
         total,
       });
       if (!response.status || response.status.toUpperCase() !== "COMPLETED") {

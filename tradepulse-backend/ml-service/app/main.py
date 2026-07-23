@@ -119,7 +119,6 @@ def _train_model(days_back: int, horizon_days: int, positive_return_threshold: f
         training_frame = repository.fetch_training_data(
             days_back=days_back,
             max_training_stocks=settings.max_training_stocks,
-            max_training_rows=settings.max_training_rows,
         )
         if training_frame.empty:
             raise ValueError("No stock rows found for training window.")

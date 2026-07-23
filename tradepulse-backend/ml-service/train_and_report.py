@@ -14,7 +14,6 @@ repo = StockDataRepository(settings.database_url)
 frame = repo.fetch_training_data(
     days_back=settings.default_days_back,
     max_training_stocks=settings.max_training_stocks,
-    max_training_rows=settings.max_training_rows,
 )
 print(f"Loaded {len(frame)} rows. Starting training...", flush=True)
 

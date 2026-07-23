@@ -43,6 +43,15 @@ public interface StockMarketDataRepository extends JpaRepository<StockMarketData
     @Query("""
             SELECT smd
             FROM StockMarketData smd
+            WHERE smd.stock.stockId = :stockId
+            ORDER BY smd.tradingDate ASC
+            """)
+    List<StockMarketData> findAllByStockIdOrderByTradingDateAsc(@Param("stockId") Long stockId);
+
+    @EntityGraph(attributePaths = {"stock", "stock.exchange"})
+    @Query("""
+            SELECT smd
+            FROM StockMarketData smd
             WHERE smd.tradingDate = (
                 SELECT MAX(s2.tradingDate)
                 FROM StockMarketData s2

@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.compose import ColumnTransformer
-from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel, SelectKBest, mutual_info_classif
 from sklearn.impute import SimpleImputer
@@ -17,7 +16,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, RobustScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from xgboost import XGBClassifier
 
 try:
@@ -36,29 +35,19 @@ except Exception:
 
 
 NUMERIC_FEATURES = [
-    # Price
-    "open_price",
-    "high_price",
-    "low_price",
-    "close_price",
-    "volume",
-    # Trend
-    "sma_20",
-    "sma_50",
-    "sma_200",
     # Returns
-    "daily_return_percent",
+    "return_1d",
     "return_5d",
-    "momentum_20d",
-    # Volatility
-    "volatility_30d",
+    "return_20d",
+    "return_60d",
+    "return_90d",
+    "return_120d",
+    # Volatility (aligned by horizon, exclude 1d)
+    "volatility_5d",
+    "volatility_20d",
+    "volatility_60d",
     "volatility_90d",
-    # Technical indicators
-    "rsi_14",
-    "macd",
-    "macd_signal",
-    # News
-    "sentiment_score",
+    "volatility_120d",
 ]
 CATEGORICAL_FEATURES: list[str] = []
 
@@ -66,7 +55,7 @@ ACTION_BUY = "BUY"
 ACTION_SELL = "SELL"
 ACTION_HOLD = "HOLD"
 ACTION_THRESHOLD = 0.50
-FIXED_RETURN_THRESHOLD = 0.015
+FIXED_RETURN_THRESHOLD = 0.01
 LSTM_SEQUENCE_LENGTH = 20
 
 
@@ -89,35 +78,39 @@ def _engineer_features(
     positive_return_threshold: float,
     neutral_return_band: float,
 ) -> pd.DataFrame:
-    # Thresholds are intentionally fixed to +/-1.5% to keep label semantics stable across runs.
-    # ML features are persisted in stock_daily_ohlc; compute only the label target here.
+    # Features and label are persisted in stock_daily_ohlc.
     _ = positive_return_threshold
     _ = neutral_return_band
-    positive_return_threshold = FIXED_RETURN_THRESHOLD
-    neutral_return_band = FIXED_RETURN_THRESHOLD
+    _ = horizon_days
 
     data = frame.copy()
     data["trading_date"] = pd.to_datetime(data["trading_date"])
     data = data.sort_values(["stock_id", "trading_date"]).reset_index(drop=True)
 
-    if "sentiment_score" not in data.columns:
-        data["sentiment_score"] = 0.0
-    # Backfill stored technical columns if absent (e.g. in unit tests)
-    for col in ["return_5d", "momentum_20d", "rsi_14", "macd", "macd_signal"]:
+    # Backfill stored return/volatility columns if absent (e.g. in unit tests)
+    for col in [
+        "return_1d",
+        "return_5d",
+        "return_20d",
+        "return_60d",
+        "return_90d",
+        "return_120d",
+        "volatility_5d",
+        "volatility_20d",
+        "volatility_60d",
+        "volatility_90d",
+        "volatility_120d",
+    ]:
         if col not in data.columns:
             data[col] = np.nan
 
-    data["sentiment_score"] = data["sentiment_score"].fillna(0.0)
+    if "target_week_direction" not in data.columns:
+        data["target_week_direction"] = pd.Series([None] * len(data), index=data.index, dtype="object")
+    if "forward_return_5d" not in data.columns:
+        data["forward_return_5d"] = np.nan
 
-    grouped = data.groupby("stock_id", group_keys=False)
-
-    data["forward_return"] = grouped["close_price"].shift(-horizon_days) / data["close_price"] - 1.0
-    # Keep only meaningful moves; drop neutral returns between -1.5% and +1.5%.
-    data["target"] = np.where(
-        data["forward_return"] > positive_return_threshold,
-        1,
-        np.where(data["forward_return"] < -neutral_return_band, 0, np.nan),
-    )
+    direction = data["target_week_direction"].astype("string").str.upper().str.strip()
+    data["target"] = direction.map({"POSITIVE": 1, "NEGATIVE": 0}).astype(float)
 
     return data.replace([np.inf, -np.inf], np.nan)
 
@@ -125,7 +118,7 @@ def _engineer_features(
 def build_prediction_row(frame: pd.DataFrame) -> pd.DataFrame:
     """Prepare a single prediction row from the latest stored data.
 
-    All 18 features are pre-stored in the database so no rolling
+    All model features are pre-stored in the database so no rolling
     computation is needed — just normalise the frame and return it.
     """
     engineered = _engineer_features(frame, horizon_days=5, positive_return_threshold=0.0, neutral_return_band=0.0)
@@ -136,7 +129,7 @@ def build_prediction_row(frame: pd.DataFrame) -> pd.DataFrame:
 def _build_preprocessor(scale_numeric: bool) -> ColumnTransformer:
     numeric_steps: list[tuple[str, Any]] = [("imputer", SimpleImputer(strategy="median"))]
     if scale_numeric:
-        numeric_steps.append(("scaler", RobustScaler()))
+        numeric_steps.append(("scaler", StandardScaler()))
 
     numeric_pipeline = Pipeline(
         steps=[
@@ -160,9 +153,6 @@ def _build_logistic_pipeline(model: Any) -> ImbPipeline:
     return ImbPipeline(
         steps=[
             ("preprocessor", _build_preprocessor(scale_numeric=True)),
-            ("feature_filter", SelectKBest(score_func=mutual_info_classif, k="all")),
-            ("reduce_dim", "passthrough"),
-            ("feature_select", SelectFromModel(LogisticRegression(max_iter=600, solver="liblinear", penalty="l1", C=0.7))),
             ("model", model),
         ]
     )
@@ -172,7 +162,6 @@ def _build_tree_pipeline(model: Any) -> ImbPipeline:
     return ImbPipeline(
         steps=[
             ("preprocessor", _build_preprocessor(scale_numeric=False)),
-            ("feature_filter", SelectKBest(score_func=mutual_info_classif, k="all")),
             ("model", model),
         ]
     )
@@ -335,7 +324,7 @@ def _evaluate_arima_benchmark(
         if test_stock.empty:
             continue
 
-        train_series = train_stock.sort_values("trading_date")["forward_return"].dropna().astype(float)
+        train_series = train_stock.sort_values("trading_date")["forward_return_5d"].dropna().astype(float)
         if len(train_series) < 60:
             continue
 
@@ -531,31 +520,6 @@ def _build_threshold_candidates(y_valid: pd.Series) -> list[float]:
     return sorted(candidates)
 
 
-def _tune_decision_threshold(estimator: Any, x_valid: pd.DataFrame, y_valid: pd.Series) -> tuple[float, dict[str, float]]:
-    def _threshold_objective(metrics: dict[str, float]) -> tuple[float, float, float, float]:
-        # Prioritize class-balance quality first; use F1/precision as tie-breakers.
-        return (
-            float(metrics["test_balanced_accuracy"]),
-            float(metrics["test_f1"]),
-            float(metrics["test_precision"]),
-            float(_score_trade_policy(metrics)),
-        )
-
-    best_threshold = ACTION_THRESHOLD
-    best_metrics = _evaluate_trade_policy(estimator, x_valid, y_valid, ACTION_THRESHOLD)
-    best_objective = _threshold_objective(best_metrics)
-
-    for threshold in _build_threshold_candidates(y_valid):
-        metrics = _evaluate_trade_policy(estimator, x_valid, y_valid, float(threshold))
-        objective = _threshold_objective(metrics)
-        if objective > best_objective:
-            best_threshold = float(threshold)
-            best_metrics = metrics
-            best_objective = objective
-
-    return best_threshold, best_metrics
-
-
 def train_and_select_model(
     frame: pd.DataFrame,
     horizon_days: int,
@@ -604,8 +568,7 @@ def train_and_select_model(
     train_core_df, valid_df = _split_train_test_by_date(train_df, train_fraction=0.85)
     x_train_core = train_core_df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     y_train_core = train_core_df["target"].astype(int)
-    x_valid = valid_df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
-    y_valid = valid_df["target"].astype(int)
+    _ = valid_df
 
     if y_train_core.nunique() < 2:
         raise ValueError("Validation split produced one training class. Widen training window or lower threshold.")
@@ -620,14 +583,9 @@ def train_and_select_model(
             "logistic_regression",
             LogisticRegression(max_iter=800, solver="liblinear"),
             {
-                "feature_filter__k": [6, 8, 10, "all"],
-                "reduce_dim": [
-                    "passthrough",
-                    PCA(n_components=0.95, svd_solver="full", random_state=42),
-                    PCA(n_components=0.9, svd_solver="full", random_state=42),
-                ],
-                "model__C": [0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 4.0],
+                "model__C": [0.01, 0.05, 0.1, 0.5, 1.0, 2.0],
                 "model__penalty": ["l1", "l2"],
+                "model__solver": ["liblinear", "saga"],
                 "model__class_weight": [None, "balanced"],
             },
         ),
@@ -635,24 +593,19 @@ def train_and_select_model(
             "random_forest",
             RandomForestClassifier(random_state=42),
             {
-                "feature_filter__k": [6, 8, 10, "all"],
-                "model__n_estimators": [180, 260, 360],
-                "model__max_depth": [8, 12, 20, None],
-                "model__min_samples_split": [2, 5, 10],
-                "model__min_samples_leaf": [1, 2, 4],
-                "model__max_features": ["sqrt", 0.7, 1.0],
-                "model__class_weight": [None, "balanced"],
+                "model__n_estimators": [200, 400, 600],
+                "model__max_depth": [3, 5, 8, 12, None],
+                "model__min_samples_leaf": [2, 5, 10],
+                "model__max_features": ["sqrt", 0.7],
             },
         ),
         (
             "gradient_boosting",
             GradientBoostingClassifier(random_state=42),
             {
-                "feature_filter__k": [6, 8, 10, "all"],
-                "model__n_estimators": [200, 320, 450],
-                "model__learning_rate": [0.02, 0.04, 0.06, 0.08],
-                "model__max_depth": [2, 3, 4, 5],
-                "model__min_samples_leaf": [1, 3, 5],
+                "model__n_estimators": [200, 400],
+                "model__learning_rate": [0.01, 0.03, 0.05],
+                "model__max_depth": [2, 3, 4],
                 "model__subsample": [0.7, 0.85, 1.0],
             },
         ),
@@ -668,15 +621,14 @@ def train_and_select_model(
                 scale_pos_weight=xgb_scale_pos_weight,
             ),
             {
-                "feature_filter__k": [6, 8, 10, "all"],
-                "model__n_estimators": [220, 350, 500],
-                "model__max_depth": [3, 5, 7, 9],
-                "model__learning_rate": [0.02, 0.04, 0.06, 0.08],
-                "model__min_child_weight": [1, 3, 5],
-                "model__subsample": [0.7, 0.85, 1.0],
-                "model__colsample_bytree": [0.7, 0.85, 1.0],
-                "model__reg_lambda": [0.5, 1.0, 2.0],
-                "model__gamma": [0.0, 0.5, 1.0],
+                "model__n_estimators": [300, 500],
+                "model__max_depth": [2, 3, 4, 5, 6],
+                "model__learning_rate": [0.01, 0.03, 0.05],
+                "model__min_child_weight": [3, 5, 10],
+                "model__subsample": [0.7, 0.85],
+                "model__colsample_bytree": [0.7, 0.85],
+                "model__reg_lambda": [1.0, 5.0, 10.0],
+                "model__reg_alpha": [0.0, 0.1, 1.0],
                 "model__scale_pos_weight": [xgb_scale_pos_weight],
             },
         ),
@@ -699,7 +651,7 @@ def train_and_select_model(
         )
         search.fit(x_train_core, y_train_core)
 
-        tuned_threshold, _ = _tune_decision_threshold(search.best_estimator_, x_valid, y_valid)
+        tuned_threshold = ACTION_THRESHOLD
         fitted_estimator = deepcopy(search.best_estimator_)
         fitted_estimator.fit(x_train, y_train)
         policy_metrics = _evaluate_trade_policy(fitted_estimator, x_test, y_test, tuned_threshold)
@@ -783,10 +735,10 @@ def predict_action(
     else:
         conviction_label = "NEUTRAL"
 
-    daily_return = float(prediction_row.iloc[0]["daily_return_percent"]) if pd.notna(prediction_row.iloc[0]["daily_return_percent"]) else None
+    daily_return = float(prediction_row.iloc[0]["return_1d"]) if pd.notna(prediction_row.iloc[0]["return_1d"]) else None
     return_5d = float(prediction_row.iloc[0]["return_5d"]) if pd.notna(prediction_row.iloc[0]["return_5d"]) else None
-    rsi = float(prediction_row.iloc[0]["rsi_14"]) if pd.notna(prediction_row.iloc[0]["rsi_14"]) else None
-    sentiment_score = float(prediction_row.iloc[0]["sentiment_score"]) if pd.notna(prediction_row.iloc[0]["sentiment_score"]) else None
+    return_20d = float(prediction_row.iloc[0]["return_20d"]) if pd.notna(prediction_row.iloc[0]["return_20d"]) else None
+    volatility_20d = float(prediction_row.iloc[0]["volatility_20d"]) if pd.notna(prediction_row.iloc[0]["volatility_20d"]) else None
 
     reasoning: list[str] = [
         f"Model horizon: {horizon_days} trading days",
@@ -794,13 +746,13 @@ def predict_action(
         f"SELL probability: {probability_sell:.2%}",
     ]
     if daily_return is not None:
-        reasoning.append(f"Daily return: {daily_return:.2f}%")
+        reasoning.append(f"1-day return: {daily_return:.2f}%")
     if return_5d is not None:
         reasoning.append(f"5-day return: {return_5d:.2f}%")
-    if rsi is not None:
-        reasoning.append(f"RSI (14): {rsi:.1f}")
-    if sentiment_score is not None:
-        reasoning.append(f"News sentiment: {sentiment_score:+.2f}")
+    if return_20d is not None:
+        reasoning.append(f"20-day return: {return_20d:.2f}%")
+    if volatility_20d is not None:
+        reasoning.append(f"20-day volatility: {volatility_20d:.2f}%")
 
     return {
         "action": action,

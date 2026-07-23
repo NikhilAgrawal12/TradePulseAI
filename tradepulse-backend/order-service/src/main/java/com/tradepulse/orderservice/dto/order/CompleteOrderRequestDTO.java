@@ -6,7 +6,6 @@ import java.util.List;
 public class CompleteOrderRequestDTO {
 
     private List<CompleteOrderItemRequestDTO> items;
-    private BigDecimal subtotal;
     private BigDecimal total;
 
     public List<CompleteOrderItemRequestDTO> getItems() {

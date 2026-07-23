@@ -94,7 +94,6 @@ export function CheckoutPage() {
 
     navigate("/payment", {
       state: {
-        subtotal: totalPrice,
         total: roundMoney(totalPrice),
         items: pricedItems,
       },
