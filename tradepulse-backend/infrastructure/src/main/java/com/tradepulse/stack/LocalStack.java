@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -112,7 +113,7 @@ public class LocalStack extends Stack {
                 .memoryLimitMiB(512)
                 .build();
 
-        ContainerDefinitionOptions containerDefinitionOptions = ContainerDefinitionOptions.builder()
+        ContainerDefinitionOptions.Builder containerOptions = ContainerDefinitionOptions.builder()
                 .image(ContainerImage.fromRegistry(imageName))
                 .portMappings(ports.stream()
                         .map(port -> PortMapping.builder()
@@ -127,8 +128,31 @@ public class LocalStack extends Stack {
                                 .removalPolicy(RemovalPolicy.DESTROY)
                                 .retention(RetentionDays.ONE_DAY)
                                 .build())
-                        .build()))
-                .build();
+                        .build()));
+
+        Map<String, String> envVars = new HashMap<>();
+        envVars.put("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510, localhost.localstack.cloud:4511,localhost.localstack.cloud:4512");
+
+        if(additionalEnvVars != null) {
+            envVars.putAll(additionalEnvVars);
+        }
+
+        if(db != null) {
+            envVars.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://%s:%s/%s-db".formatted(
+                    db.getDbInstanceEndpointAddress(),
+                    db.getDbInstanceEndpointPort(),
+                    imageName
+            ) );
+            envVars.put("SPRING_DATASOURCE_USERNAME", "admin_user");
+            envVars.put("SPRING_DATASOURCE_PASSWORD", db.getSecret().secretValueFromJson("password").toString());
+            envVars.put("SPRING_JPA_HIBERNATE_DDL_AUTO", "update");
+            envVars.put("SPRING_SQL_INIT_MODE", "always");
+            envVars.put("SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT", "60000");
+        }
+
+        containerOptions.environment(envVars);
+
+        taskDefinition.addContainer(imageName + "Container", containerOptions.build());
     }
 
     public static void main(final String[] args) {
