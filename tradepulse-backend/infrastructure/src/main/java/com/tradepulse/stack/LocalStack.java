@@ -49,7 +49,162 @@ public class LocalStack extends Stack {
 
         this.ecsCluster = createEcsCluster();
 
+        FargateService authService = createFargateService("AuthService",
+                "auth-service",
+                List.of(4005),
+                authServiceDb,
+                Map.ofEntries(
+                        Map.entry("JWT_SECRET", envOrDefault("JWT_SECRET", "tradepulse-jwt-dev-secret")),
+                        Map.entry("AUTH_INTERNAL_API_KEY", envOrDefault("AUTH_INTERNAL_API_KEY", "tradepulse-internal-dev-key")),
+                        Map.entry("MAIL_HOST", envOrDefault("MAIL_HOST", "")),
+                        Map.entry("MAIL_PORT", envOrDefault("MAIL_PORT", "587")),
+                        Map.entry("MAIL_USERNAME", envOrDefault("MAIL_USERNAME", "")),
+                        Map.entry("MAIL_PASSWORD", envOrDefault("MAIL_PASSWORD", "")),
+                        Map.entry("MAIL_FROM", envOrDefault("MAIL_FROM", "no-reply@tradepulse.local")),
+                        Map.entry("MAIL_SMTP_AUTH", envOrDefault("MAIL_SMTP_AUTH", "true")),
+                        Map.entry("MAIL_SMTP_STARTTLS_ENABLE", envOrDefault("MAIL_SMTP_STARTTLS_ENABLE", "true")),
+                        Map.entry("MAIL_SMTP_STARTTLS_REQUIRED", envOrDefault("MAIL_SMTP_STARTTLS_REQUIRED", "false")),
+                        Map.entry("MAIL_SMTP_CONNECTION_TIMEOUT", envOrDefault("MAIL_SMTP_CONNECTION_TIMEOUT", "5000")),
+                        Map.entry("MAIL_SMTP_TIMEOUT", envOrDefault("MAIL_SMTP_TIMEOUT", "5000")),
+                        Map.entry("MAIL_SMTP_WRITE_TIMEOUT", envOrDefault("MAIL_SMTP_WRITE_TIMEOUT", "5000"))
+                ));
 
+        authService.getNode().addDependency(authDbHealthCheck);
+        authService.getNode().addDependency(authServiceDb);
+
+        FargateService customerService = createFargateService("CustomerService",
+                "customer-service",
+                List.of(4000),
+                customerServiceDb,
+                Map.ofEntries(
+                        Map.entry("AUTH_INTERNAL_API_KEY", envOrDefault("AUTH_INTERNAL_API_KEY", "tradepulse-internal-dev-key")),
+                        Map.entry("AUTH_SERVICE_BASE_URL", "http://auth-service:4005"),
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", envOrDefault("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512"))
+                ));
+        customerService.getNode().addDependency(customerDbHealthCheck);
+        customerService.getNode().addDependency(customerServiceDb);
+        customerService.getNode().addDependency(authService);
+
+        FargateService paymentService = createFargateService("PaymentService",
+                "payment-service",
+                List.of(4001, 9002),
+                paymentServiceDb,
+                Map.of("SPRING_KAFKA_BOOTSTRAP_SERVERS", envOrDefault("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512")));
+        paymentService.getNode().addDependency(paymentDbHealthCheck);
+        paymentService.getNode().addDependency(paymentServiceDb);
+
+        FargateService mlService = createFargateService("MlService",
+                "ml-service",
+                List.of(4010),
+                null,
+                Map.ofEntries(
+                        Map.entry("ML_DATABASE_URL", "postgresql+psycopg2://admin_user:" + stockServiceDb.getSecret().secretValueFromJson("password") + "@stock-service-db:5432/stock_service_db"),
+                        Map.entry("ML_MODEL_PATH", "/ml-model/tradepulse_model.joblib"),
+                        Map.entry("ML_SERVICE_PORT", "4010"),
+                        Map.entry("ML_DEFAULT_DAYS_BACK", envOrDefault("ML_DEFAULT_DAYS_BACK", "730")),
+                        Map.entry("ML_DEFAULT_HORIZON_DAYS", envOrDefault("ML_DEFAULT_HORIZON_DAYS", "5")),
+                        Map.entry("ML_DEFAULT_POSITIVE_RETURN_THRESHOLD", envOrDefault("ML_DEFAULT_POSITIVE_RETURN_THRESHOLD", "0.015")),
+                        Map.entry("ML_DEFAULT_NEUTRAL_RETURN_BAND", envOrDefault("ML_DEFAULT_NEUTRAL_RETURN_BAND", "0.015")),
+                        Map.entry("ML_MAX_TRAINING_STOCKS", envOrDefault("ML_MAX_TRAINING_STOCKS", "100")),
+                        Map.entry("ML_MAX_TRAINING_ROWS", envOrDefault("ML_MAX_TRAINING_ROWS", "100000")),
+                        Map.entry("ML_TRAIN_ON_STARTUP", envOrDefault("ML_TRAIN_ON_STARTUP", "true")),
+                        Map.entry("ML_RETRAIN_INTERVAL_HOURS", envOrDefault("ML_RETRAIN_INTERVAL_HOURS", "168"))
+                ));
+        mlService.getNode().addDependency(stockDbHealthCheck);
+        mlService.getNode().addDependency(stockServiceDb);
+
+        FargateService stockService = createFargateService("StockService",
+                "stock-service",
+                List.of(4003, 9003),
+                stockServiceDb,
+                Map.ofEntries(
+                        Map.entry("MASSIVE_API_KEY", envOrDefault("MASSIVE_API_KEY", "")),
+                        Map.entry("MASSIVE_NEWS_INTEGRATION_ENABLED", envOrDefault("MASSIVE_NEWS_INTEGRATION_ENABLED", "true")),
+                        Map.entry("MASSIVE_NEWS_DAILY_SCHEDULER_ENABLED", envOrDefault("MASSIVE_NEWS_DAILY_SCHEDULER_ENABLED", "false")),
+                        Map.entry("ML_SERVICE_BASE_URL", "http://ml-service:4010/v1"),
+                        Map.entry("GRPC_SERVER_PORT", "9003")
+                ));
+        stockService.getNode().addDependency(stockDbHealthCheck);
+        stockService.getNode().addDependency(stockServiceDb);
+        stockService.getNode().addDependency(mlService);
+
+        FargateService portfolioService = createFargateService("PortfolioService",
+                "portfolio-service",
+                List.of(4007, 9005),
+                portfolioServiceDb,
+                Map.ofEntries(
+                        Map.entry("AUTH_SERVICE_BASE_URL", "http://auth-service:4005"),
+                        Map.entry("STOCK_SERVICE_BASE_URL", "http://stock-service:4003"),
+                        Map.entry("PAYMENT_SERVICE_GRPC_ADDRESS", "payment-service"),
+                        Map.entry("PAYMENT_SERVICE_GRPC_PORT", "9002"),
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL", "http://customer-service:4000"),
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", envOrDefault("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512")),
+                        Map.entry("GRPC_SERVER_PORT", "9005")
+                ));
+        portfolioService.getNode().addDependency(portfolioDbHealthCheck);
+        portfolioService.getNode().addDependency(portfolioServiceDb);
+        portfolioService.getNode().addDependency(stockService);
+
+        FargateService orderService = createFargateService("OrderService",
+                "order-service",
+                List.of(4006),
+                orderServiceDb,
+                Map.ofEntries(
+                        Map.entry("ORDER_PAYMENT_SERVICE_ADDRESS", "payment-service"),
+                        Map.entry("ORDER_PAYMENT_SERVICE_GRPC_PORT", "9002"),
+                        Map.entry("STOCK_SERVICE_GRPC_ADDRESS", "stock-service"),
+                        Map.entry("STOCK_SERVICE_GRPC_PORT", "9003"),
+                        Map.entry("PORTFOLIO_SYNC_SERVICE_ADDRESS", "portfolio-service"),
+                        Map.entry("PORTFOLIO_SYNC_SERVICE_GRPC_PORT", "9005"),
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL", "http://customer-service:4000"),
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", envOrDefault("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512"))
+                ));
+        orderService.getNode().addDependency(orderDbHealthCheck);
+        orderService.getNode().addDependency(orderServiceDb);
+        orderService.getNode().addDependency(paymentService);
+        orderService.getNode().addDependency(customerService);
+        orderService.getNode().addDependency(stockService);
+        orderService.getNode().addDependency(portfolioService);
+
+        FargateService apiGatewayService = createFargateService("ApiGateway",
+                "api-gateway",
+                List.of(4004),
+                null,
+                Map.ofEntries(
+                        Map.entry("AUTH_SERVICE_URL", "http://auth-service:4005"),
+                        Map.entry("CUSTOMER_SERVICE_URL", "http://customer-service:4000"),
+                        Map.entry("PORTFOLIO_SERVICE_URL", "http://portfolio-service:4007"),
+                        Map.entry("STOCK_SERVICE_URL", "http://stock-service:4003")
+                ));
+        apiGatewayService.getNode().addDependency(authService);
+        apiGatewayService.getNode().addDependency(customerService);
+        apiGatewayService.getNode().addDependency(stockService);
+        apiGatewayService.getNode().addDependency(orderService);
+        apiGatewayService.getNode().addDependency(portfolioService);
+
+        FargateService notificationService = createFargateService("NotificationService",
+                "notification-service",
+                List.of(4008),
+                null,
+                Map.ofEntries(
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", envOrDefault("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512")),
+                        Map.entry("AUTH_SERVICE_BASE_URL", "http://auth-service:4005"),
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL", "http://customer-service:4000"),
+                        Map.entry("MAIL_HOST", envOrDefault("MAIL_HOST", "")),
+                        Map.entry("MAIL_PORT", envOrDefault("MAIL_PORT", "587")),
+                        Map.entry("MAIL_USERNAME", envOrDefault("MAIL_USERNAME", "")),
+                        Map.entry("MAIL_PASSWORD", envOrDefault("MAIL_PASSWORD", "")),
+                        Map.entry("MAIL_FROM", envOrDefault("MAIL_FROM", "no-reply@tradepulse.local")),
+                        Map.entry("MAIL_SMTP_AUTH", envOrDefault("MAIL_SMTP_AUTH", "true")),
+                        Map.entry("MAIL_SMTP_STARTTLS_ENABLE", envOrDefault("MAIL_SMTP_STARTTLS_ENABLE", "true")),
+                        Map.entry("MAIL_SMTP_STARTTLS_REQUIRED", envOrDefault("MAIL_SMTP_STARTTLS_REQUIRED", "false")),
+                        Map.entry("MAIL_SMTP_CONNECTION_TIMEOUT", envOrDefault("MAIL_SMTP_CONNECTION_TIMEOUT", "5000")),
+                        Map.entry("MAIL_SMTP_TIMEOUT", envOrDefault("MAIL_SMTP_TIMEOUT", "5000")),
+                        Map.entry("MAIL_SMTP_WRITE_TIMEOUT", envOrDefault("MAIL_SMTP_WRITE_TIMEOUT", "5000"))
+                ));
+        notificationService.getNode().addDependency(authService);
+        notificationService.getNode().addDependency(customerService);
+        notificationService.getNode().addDependency(mskCluster);
     }
 
 
@@ -107,6 +262,10 @@ public class LocalStack extends Stack {
                 .build();
     }
 
+    private static String envOrDefault(String key, String defaultValue) {
+        return System.getenv().getOrDefault(key, defaultValue);
+    }
+
     private FargateService createFargateService(String id, String imageName, List<Integer> ports, DatabaseInstance db, Map<String, String> additionalEnvVars) {
         FargateTaskDefinition taskDefinition = FargateTaskDefinition.Builder.create(this, id + "Task")
                 .cpu(256)
@@ -153,6 +312,13 @@ public class LocalStack extends Stack {
         containerOptions.environment(envVars);
 
         taskDefinition.addContainer(imageName + "Container", containerOptions.build());
+
+        return FargateService.Builder.create(this,id)
+                .cluster(ecsCluster)
+                .taskDefinition(taskDefinition)
+                .assignPublicIp(false)
+                .serviceName(imageName)
+                .build();
     }
 
     public static void main(final String[] args) {
