@@ -35,15 +35,6 @@ public class AuthServiceClient {
                 .body(AuthUser.class);
     }
 
-    public AuthUser getUserByEmail(String email) {
-        return restClient.get()
-                .uri("/users/email/{email}", email)
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new IllegalArgumentException("User not found for email: " + email);
-                })
-                .body(AuthUser.class);
-    }
 
     public AuthUser registerUser(CustomerRegistrationRequestDTO request) {
         RegisterPayload payload = new RegisterPayload(request.getEmail(), request.getPassword());

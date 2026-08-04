@@ -37,6 +37,26 @@ public class CustomerController {
         return ResponseEntity.ok().body(customer);
     }
 
+    @GetMapping("/me")
+    @Operation(summary = "Get current authenticated customer")
+    public ResponseEntity<CustomerResponseDTO> getCurrentCustomer(
+            @RequestHeader(USER_ID_HEADER) String authenticatedUserId
+    ) {
+        CustomerResponseDTO customer = customerService.getCustomerByUserId(normalizeUserId(authenticatedUserId));
+        return ResponseEntity.ok().body(customer);
+    }
+
+    @PutMapping("/me")
+    @Operation(summary = "Update current authenticated customer")
+    public ResponseEntity<CustomerResponseDTO> updateCurrentCustomer(
+            @RequestHeader(USER_ID_HEADER) String authenticatedUserId,
+            @Validated({Default.class}) @RequestBody CustomerRequestDTO customerRequestDTO
+    ) {
+        Long userId = normalizeUserId(authenticatedUserId);
+        CustomerResponseDTO custResponseDTO = customerService.updateCustomer(userId, customerRequestDTO);
+        return ResponseEntity.ok().body(custResponseDTO);
+    }
+
     @PostMapping
     @Operation(summary = "Create a new customer")
     public ResponseEntity<CustomerResponseDTO> createUser(
@@ -78,20 +98,23 @@ public class CustomerController {
         return ResponseEntity.noContent().build();
     }
 
+
     private void authorizePathUserId(String authenticatedUserId, Long pathUserId) {
-        if (authenticatedUserId == null || authenticatedUserId.trim().isEmpty()) {
+        Long normalizedAuthenticatedUserId = normalizeUserId(authenticatedUserId);
+        if (!normalizedAuthenticatedUserId.equals(pathUserId)) {
+            throw new IllegalArgumentException("You are not allowed to access another user's customer profile.");
+        }
+    }
+
+    private Long normalizeUserId(String userIdHeaderValue) {
+        if (userIdHeaderValue == null || userIdHeaderValue.trim().isEmpty()) {
             throw new IllegalArgumentException("Missing required header: " + USER_ID_HEADER);
         }
 
-        final Long normalizedAuthenticatedUserId;
         try {
-            normalizedAuthenticatedUserId = Long.parseLong(authenticatedUserId.trim());
+            return Long.parseLong(userIdHeaderValue.trim());
         } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("Invalid userId format in header " + USER_ID_HEADER + ": " + authenticatedUserId);
-        }
-
-        if (!normalizedAuthenticatedUserId.equals(pathUserId)) {
-            throw new IllegalArgumentException("You are not allowed to access another user's customer profile.");
+            throw new IllegalArgumentException("Invalid userId format in header " + USER_ID_HEADER + ": " + userIdHeaderValue);
         }
     }
 }

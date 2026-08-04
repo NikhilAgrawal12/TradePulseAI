@@ -192,19 +192,12 @@ public class AuthController {
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found")));
     }
 
-    @Operation(summary = "Get user by email")
-    @GetMapping("/users/email/{email}")
-    public ResponseEntity<?> getUserByEmail(@PathVariable String email) {
-        return userService.findByEmail(email)
-                .<ResponseEntity<?>>map(user -> ResponseEntity.ok(new RegisterResponseDTO(user.getUserId(), user.getEmail(), user.getRole())))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(java.util.Map.of("message", "User not found")));
-    }
 
-    @Operation(summary = "Get account credentials by user id")
-    @GetMapping("/users/{userId}/credentials")
-    public ResponseEntity<?> getCredentials(@PathVariable Long userId, @RequestHeader("Authorization") String authHeader) {
+    @Operation(summary = "Get current account credentials")
+    @GetMapping("/me/credentials")
+    public ResponseEntity<?> getCurrentCredentials(@RequestHeader("Authorization") String authHeader) {
         try {
-            authorizeUserId(authHeader, userId);
+            Long userId = extractAuthenticatedUserId(authHeader);
             CredentialsResponseDTO response = authService.getCredentials(userId);
             return ResponseEntity.ok(response);
         } catch (JwtException ex) {
@@ -215,15 +208,14 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "Update account email")
-    @PutMapping("/users/{userId}/credentials")
-    public ResponseEntity<?> updateCredentials(
-            @PathVariable Long userId,
+    @Operation(summary = "Update current account email")
+    @PutMapping("/me/credentials")
+    public ResponseEntity<?> updateCurrentCredentials(
             @RequestHeader("Authorization") String authHeader,
             @Valid @RequestBody UpdateCredentialsRequestDTO request
     ) {
         try {
-            authorizeUserId(authHeader, userId);
+            Long userId = extractAuthenticatedUserId(authHeader);
             UpdateCredentialsResponseDTO response = authService.updateCredentials(userId, request);
             return ResponseEntity.ok(response);
         } catch (JwtException ex) {
@@ -236,15 +228,14 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "Change account password")
-    @PutMapping("/users/{userId}/password")
-    public ResponseEntity<?> changePassword(
-            @PathVariable Long userId,
+    @Operation(summary = "Change current account password")
+    @PutMapping("/me/password")
+    public ResponseEntity<?> changeCurrentPassword(
             @RequestHeader("Authorization") String authHeader,
             @Valid @RequestBody ChangePasswordRequestDTO request
     ) {
         try {
-            authorizeUserId(authHeader, userId);
+            Long userId = extractAuthenticatedUserId(authHeader);
             authService.changePassword(userId, request);
             return ResponseEntity.ok(java.util.Map.of("message", "Password updated successfully"));
         } catch (JwtException ex) {
@@ -294,6 +285,14 @@ public class AuthController {
         if (!pathUserId.equals(tokenUserId)) {
             throw new JwtException("You are not allowed to access this account");
         }
+    }
+
+    private Long extractAuthenticatedUserId(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new JwtException("Missing or invalid Authorization header");
+        }
+
+        return authService.extractUserId(authHeader.substring(7));
     }
 
 }

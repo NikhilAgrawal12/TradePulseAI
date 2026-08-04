@@ -524,12 +524,6 @@ export function AccountManagementPage() {
       }
     }
 
-    const profileId = profile.userId || profile.customerId || Number(userIdFromToken || 0);
-    if (!profileId) {
-      setError("Customer profile id is missing.");
-      return;
-    }
-
     setSaving(true);
     setCredentialsSaving(true);
 
@@ -545,7 +539,7 @@ export function AccountManagementPage() {
         }
 
         const credentialsResponse = await axios.put<UpdateCredentialsResponse>(
-          `/auth/users/${userIdFromToken}/credentials`,
+          "/auth/me/credentials",
           {
             email: trimmedEmail,
           },
@@ -564,7 +558,7 @@ export function AccountManagementPage() {
       }
 
       await axios.put(
-        `/api/customers/${profileId}`,
+        "/api/customers/me",
         {
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -627,7 +621,7 @@ export function AccountManagementPage() {
     setPasswordSaving(true);
     try {
       const response = await axios.put<ChangePasswordResponse>(
-        `/auth/users/${userIdFromToken}/password`,
+        "/auth/me/password",
         passwordForm,
         { headers: { Authorization: `Bearer ${token}` } },
       );

@@ -36,17 +36,33 @@ Routed through gateway to auth-service.
 - `POST /auth/forgot-password/request-code`
 - `POST /auth/forgot-password/verify-code`
 - `POST /auth/forgot-password/reset`
+- `GET /auth/me/credentials`
+- `PUT /auth/me/credentials`
+- `PUT /auth/me/password`
+
+Notes:
+- prefer `/auth/me/...` for frontend self-service account reads and updates
+
+#### Auth internal/compatibility routes (not frontend self-service)
+
 - `GET /auth/users/{userId}`
-- `GET /auth/users/{userId}/credentials`
-- `PUT /auth/users/{userId}/credentials`
 - `DELETE /auth/users/{userId}`
 
 ### Customer routes
 
 - `POST /api/customers/register`
+- `GET /api/customers/me`
+- `PUT /api/customers/me`
+
+Notes:
+- prefer `/api/customers/me` for frontend self-service profile reads and updates
+
+#### Customer internal/compatibility routes (not frontend self-service)
+
 - `GET /api/customers/user/{userId}`
 - `PUT /api/customers/{userId}`
 - `DELETE /api/customers/{userId}`
+
 
 ### Watchlist routes
 

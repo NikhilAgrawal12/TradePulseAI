@@ -3,8 +3,8 @@ package com.tradepulse.authservice.util;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -71,13 +71,13 @@ public class JwtUtil {
     public Long extractUserId(String token) {
         Object raw = parseClaims(token).get("userId");
         if (raw instanceof Integer value) {
-            return value.longValue();
+            return Long.valueOf(value.longValue());
         }
         if (raw instanceof Long value) {
             return value;
         }
         if (raw instanceof String value) {
-            return Long.parseLong(value);
+            return Long.valueOf(Long.parseLong(value));
         }
         throw new JwtException("Invalid JWT userId claim");
     }

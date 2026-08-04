@@ -79,7 +79,7 @@ public class ProfileController {
 
     private Mono<CustomerProfileResponse> fetchCustomerProfile(Long userId) {
         return customerServiceClient.get()
-                .uri("/customers/user/{userId}", userId)
+                .uri("/customers/me")
                 .header(USER_ID_HEADER, String.valueOf(userId))
                 .retrieve()
                 .bodyToMono(CustomerProfileResponse.class);
@@ -87,7 +87,7 @@ public class ProfileController {
 
     private Mono<CredentialsResponse> fetchCredentials(Long userId, String authHeader) {
         return authServiceClient.get()
-                .uri("/users/{userId}/credentials", userId)
+                .uri("/me/credentials")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .retrieve()
                 .bodyToMono(CredentialsResponse.class);

@@ -83,8 +83,7 @@ public class LocalStack extends Stack {
                 customerServiceDb,
                 Map.ofEntries(
                         Map.entry("AUTH_INTERNAL_API_KEY",         DOT_ENV.get("AUTH_INTERNAL_API_KEY")),
-                        Map.entry("AUTH_SERVICE_BASE_URL",         "http://auth-service:4005"),
-                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS","localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512")
+                        Map.entry("AUTH_SERVICE_BASE_URL",         "http://auth-service:4005")
                 ));
         customerService.getNode().addDependency(customerDbHealthCheck);
         customerService.getNode().addDependency(customerServiceDb);
@@ -95,7 +94,7 @@ public class LocalStack extends Stack {
                 "payment-service",
                 List.of(4001, 9002),
                 paymentServiceDb,
-                Map.of("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512"));
+                Map.of());
         paymentService.getNode().addDependency(paymentDbHealthCheck);
         paymentService.getNode().addDependency(paymentServiceDb);
 
@@ -147,7 +146,6 @@ public class LocalStack extends Stack {
                         Map.entry("PAYMENT_SERVICE_GRPC_ADDRESS",     "payment-service"),
                         Map.entry("PAYMENT_SERVICE_GRPC_PORT",        "9002"),
                         Map.entry("CUSTOMER_SERVICE_BASE_URL",        "http://customer-service:4000"),
-                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS",   "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512"),
                         Map.entry("GRPC_SERVER_PORT",                 "9005")
                 ));
         portfolioService.getNode().addDependency(portfolioDbHealthCheck);
@@ -166,8 +164,7 @@ public class LocalStack extends Stack {
                         Map.entry("STOCK_SERVICE_GRPC_PORT",            "9003"),
                         Map.entry("PORTFOLIO_SYNC_SERVICE_ADDRESS",     "portfolio-service"),
                         Map.entry("PORTFOLIO_SYNC_SERVICE_GRPC_PORT",   "9005"),
-                        Map.entry("CUSTOMER_SERVICE_BASE_URL",          "http://customer-service:4000"),
-                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS",     "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512")
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL",          "http://customer-service:4000")
                 ));
         orderService.getNode().addDependency(orderDbHealthCheck);
         orderService.getNode().addDependency(orderServiceDb);
@@ -199,7 +196,6 @@ public class LocalStack extends Stack {
                 List.of(4008),
                 null,
                 Map.ofEntries(
-                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS",    "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512"),
                         Map.entry("AUTH_SERVICE_BASE_URL",             "http://auth-service:4005"),
                         Map.entry("CUSTOMER_SERVICE_BASE_URL",         "http://customer-service:4000"),
                         Map.entry("MAIL_HOST",                         DOT_ENV.get("MAIL_HOST")),
@@ -298,14 +294,16 @@ public class LocalStack extends Stack {
                                 .removalPolicy(RemovalPolicy.DESTROY)
                                 .retention(RetentionDays.ONE_DAY)
                                 .build())
+                        .streamPrefix(imageName)
                         .build()));
 
         Map<String, String> envVars = new HashMap<>();
-        envVars.put("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510, localhost.localstack.cloud:4511,localhost.localstack.cloud:4512");
 
         if(additionalEnvVars != null) {
             envVars.putAll(additionalEnvVars);
         }
+
+        envVars.putIfAbsent("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512");
 
         if(db != null) {
             envVars.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://%s:%s/%s-db".formatted(
@@ -324,7 +322,7 @@ public class LocalStack extends Stack {
 
         taskDefinition.addContainer(imageName + "Container", containerOptions.build());
 
-        return FargateService.Builder.create(this,id)
+        return FargateService.Builder.create(this, id)
                 .cluster(ecsCluster)
                 .taskDefinition(taskDefinition)
                 .assignPublicIp(false)
