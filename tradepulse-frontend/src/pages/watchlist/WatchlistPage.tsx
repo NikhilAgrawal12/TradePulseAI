@@ -4,9 +4,9 @@ import { Header } from "../../components/Header.tsx";
 import { useCart } from "../../context/CartContext";
 import { useMarketStatus } from "../../context/MarketStatusContext";
 import { useWatchlist } from "../../context/WatchlistContext";
-import type { StockInsights } from "../../types/stockInsights";
+import type { StockAnalytics } from "../../types/stockAnalytics";
 import { formatMoney, formatPercent, formatSignedMoney } from "../../utils/money";
-import { fetchStockAnalytics } from "../../utils/stockInsightsApi";
+import { fetchStockAnalytics } from "../../utils/stockAnalyticsApi";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./WatchlistPage.css";
 
@@ -18,7 +18,7 @@ export function WatchlistPage() {
   const { stocks: streamedStocks } = useStreamedStocks();
   const { sessionMeta } = useMarketStatus();
   const [search, setSearch] = useState("");
-  const [performanceByStockId, setPerformanceByStockId] = useState<Record<string, StockInsights["currentPerformance"]>>({});
+  const [performanceByStockId, setPerformanceByStockId] = useState<Record<string, StockAnalytics["currentPerformance"]>>({});
 
 
    // Fetch initial analytics currentPerformance for all watchlist stocks
@@ -39,7 +39,7 @@ export function WatchlistPage() {
        }
 
        setPerformanceByStockId(() => {
-         const next: Record<string, StockInsights["currentPerformance"]> = {};
+         const next: Record<string, StockAnalytics["currentPerformance"]> = {};
          responses.forEach((result, index) => {
            if (result.status === "fulfilled") {
              next[watchlistStockIds[index]] = result.value.currentPerformance;
@@ -197,7 +197,7 @@ export function WatchlistPage() {
                         </td>
                        <td>
                           <Link className="wl-analytics-btn" to={`/stocks/${stock.id}/analytics`}>
-                            Analytics
+                            Insights
                          </Link>
                        </td>
                        <td>

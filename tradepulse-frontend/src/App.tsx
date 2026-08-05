@@ -11,7 +11,7 @@ import {PaymentPage} from "./pages/payment/PaymentPage";
 import {OrdersPage} from "./pages/orders/OrdersPage";
 import {AccountManagementPage} from "./pages/account-management/AccountManagementPage";
 import {WalletPage} from "./pages/wallet/WalletPage";
-import {StockAnalyticsPage} from "./pages/stock-insights/StockInsightsPage";
+import {StockAnalyticsPage} from "./pages/stock-analytics/StockAnalyticsPage";
 
 function App() {
 

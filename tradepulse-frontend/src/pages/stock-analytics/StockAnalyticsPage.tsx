@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Header } from "../../components/Header.tsx";
-import type { MonthlyReturnHeatmapCell, StockHistoryPoint, StockInsights, StockPrediction } from "../../types/stockInsights";
+import type { MonthlyReturnHeatmapCell, StockAnalytics, StockHistoryPoint, StockPrediction } from "../../types/stockAnalytics";
 import type { Stock } from "../../types/stock";
-import { fetchStockAnalytics, fetchStockPrediction } from "../../utils/stockInsightsApi";
+import { fetchStockAnalytics, fetchStockPrediction } from "../../utils/stockAnalyticsApi";
 import { formatMoney, formatPercent, formatSignedCurrency } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
-import "./StockInsightsPage.css";
+import "./StockAnalyticsPage.css";
 
 type ParsedNewsHeadline = {
   headline: string;
@@ -189,8 +189,8 @@ function buildLinePath(data: StockHistoryPoint[], key: keyof StockHistoryPoint, 
 
 function ChartCard({ title, children, subtitle }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <section className="insights-chart-card">
-      <div className="insights-chart-head"><div><h3>{title}</h3>{subtitle ? <p>{subtitle}</p> : null}</div></div>
+    <section className="analytics-chart-card">
+      <div className="analytics-chart-head"><div><h3>{title}</h3>{subtitle ? <p>{subtitle}</p> : null}</div></div>
       {children}
     </section>
   );
@@ -198,9 +198,9 @@ function ChartCard({ title, children, subtitle }: { title: string; subtitle?: st
 
 function MetricSection({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <section className="insights-section-card">
+    <section className="analytics-section-card">
       <h3>{title}</h3>
-      {subtitle && <p className="insights-section-subtitle">{subtitle}</p>}
+      {subtitle && <p className="analytics-section-subtitle">{subtitle}</p>}
       {children}
     </section>
   );
@@ -208,9 +208,9 @@ function MetricSection({ title, subtitle, children }: { title: string; subtitle?
 
 function MetricGrid({ items }: { items: Array<{ label: string; value: string; tone?: "positive" | "negative" }> }) {
    return (
-     <div className="insights-metric-grid">
+     <div className="analytics-metric-grid">
        {items.map((item) => (
-         <div key={item.label} className="insights-metric-card">
+         <div key={item.label} className="analytics-metric-card">
            <span>{item.label}</span>
            <strong className={item.tone === "positive" ? "metric-positive" : item.tone === "negative" ? "metric-negative" : undefined}>{item.value}</strong>
          </div>
@@ -394,8 +394,8 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
    }, [bounds]);
 
    return (
-     <div className="insights-chart-shell">
-       <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock line chart">
+     <div className="analytics-chart-shell">
+       <svg viewBox={`0 0 ${width} ${height}`} className="analytics-svg-chart" role="img" aria-label="Stock line chart">
          {yTicks.map((tick, index) => {
            const y = top + (index / 4) * innerHeight;
            return (
@@ -431,7 +431,7 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
            />
          ))}
         </svg>
-        <div className="insights-chart-legend">
+        <div className="analytics-chart-legend">
           {lines.map((line) => (
             <span key={line.label}><i style={{ backgroundColor: line.color }} />{line.label}</span>
           ))}
@@ -459,8 +459,8 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
    const innerHeight = height - top - bottom;
 
    return (
-     <div className="insights-chart-shell">
-       <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock candlestick chart">
+     <div className="analytics-chart-shell">
+       <svg viewBox={`0 0 ${width} ${height}`} className="analytics-svg-chart" role="img" aria-label="Stock candlestick chart">
          {yTicks.map((tick, index) => {
            const y = top + (index / 4) * innerHeight;
            return (
@@ -529,8 +529,8 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
    const innerHeight = height - top - bottom;
 
    return (
-     <div className="insights-chart-shell">
-       <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock volume chart">
+     <div className="analytics-chart-shell">
+       <svg viewBox={`0 0 ${width} ${height}`} className="analytics-svg-chart" role="img" aria-label="Stock volume chart">
          {yTicks.map((tick, index) => {
            const y = top + (index / 4) * innerHeight;
            return (
@@ -612,78 +612,6 @@ function VolumeLegend() {
   );
 }
 
-function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoint[]; lines: LineDefinition[]; valueFormatter?: (value: number) => string }) {
-  const width = 900; const height = 360; const left = 70; const right = 14; const top = 12; const bottom = 60;
-  const innerWidth = width - left - right; const innerHeight = height - top - bottom;
-  const bounds = useMemo(() => getSeriesBounds(data, lines.map((l) => l.key)), [data, lines]);
-  const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
-  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => bounds.max - (bounds.max - bounds.min) * (i / 4)), [bounds]);
-  return (
-    <div className="insights-chart-shell">
-      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock line chart">
-        {yTicks.map((tick, i) => { const y = top + (i / 4) * innerHeight; return (<g key={tick}><line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" /><text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">{valueFormatter ? valueFormatter(tick) : formatMoney(tick)}</text></g>); })}
-        <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
-        {xTicks.map((tick) => { const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth; return (<g key={`${tick.index}-${tick.label}`}><line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" /><text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">{tick.label}</text></g>); })}
-        {lines.map((line) => (<path key={line.label} d={buildLinePath(data, line.key, left, top, innerWidth, innerHeight, bounds.min, bounds.max)} fill="none" stroke={line.color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />))}
-      </svg>
-      <div className="insights-chart-legend">{lines.map((line) => (<span key={line.label}><i style={{ backgroundColor: line.color }} />{line.label}</span>))}</div>
-    </div>
-  );
-}
-
-function CandlestickChart({ data }: { data: StockHistoryPoint[] }) {
-  const width = 900; const height = 360; const left = 70; const right = 14; const top = 12; const bottom = 60;
-  const innerWidth = width - left - right; const innerHeight = height - top - bottom;
-  const bounds = useMemo(() => getSeriesBounds(data, ["low", "high"]), [data]);
-  const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
-  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => bounds.max - (bounds.max - bounds.min) * (i / 4)), [bounds]);
-  return (
-    <div className="insights-chart-shell">
-      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock candlestick chart">
-        {yTicks.map((tick, i) => { const y = top + (i / 4) * innerHeight; return (<g key={tick}><line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" /><text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">{formatMoney(tick)}</text></g>); })}
-        {data.map((point, index) => {
-          if ([point.open, point.high, point.low, point.close].some((v) => typeof v !== "number")) return null;
-          const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
-          const cw = Math.max(innerWidth / Math.max(data.length * 1.8, 24), 2);
-          const highY = top + innerHeight - (((point.high as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const lowY = top + innerHeight - (((point.low as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const openY = top + innerHeight - (((point.open as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const closeY = top + innerHeight - (((point.close as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
-          const color = (point.close as number) >= (point.open as number) ? "#16a34a" : "#dc2626";
-          return (<g key={`${point.tradingDate}-${index}`}><line x1={x} y1={highY} x2={x} y2={lowY} stroke={color} strokeWidth="1.5" /><rect x={x - cw / 2} y={Math.min(openY, closeY)} width={cw} height={Math.max(Math.abs(closeY - openY), 2)} fill={color} rx="1" /></g>);
-        })}
-        <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
-        {xTicks.map((tick) => { const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth; return (<g key={`${tick.index}-${tick.label}`}><line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" /><text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">{tick.label}</text></g>); })}
-      </svg>
-    </div>
-  );
-}
-
-function VolumeChart({ data }: { data: StockHistoryPoint[] }) {
-  const width = 900; const height = 300; const left = 70; const right = 14; const top = 12; const bottom = 60;
-  const innerWidth = width - left - right; const innerHeight = height - top - bottom;
-  const maxVolume = Math.max(...data.map((p) => p.volume ?? 0), 1);
-  const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
-  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => maxVolume * (1 - i / 4)), [maxVolume]);
-  return (
-    <div className="insights-chart-shell">
-      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock volume chart">
-        {yTicks.map((tick, i) => { const y = top + (i / 4) * innerHeight; return (<g key={tick}><line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" /><text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">{formatCompactVolume(tick)}</text></g>); })}
-        {data.map((point, index) => {
-          const volume = point.volume ?? 0;
-          const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
-          const bw = Math.max(innerWidth / Math.max(data.length * 1.6, 20), 2);
-          const bh = (volume / maxVolume) * innerHeight;
-          const y = top + innerHeight - bh;
-          const isPositive = (point.return1d ?? 0) >= 0;
-          return <rect key={`${point.tradingDate}-${index}`} x={x - bw / 2} y={y} width={bw} height={bh} fill={isPositive ? "#16a34a" : "#dc2626"} rx="1" />;
-        })}
-        <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
-        {xTicks.map((tick) => { const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth; return (<g key={`${tick.index}-${tick.label}`}><line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" /><text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">{tick.label}</text></g>); })}
-      </svg>
-    </div>
-  );
-}
 
 function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] }) {
   const years = Array.from(new Set(cells.map((cell) => cell.year))).sort((left, right) => right - left);
@@ -723,7 +651,7 @@ function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] })
 
 export function StockAnalyticsPage() {
    const { stockId } = useParams();
-   const [insights, setInsights] = useState<StockInsights | null>(null);
+   const [analytics, setAnalytics] = useState<StockAnalytics | null>(null);
    const [prediction, setPrediction] = useState<StockPrediction | null>(null);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
@@ -755,14 +683,14 @@ export function StockAnalyticsPage() {
 
        try {
          setLoading(true);
-          const [nextInsights, nextPrediction] = await Promise.all([
+          const [nextAnalytics, nextPrediction] = await Promise.all([
             fetchStockAnalytics(stockId),
             fetchStockPrediction(stockId).catch(() => null),
           ]);
          if (!mounted) {
            return;
          }
-         setInsights(nextInsights);
+         setAnalytics(nextAnalytics);
           setPrediction(nextPrediction);
          setError(null);
        } catch {
@@ -786,21 +714,21 @@ export function StockAnalyticsPage() {
 
    // Set search term to filter streamed stocks by the current symbol
    useEffect(() => {
-     if (!insights?.symbol) {
+     if (!analytics?.symbol) {
        setSearchTerm("");
        return;
      }
-     setSearchTerm(insights.symbol);
-   }, [insights?.symbol, setSearchTerm]);
+     setSearchTerm(analytics.symbol);
+   }, [analytics?.symbol, setSearchTerm]);
 
-   // Apply real-time updates from streamed stocks to insights
+   // Apply real-time updates from streamed stocks to analytics
    useEffect(() => {
-     if (!insights?.symbol || streamedStocks.length === 0) {
+     if (!analytics?.symbol || streamedStocks.length === 0) {
        return;
      }
 
      const matchedStock = streamedStocks.find((stock) =>
-       stock.symbol.toUpperCase() === insights.symbol.toUpperCase()
+       stock.symbol.toUpperCase() === analytics.symbol.toUpperCase()
      ) as Stock | undefined;
 
      if (!matchedStock) {
@@ -810,7 +738,7 @@ export function StockAnalyticsPage() {
      const livePrice = typeof matchedStock.price === "number" ? matchedStock.price : null;
      const liveChangePercent = typeof matchedStock.changePercent === "number" ? matchedStock.changePercent : null;
 
-     setInsights((prev) => {
+     setAnalytics((prev) => {
        if (!prev) {
          return prev;
        }
@@ -837,16 +765,16 @@ export function StockAnalyticsPage() {
          },
        };
      });
-   }, [insights?.symbol, streamedStocks]);
+   }, [analytics?.symbol, streamedStocks]);
 
-   const rangeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], selectedRange), [insights?.history, selectedRange]);
-   const candlestickHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], candlestickRange), [insights?.history, candlestickRange]);
-   const volumeHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], volumeRange), [insights?.history, volumeRange]);
-   const movingAverageHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], movingAverageRange), [insights?.history, movingAverageRange]);
-   const rollingVolatilityHistory = useMemo(() => filterHistoryByRange(insights?.history ?? [], rollingVolatilityRange), [insights?.history, rollingVolatilityRange]);
+   const rangeHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], selectedRange), [analytics?.history, selectedRange]);
+   const candlestickHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], candlestickRange), [analytics?.history, candlestickRange]);
+   const volumeHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], volumeRange), [analytics?.history, volumeRange]);
+   const movingAverageHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], movingAverageRange), [analytics?.history, movingAverageRange]);
+   const rollingVolatilityHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], rollingVolatilityRange), [analytics?.history, rollingVolatilityRange]);
    const latestNewsHeadlines = useMemo(
      () =>
-       (insights?.latestNews ?? [])
+       (analytics?.latestNews ?? [])
          .flatMap((item) =>
            splitNewsHeadlines(item.news).map((headline) => ({
              tradingDate: item.tradingDate,
@@ -854,7 +782,7 @@ export function StockAnalyticsPage() {
            })),
          )
          .slice(0, 3),
-     [insights?.latestNews],
+     [analytics?.latestNews],
    );
 
   const summaryTone = (value: number | null | undefined): "positive" | "negative" | undefined => {
@@ -876,47 +804,47 @@ export function StockAnalyticsPage() {
   };
 
   const marketStateLabel = useMemo(() => {
-    if (!insights?.trendMetrics) {
+    if (!analytics?.trendMetrics) {
       return "--";
     }
-    if (insights.trendMetrics.goldenCross) {
+    if (analytics.trendMetrics.goldenCross) {
       return "Golden cross active";
     }
-    if (insights.trendMetrics.deathCross) {
+    if (analytics.trendMetrics.deathCross) {
       return "Death cross active";
     }
     return "Trend neutral";
-  }, [insights?.trendMetrics]);
+  }, [analytics?.trendMetrics]);
 
   return (
     <>
       <Header />
-      <main className="stock-insights-page">
-        <div className="stock-insights-shell">
-          <div className="stock-insights-topbar">
-            <Link to="/" className="insights-back-link">← Back to stocks</Link>
+      <main className="stock-analytics-page">
+        <div className="stock-analytics-shell">
+          <div className="stock-analytics-topbar">
+            <Link to="/" className="analytics-back-link">← Back to stocks</Link>
           </div>
 
           {loading ? (
-            <div className="insights-state-card"><p>Loading stock insights...</p></div>
-          ) : error || !insights ? (
-            <div className="insights-state-card error"><p>{error ?? "Unable to load stock analytics."}</p></div>
+            <div className="analytics-state-card"><p>Loading stock analytics...</p></div>
+          ) : error || !analytics ? (
+            <div className="analytics-state-card error"><p>{error ?? "Unable to load stock analytics."}</p></div>
           ) : (
             <>
-              <section className="insights-hero-card">
+              <section className="analytics-hero-card">
                 <div>
-                  <p className="insights-eyebrow">Stock Overview Statistics</p>
-                  <h1>{insights.symbol} · {insights.name}</h1>
-                  <p className="insights-subtitle">
-                    {insights.exchange ?? "Exchange unavailable"}
-                    {insights.market ? ` • ${insights.market}` : ""}
-                    {insights.lastUpdated ? ` • Updated ${formatDateLabel(insights.lastUpdated)}` : ""}
+                  <p className="analytics-eyebrow">Stock Overview Statistics</p>
+                  <h1>{analytics.symbol} · {analytics.name}</h1>
+                  <p className="analytics-subtitle">
+                    {analytics.exchange ?? "Exchange unavailable"}
+                    {analytics.market ? ` • ${analytics.market}` : ""}
+                    {analytics.lastUpdated ? ` • Updated ${formatDateLabel(analytics.lastUpdated)}` : ""}
                   </p>
                 </div>
-                <div className="insights-hero-price">
-                  <strong>{formatMaybeMoney(insights.currentPerformance.currentPrice)}</strong>
-                  <span className={toneClass(insights.currentPerformance.dailyChangePercent)}>
-                    {formatMaybeSignedMoney(insights.currentPerformance.dailyChange)} · {formatMaybePercent(insights.currentPerformance.dailyChangePercent)}
+                <div className="analytics-hero-price">
+                  <strong>{formatMaybeMoney(analytics.currentPerformance.currentPrice)}</strong>
+                  <span className={toneClass(analytics.currentPerformance.dailyChangePercent)}>
+                    {formatMaybeSignedMoney(analytics.currentPerformance.dailyChange)} · {formatMaybePercent(analytics.currentPerformance.dailyChangePercent)}
                   </span>
                 </div>
               </section>
@@ -924,38 +852,38 @@ export function StockAnalyticsPage() {
               <MetricSection title="Current Performance">
                 <MetricGrid
                   items={[
-                    { label: "Current Price", value: formatMaybeMoney(insights.currentPerformance.currentPrice) },
-                    { label: "Previous Day Close", value: formatMaybeMoney(insights.currentPerformance.previousClose) },
-                    { label: "Daily Change ($)", value: formatMaybeSignedMoney(insights.currentPerformance.dailyChange), tone: summaryTone(insights.currentPerformance.dailyChange) },
-                    { label: "Daily Change (%)", value: formatMaybePercent(insights.currentPerformance.dailyChangePercent), tone: summaryTone(insights.currentPerformance.dailyChangePercent) },
+                    { label: "Current Price", value: formatMaybeMoney(analytics.currentPerformance.currentPrice) },
+                    { label: "Previous Day Close", value: formatMaybeMoney(analytics.currentPerformance.previousClose) },
+                    { label: "Daily Change ($)", value: formatMaybeSignedMoney(analytics.currentPerformance.dailyChange), tone: summaryTone(analytics.currentPerformance.dailyChange) },
+                    { label: "Daily Change (%)", value: formatMaybePercent(analytics.currentPerformance.dailyChangePercent), tone: summaryTone(analytics.currentPerformance.dailyChangePercent) },
                   ]}
                 />
               </MetricSection>
 
               <MetricSection title="Latest News">
                 {latestNewsHeadlines.length > 0 ? (
-                  <article className="insights-news-featured-card">
-                    <ol className="insights-news-headline-list">
+                  <article className="analytics-news-featured-card">
+                    <ol className="analytics-news-headline-list">
                       {latestNewsHeadlines.map((item, index) => (
                         <li key={`${item.tradingDate ?? "na"}-${index}-${item.headline}`}>
-                          <span className="insights-news-rank">{index + 1}</span>
+                          <span className="analytics-news-rank">{index + 1}</span>
                           <div>
                             {item.url ? (
                               <a
                                 href={item.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="insights-news-link"
+                                className="analytics-news-link"
                                 title={item.headline}
                               >
                                 {item.headline}
                               </a>
                             ) : (
-                              <p className="insights-news-featured-text" title={item.headline}>{item.headline}</p>
+                              <p className="analytics-news-featured-text" title={item.headline}>{item.headline}</p>
                             )}
-                            <div className="insights-news-meta">
-                              <span className="insights-news-date">{formatDateLabel(item.tradingDate)}</span>
-                              {item.publisher ? <span className="insights-news-publisher">{item.publisher}</span> : null}
+                            <div className="analytics-news-meta">
+                              <span className="analytics-news-date">{formatDateLabel(item.tradingDate)}</span>
+                              {item.publisher ? <span className="analytics-news-publisher">{item.publisher}</span> : null}
                             </div>
                           </div>
                         </li>
@@ -963,17 +891,17 @@ export function StockAnalyticsPage() {
                     </ol>
                   </article>
                 ) : (
-                  <p className="insights-empty-state">No news available yet.</p>
+                  <p className="analytics-empty-state">No news available yet.</p>
                 )}
               </MetricSection>
 
               <MetricSection title="52-Week Metrics">
                 <MetricGrid
                   items={[
-                    { label: "52-Week High", value: formatMaybeMoney(insights.metrics52Week.high52Week) },
-                    { label: "52-Week Low", value: formatMaybeMoney(insights.metrics52Week.low52Week) },
-                    { label: "Distance from 52-Week High", value: formatMaybePercent(insights.metrics52Week.distanceFromHighPercent), tone: summaryTone(insights.metrics52Week.distanceFromHighPercent) },
-                    { label: "Distance from 52-Week Low", value: formatMaybePercent(insights.metrics52Week.distanceFromLowPercent), tone: summaryTone(insights.metrics52Week.distanceFromLowPercent) },
+                    { label: "52-Week High", value: formatMaybeMoney(analytics.metrics52Week.high52Week) },
+                    { label: "52-Week Low", value: formatMaybeMoney(analytics.metrics52Week.low52Week) },
+                    { label: "Distance from 52-Week High", value: formatMaybePercent(analytics.metrics52Week.distanceFromHighPercent), tone: summaryTone(analytics.metrics52Week.distanceFromHighPercent) },
+                    { label: "Distance from 52-Week Low", value: formatMaybePercent(analytics.metrics52Week.distanceFromLowPercent), tone: summaryTone(analytics.metrics52Week.distanceFromLowPercent) },
                   ]}
                 />
               </MetricSection>
@@ -981,12 +909,12 @@ export function StockAnalyticsPage() {
               <MetricSection title="Returns">
                 <MetricGrid
                   items={[
-                    { label: "1 Week Return", value: formatMaybePercent(insights.returns.oneWeekReturn), tone: summaryTone(insights.returns.oneWeekReturn) },
-                    { label: "1 Month Return", value: formatMaybePercent(insights.returns.oneMonthReturn), tone: summaryTone(insights.returns.oneMonthReturn) },
-                    { label: "3 Month Return", value: formatMaybePercent(insights.returns.threeMonthReturn), tone: summaryTone(insights.returns.threeMonthReturn) },
-                    { label: "6 Month Return", value: formatMaybePercent(insights.returns.sixMonthReturn), tone: summaryTone(insights.returns.sixMonthReturn) },
-                    { label: "1 Year Return", value: formatMaybePercent(insights.returns.oneYearReturn), tone: summaryTone(insights.returns.oneYearReturn) },
-                    { label: "3 Year Return", value: formatMaybePercent(insights.returns.threeYearReturn), tone: summaryTone(insights.returns.threeYearReturn) },
+                    { label: "1 Week Return", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
+                    { label: "1 Month Return", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
+                    { label: "3 Month Return", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
+                    { label: "6 Month Return", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
+                    { label: "1 Year Return", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
+                    { label: "3 Year Return", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
                   ]}
                 />
               </MetricSection>
@@ -994,10 +922,10 @@ export function StockAnalyticsPage() {
               <MetricSection title="Volume Metrics">
                 <MetricGrid
                   items={[
-                    { label: "Volume As Of", value: formatDateLabel(insights.volumeMetrics.latestTradingDate) },
-                    { label: "Latest Trading Day Volume", value: formatVolume(insights.volumeMetrics.latestTradingDayVolume) },
-                    { label: "Average 30-Day Volume", value: formatVolume(insights.volumeMetrics.average30DayVolume) },
-                    { label: "Relative Volume", value: formatMaybeRatio(insights.volumeMetrics.relativeVolume) },
+                    { label: "Volume As Of", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
+                    { label: "Latest Trading Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
+                    { label: "Average 30-Day Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
+                    { label: "Relative Volume", value: formatMaybeRatio(analytics.volumeMetrics.relativeVolume) },
                   ]}
                 />
               </MetricSection>
@@ -1005,56 +933,56 @@ export function StockAnalyticsPage() {
               <MetricSection title="Volatility">
                 <MetricGrid
                   items={[
-                    { label: "5-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility5Day) },
-                    { label: "20-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility20Day) },
-                    { label: "60-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility60Day) },
-                    { label: "90-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility90Day) },
-                    { label: "120-Day Volatility", value: formatMaybePercent(insights.volatilityMetrics.volatility120Day) },
+                    { label: "5-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility5Day) },
+                    { label: "20-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility20Day) },
+                    { label: "60-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility60Day) },
+                    { label: "90-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility90Day) },
+                    { label: "120-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility120Day) },
                   ]}
                 />
               </MetricSection>
 
-              <section className="insights-ml-section-card">
-                <div className="insights-ml-head">
+              <section className="analytics-ml-section-card">
+                <div className="analytics-ml-head">
                   <h3>Machine Learning Signal</h3>
                   <p>Model summary and confidence for the next trading window.</p>
                 </div>
 
                 {prediction ? (
-                  <div className="insights-ml-grid">
-                    <div className="insights-ml-primary">
-                      <div className="insights-ml-action-row">
+                  <div className="analytics-ml-grid">
+                    <div className="analytics-ml-primary">
+                      <div className="analytics-ml-action-row">
                         <span>Action</span>
                         <strong
-                          className={`insights-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}
+                          className={`analytics-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}
                         >
                           {prediction.action}
                         </strong>
                       </div>
                       <MlSignalBreakdown prediction={prediction} />
-                      <div className="insights-ml-meta-row">
-                        <span className="insights-ml-meta-pill">
+                      <div className="analytics-ml-meta-row">
+                        <span className="analytics-ml-meta-pill">
                           <small>Horizon</small>
                           <strong>{prediction.horizonDays} trading days</strong>
                         </span>
-                        <span className="insights-ml-meta-pill">
+                        <span className="analytics-ml-meta-pill">
                           <small>Model</small>
                           <strong>{prediction.modelName}</strong>
                         </span>
-                        <span className="insights-ml-meta-pill subtle">
+                        <span className="analytics-ml-meta-pill subtle">
                           <small>Updated</small>
                           <strong>{formatDateLabel(prediction.generatedAt)}</strong>
                         </span>
                       </div>
                     </div>
-                    <div className="insights-ml-visual">
+                    <div className="analytics-ml-visual">
                       <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
-                      <div className="insights-ml-side-grid">
-                        <div className="insights-ml-side-card">
+                      <div className="analytics-ml-side-grid">
+                        <div className="analytics-ml-side-card">
                           <span>Action</span>
                           <strong>{prediction.action}</strong>
                         </div>
-                        <div className="insights-ml-side-card">
+                        <div className="analytics-ml-side-card">
                           <span>Conviction</span>
                           <strong>{convictionTone(prediction.convictionLabel)}</strong>
                         </div>
@@ -1062,13 +990,13 @@ export function StockAnalyticsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="insights-state-card error"><p>ML prediction is currently unavailable.</p></div>
+                  <div className="analytics-state-card error"><p>ML prediction is currently unavailable.</p></div>
                 )}
               </section>
 
 
                <ChartCard title="Price History" subtitle="Line chart showing price movement over time">
-                 <section className="insights-range-row" aria-label="Price history range selector">
+                 <section className="analytics-range-row" aria-label="Price history range selector">
                    {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
                      <button key={range} type="button" className={`range-pill ${selectedRange === range ? "active" : ""}`} onClick={() => setSelectedRange(range)}>
                        {range}
@@ -1079,7 +1007,7 @@ export function StockAnalyticsPage() {
                </ChartCard>
 
                <ChartCard title="Candlestick Chart">
-                 <section className="insights-range-row" aria-label="Candlestick range selector">
+                 <section className="analytics-range-row" aria-label="Candlestick range selector">
                    {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
                      <button key={range} type="button" className={`range-pill ${candlestickRange === range ? "active" : ""}`} onClick={() => setCandlestickRange(range as RangeKey)}>
                        {range}
@@ -1091,7 +1019,7 @@ export function StockAnalyticsPage() {
                </ChartCard>
 
                <ChartCard title="Volume Chart">
-                 <section className="insights-range-row" aria-label="Volume range selector">
+                 <section className="analytics-range-row" aria-label="Volume range selector">
                    {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
                      <button key={range} type="button" className={`range-pill ${volumeRange === range ? "active" : ""}`} onClick={() => setVolumeRange(range as RangeKey)}>
                        {range}
@@ -1103,7 +1031,7 @@ export function StockAnalyticsPage() {
                </ChartCard>
 
               <ChartCard title="Moving Averages" subtitle="20, 50, and 200 day SMAs">
-                <section className="insights-range-row" aria-label="Moving averages range selector">
+                <section className="analytics-range-row" aria-label="Moving averages range selector">
                   {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${movingAverageRange === range ? "active" : ""}`} onClick={() => setMovingAverageRange(range)}>
                       {range}
@@ -1122,7 +1050,7 @@ export function StockAnalyticsPage() {
               </ChartCard>
 
               <ChartCard title="Rolling Volatility" subtitle="Risk trend across 20-day, 60-day, and 90-day windows">
-                <section className="insights-range-row" aria-label="Rolling volatility range selector">
+                <section className="analytics-range-row" aria-label="Rolling volatility range selector">
                   {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
                       {range}
@@ -1143,28 +1071,28 @@ export function StockAnalyticsPage() {
               <MetricSection title="Performance Distribution" subtitle="Based on last 1 year of trading data">
                 <MetricGrid
                   items={[
-                    { label: "Positive Days", value: insights.performanceDistribution.positiveDays.toString() },
-                    { label: "Negative Days", value: insights.performanceDistribution.negativeDays.toString() },
-                    { label: "Flat Days", value: insights.performanceDistribution.flatDays.toString() },
+                    { label: "Positive Days", value: analytics.performanceDistribution.positiveDays.toString() },
+                    { label: "Negative Days", value: analytics.performanceDistribution.negativeDays.toString() },
+                    { label: "Flat Days", value: analytics.performanceDistribution.flatDays.toString() },
                   ]}
                 />
                 <DistributionPieChart
-                  positiveDays={insights.performanceDistribution.positiveDays}
-                  negativeDays={insights.performanceDistribution.negativeDays}
-                  flatDays={insights.performanceDistribution.flatDays}
+                  positiveDays={analytics.performanceDistribution.positiveDays}
+                  negativeDays={analytics.performanceDistribution.negativeDays}
+                  flatDays={analytics.performanceDistribution.flatDays}
                 />
               </MetricSection>
 
               <MetricSection title="Monthly Returns Heatmap">
-                <MonthlyReturnsHeatmap cells={insights.monthlyReturnsHeatmap} />
+                <MonthlyReturnsHeatmap cells={analytics.monthlyReturnsHeatmap} />
               </MetricSection>
 
               <MetricSection title="Drawdown Analysis">
                 <MetricGrid
                   items={[
-                    { label: "Maximum Drawdown", value: formatMaybePercent(insights.drawdownAnalysis.maxDrawdown), tone: "negative" },
-                    { label: "Peak Date", value: formatDateLabel(insights.drawdownAnalysis.peakDate) },
-                    { label: "Trough Date", value: formatDateLabel(insights.drawdownAnalysis.troughDate) },
+                    { label: "Maximum Drawdown", value: formatMaybePercent(analytics.drawdownAnalysis.maxDrawdown), tone: "negative" },
+                    { label: "Peak Date", value: formatDateLabel(analytics.drawdownAnalysis.peakDate) },
+                    { label: "Trough Date", value: formatDateLabel(analytics.drawdownAnalysis.troughDate) },
                   ]}
                 />
               </MetricSection>
@@ -1173,25 +1101,25 @@ export function StockAnalyticsPage() {
               <MetricSection title="Advanced Metrics">
                 <MetricGrid
                   items={[
-                    { label: "Sharpe Ratio", value: formatMaybePlain(insights.riskMetrics.sharpeRatio), tone: summaryTone(insights.riskMetrics.sharpeRatio) },
-                    { label: "Sortino Ratio", value: formatMaybePlain(insights.riskMetrics.sortinoRatio), tone: summaryTone(insights.riskMetrics.sortinoRatio) },
+                    { label: "Sharpe Ratio", value: formatMaybePlain(analytics.riskMetrics.sharpeRatio), tone: summaryTone(analytics.riskMetrics.sharpeRatio) },
+                    { label: "Sortino Ratio", value: formatMaybePlain(analytics.riskMetrics.sortinoRatio), tone: summaryTone(analytics.riskMetrics.sortinoRatio) },
                     { label: "Trend State", value: marketStateLabel },
-                    { label: "RSI (14)", value: formatMaybePlain(insights.momentumMetrics.rsi14) },
-                    { label: "MACD", value: formatMaybePlain(insights.momentumMetrics.macd), tone: summaryTone(insights.momentumMetrics.macd) },
-                    { label: "MACD Signal", value: formatMaybePlain(insights.momentumMetrics.macdSignal), tone: summaryTone(insights.momentumMetrics.macdSignal) },
+                    { label: "RSI (14)", value: formatMaybePlain(analytics.momentumMetrics.rsi14) },
+                    { label: "MACD", value: formatMaybePlain(analytics.momentumMetrics.macd), tone: summaryTone(analytics.momentumMetrics.macd) },
+                    { label: "MACD Signal", value: formatMaybePlain(analytics.momentumMetrics.macdSignal), tone: summaryTone(analytics.momentumMetrics.macdSignal) },
                   ]}
                 />
               </MetricSection>
 
-              <section className="insights-history-table-card">
-                <div className="insights-chart-head">
+              <section className="analytics-history-table-card">
+                <div className="analytics-chart-head">
                   <div>
                     <h3>Recent Daily Data</h3>
                     <p>Latest OHLC and volume observations in the selected range.</p>
                   </div>
                 </div>
-                <div className="insights-table-wrap">
-                  <table className="insights-table">
+                <div className="analytics-table-wrap">
+                  <table className="analytics-table">
                     <thead>
                       <tr>
                         <th>Date</th>

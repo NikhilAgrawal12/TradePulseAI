@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "../../components/Header.tsx";
-import { fetchAnalyticsNews } from "../../utils/stockInsightsApi";
+import { fetchAnalyticsNews } from "../../utils/stockAnalyticsApi";
 import "./AnalyticsPage.css";
 
 type AnalyticsNewsItem = {

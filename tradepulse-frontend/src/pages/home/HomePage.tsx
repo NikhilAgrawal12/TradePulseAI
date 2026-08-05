@@ -138,7 +138,7 @@ export function HomePage() {
                           </button>
                         </div>
                         <Link className="stock-analytics-btn" to={`/stocks/${stock.id}/analytics`}>
-                          ✨ Analytics
+                          ✨ Insights
                         </Link>
                       </article>
                     );

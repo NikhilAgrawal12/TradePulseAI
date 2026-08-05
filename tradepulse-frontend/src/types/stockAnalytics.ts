@@ -25,7 +25,7 @@ export type DailyNewsItem = {
   news: string | null;
 };
 
-export type StockInsights = {
+export type StockAnalytics = {
   id: string;
   symbol: string;
   name: string;

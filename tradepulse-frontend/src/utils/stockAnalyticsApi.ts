@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StockInsights, StockHistoryPoint, StockPrediction } from "../types/stockInsights";
+import type { StockAnalytics, StockHistoryPoint, StockPrediction } from "../types/stockAnalytics";
 import { toMoney } from "./money";
 
 export type AnalyticsNewsItem = {
@@ -26,15 +26,9 @@ function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {
   };
 }
 
-export type AnalyticsNewsItem = {
-  stockId: number;
-  symbol: string;
-  tradingDate: string | null;
-  news: string | null;
-};
 
-export async function fetchStockAnalytics(stockId: string): Promise<StockInsights> {
-  const response = await axios.get<StockInsights>(`/api/analytics/stocks/${stockId}/insights`);
+export async function fetchStockAnalytics(stockId: string): Promise<StockAnalytics> {
+  const response = await axios.get<StockAnalytics>(`/api/analytics/stocks/${stockId}/insights`);
   const data = response.data;
 
   return {
