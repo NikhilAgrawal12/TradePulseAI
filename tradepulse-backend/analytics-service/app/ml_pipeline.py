@@ -35,19 +35,8 @@ except Exception:
 
 
 NUMERIC_FEATURES = [
-    # Returns
-    "return_1d",
-    "return_5d",
-    "return_20d",
-    "return_60d",
-    "return_90d",
-    "return_120d",
-    # Volatility (aligned by horizon, exclude 1d)
-    "volatility_5d",
-    "volatility_20d",
-    "volatility_60d",
-    "volatility_90d",
-    "volatility_120d",
+    "avg_return",
+    "volatility",
 ]
 CATEGORICAL_FEATURES: list[str] = []
 
@@ -78,7 +67,7 @@ def _engineer_features(
     positive_return_threshold: float,
     neutral_return_band: float,
 ) -> pd.DataFrame:
-    # Features and label are persisted in stock_daily_ohlc.
+    # Features and label are persisted in ml_weekly_features.
     _ = positive_return_threshold
     _ = neutral_return_band
     _ = horizon_days
@@ -87,30 +76,15 @@ def _engineer_features(
     data["trading_date"] = pd.to_datetime(data["trading_date"])
     data = data.sort_values(["stock_id", "trading_date"]).reset_index(drop=True)
 
-    # Backfill stored return/volatility columns if absent (e.g. in unit tests)
-    for col in [
-        "return_1d",
-        "return_5d",
-        "return_20d",
-        "return_60d",
-        "return_90d",
-        "return_120d",
-        "volatility_5d",
-        "volatility_20d",
-        "volatility_60d",
-        "volatility_90d",
-        "volatility_120d",
-    ]:
+    for col in ["avg_return", "volatility"]:
         if col not in data.columns:
             data[col] = np.nan
 
-    if "target_week_direction" not in data.columns:
-        data["target_week_direction"] = pd.Series([None] * len(data), index=data.index, dtype="object")
-    if "forward_return_5d" not in data.columns:
-        data["forward_return_5d"] = np.nan
+    if "next_week_label" not in data.columns:
+        data["next_week_label"] = np.nan
 
-    direction = data["target_week_direction"].astype("string").str.upper().str.strip()
-    data["target"] = direction.map({"POSITIVE": 1, "NEGATIVE": 0}).astype(float)
+    label = pd.to_numeric(data["next_week_label"], errors="coerce")
+    data["target"] = np.where(label == 1, 1.0, np.where(label == 0, 0.0, np.nan))
 
     return data.replace([np.inf, -np.inf], np.nan)
 
@@ -324,7 +298,7 @@ def _evaluate_arima_benchmark(
         if test_stock.empty:
             continue
 
-        train_series = train_stock.sort_values("trading_date")["forward_return_5d"].dropna().astype(float)
+        train_series = train_stock.sort_values("trading_date")["avg_return"].dropna().astype(float)
         if len(train_series) < 60:
             continue
 
@@ -735,24 +709,18 @@ def predict_action(
     else:
         conviction_label = "NEUTRAL"
 
-    daily_return = float(prediction_row.iloc[0]["return_1d"]) if pd.notna(prediction_row.iloc[0]["return_1d"]) else None
-    return_5d = float(prediction_row.iloc[0]["return_5d"]) if pd.notna(prediction_row.iloc[0]["return_5d"]) else None
-    return_20d = float(prediction_row.iloc[0]["return_20d"]) if pd.notna(prediction_row.iloc[0]["return_20d"]) else None
-    volatility_20d = float(prediction_row.iloc[0]["volatility_20d"]) if pd.notna(prediction_row.iloc[0]["volatility_20d"]) else None
+    avg_return = float(prediction_row.iloc[0]["avg_return"]) if pd.notna(prediction_row.iloc[0]["avg_return"]) else None
+    volatility = float(prediction_row.iloc[0]["volatility"]) if pd.notna(prediction_row.iloc[0]["volatility"]) else None
 
     reasoning: list[str] = [
         f"Model horizon: {horizon_days} trading days",
         f"BUY probability: {probability_buy:.2%}",
         f"SELL probability: {probability_sell:.2%}",
     ]
-    if daily_return is not None:
-        reasoning.append(f"1-day return: {daily_return:.2f}%")
-    if return_5d is not None:
-        reasoning.append(f"5-day return: {return_5d:.2f}%")
-    if return_20d is not None:
-        reasoning.append(f"20-day return: {return_20d:.2f}%")
-    if volatility_20d is not None:
-        reasoning.append(f"20-day volatility: {volatility_20d:.2f}%")
+    if avg_return is not None:
+        reasoning.append(f"Current week average return: {avg_return:.2f}%")
+    if volatility is not None:
+        reasoning.append(f"Current week volatility: {volatility:.2f}%")
 
     return {
         "action": action,

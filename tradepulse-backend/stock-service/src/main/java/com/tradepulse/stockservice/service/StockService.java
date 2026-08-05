@@ -5,8 +5,6 @@ import com.tradepulse.stockservice.exception.StockNotFoundException;
 import com.tradepulse.stockservice.mapper.StockMapper;
 import com.tradepulse.stockservice.model.AllStocksLastValueCache;
 import com.tradepulse.stockservice.model.Stock;
-import com.tradepulse.stockservice.model.StockMarketData;
-import com.tradepulse.stockservice.repository.StockMarketDataRepository;
 import com.tradepulse.stockservice.repository.StockRepository;
 import com.tradepulse.stockservice.repository.FeaturedStockCacheRepository;
 import org.springframework.stereotype.Service;
@@ -23,16 +21,13 @@ public class StockService {
     private static final int FEATURED_LIMIT = 50;
 
     private final StockRepository stockRepository;
-    private final StockMarketDataRepository stockMarketDataRepository;
     private final FeaturedStockCacheRepository featuredStockCacheRepository;
     private final AllStocksLastValueCacheService allStocksLastValueCacheService;
 
     public StockService(StockRepository stockRepository,
-                        StockMarketDataRepository stockMarketDataRepository,
                         FeaturedStockCacheRepository featuredStockCacheRepository,
                         AllStocksLastValueCacheService allStocksLastValueCacheService) {
         this.stockRepository = stockRepository;
-        this.stockMarketDataRepository = stockMarketDataRepository;
         this.featuredStockCacheRepository = featuredStockCacheRepository;
         this.allStocksLastValueCacheService = allStocksLastValueCacheService;
     }
@@ -46,19 +41,14 @@ public class StockService {
                     .toList();
         }
 
-        Map<Long, StockMarketData> latestByStockId = new HashMap<>();
-        stockMarketDataRepository.findLatestForAllStocks()
-                .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
-
+        // Realtime cache not yet populated — return basic stock info without price
         return stockRepository.findAllByOrderByStockIdAsc()
                 .stream()
-                .filter(stock -> latestByStockId.containsKey(stock.getStockId()))
-                .map(stock -> StockMapper.toDTO(stock, latestByStockId.get(stock.getStockId())))
+                .map(StockMapper::toDTOFromCache)
                 .toList();
     }
 
     public List<StockResponseDTO> getFeaturedStocks() {
-        // Fetch top 50 from featured stocks cache ranking.
         var cachedFeaturedStocks = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
                 .stream()
                 .limit(FEATURED_LIMIT)
@@ -68,17 +58,10 @@ public class StockService {
         allStocksLastValueCacheService.getCacheSnapshotValues()
                 .forEach(entry -> realtimeByStockId.put(entry.getStock().getStockId(), entry));
 
-        Map<Long, StockMarketData> latestByStockId = new HashMap<>();
-        if (realtimeByStockId.isEmpty() || cachedFeaturedStocks.isEmpty()) {
-            stockMarketDataRepository.findLatestForAllStocks()
-                    .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
-        }
-
         if (cachedFeaturedStocks.isEmpty()) {
-            // Fallback path: cache can be empty after cold restarts before daily ranking job runs.
+            // Fallback: cache empty on cold restart — return top stocks by market cap
             return stockRepository.findAllByOrderByStockIdAsc()
                     .stream()
-                    .filter(stock -> latestByStockId.containsKey(stock.getStockId()))
                     .sorted(Comparator
                             .comparing(Stock::getMarketCap, Comparator.nullsLast(Comparator.reverseOrder()))
                             .thenComparing(stock -> {
@@ -88,10 +71,7 @@ public class StockService {
                     .limit(FEATURED_LIMIT)
                     .map(stock -> {
                         AllStocksLastValueCache realtime = realtimeByStockId.get(stock.getStockId());
-                        if (realtime != null) {
-                            return StockMapper.toDTO(realtime);
-                        }
-                        return StockMapper.toDTO(stock, latestByStockId.get(stock.getStockId()));
+                        return realtime != null ? StockMapper.toDTO(realtime) : StockMapper.toDTOFromCache(stock);
                     })
                     .toList();
         }
@@ -99,11 +79,7 @@ public class StockService {
         return cachedFeaturedStocks.stream()
                 .map(cacheEntry -> {
                     AllStocksLastValueCache realtime = realtimeByStockId.get(cacheEntry.getStock().getStockId());
-                    if (realtime != null) {
-                        return StockMapper.toDTO(realtime);
-                    }
-                    StockMarketData latestData = latestByStockId.get(cacheEntry.getStock().getStockId());
-                    return StockMapper.toDTO(cacheEntry.getStock(), latestData);
+                    return realtime != null ? StockMapper.toDTO(realtime) : StockMapper.toDTOFromCache(cacheEntry.getStock());
                 })
                 .toList();
     }
@@ -128,14 +104,7 @@ public class StockService {
         Stock stock = stockRepository.findById(id)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with id: " + id));
 
-        StockMarketData latestMarketData = stockMarketDataRepository.findTopByStockOrderByTradingDateDesc(stock)
-                .orElseThrow(() -> new StockNotFoundException("Stock quote not available yet for id: " + id));
-
-        if (latestMarketData.getClosePrice() == null) {
-            throw new StockNotFoundException("Stock quote not available yet for id: " + id);
-        }
-
-        return StockMapper.toDTO(stock, latestMarketData);
+        return StockMapper.toDTOFromCache(stock);
     }
 
     public StockResponseDTO getStockBySymbol(String symbol) {
@@ -146,31 +115,20 @@ public class StockService {
             return StockMapper.toDTO(fromRealtimeCache);
         }
 
-
         Stock stock = stockRepository.findBySymbol(normalized)
                 .orElseThrow(() -> new StockNotFoundException("Stock not found with symbol: " + symbol));
 
-        StockMarketData latestMarketData = stockMarketDataRepository.findTopByStockOrderByTradingDateDesc(stock)
-                .orElseThrow(() -> new StockNotFoundException("Stock quote not available yet for symbol: " + symbol));
-
-        if (latestMarketData.getClosePrice() == null) {
-            throw new StockNotFoundException("Stock quote not available yet for symbol: " + symbol);
-        }
-
-        return StockMapper.toDTO(stock, latestMarketData);
+        return StockMapper.toDTOFromCache(stock);
     }
-
 
     public List<StockResponseDTO> searchStocks(String query) {
         if (query == null || query.trim().isEmpty()) {
-            // Empty query returns empty list
             return List.of();
         }
 
         String searchQuery = query.trim().toLowerCase();
         final int MAX_RESULTS = 50;
 
-        // Get all stocks from realtime cache first
         Map<Long, AllStocksLastValueCache> realtimeByStockId = new HashMap<>();
         allStocksLastValueCacheService.getCacheSnapshotValues()
                 .forEach(entry -> realtimeByStockId.put(entry.getStock().getStockId(), entry));
@@ -181,18 +139,14 @@ public class StockService {
                     if (stock.getSymbol() == null || stock.getSymbol().trim().isEmpty()) {
                         return false;
                     }
-                    String symbol = stock.getSymbol().toLowerCase();
+                    String sym = stock.getSymbol().toLowerCase();
                     String name = (stock.getName() != null ? stock.getName() : "").toLowerCase();
-                    return symbol.contains(searchQuery) || name.contains(searchQuery);
+                    return sym.contains(searchQuery) || name.contains(searchQuery);
                 })
                 .limit(MAX_RESULTS)
                 .map(stock -> {
-                    // Use realtime cache if available, otherwise return basic DTO
                     AllStocksLastValueCache realtime = realtimeByStockId.get(stock.getStockId());
-                    if (realtime != null) {
-                        return StockMapper.toDTO(realtime);
-                    }
-                    return StockMapper.toDTOFromCache(stock);
+                    return realtime != null ? StockMapper.toDTO(realtime) : StockMapper.toDTOFromCache(stock);
                 })
                 .toList();
     }

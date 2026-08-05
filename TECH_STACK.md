@@ -346,11 +346,16 @@ DELETE /api/customers/{userId}
 GET /api/stocks
 GET /api/stocks/featured
 GET /api/stocks/{id}
-GET /api/stocks/{id}/insights
 GET /api/stocks/search?query=
 GET /api/stocks/market-status
 GET /api/stocks/stream/featured (SSE)
 GET /api/stocks/stream/market-status (SSE)
+```
+
+### Analytics Routes
+```
+GET /api/analytics/stocks/{id}/insights
+GET /api/analytics/news
 ```
 
 ### Cart & Order Routes

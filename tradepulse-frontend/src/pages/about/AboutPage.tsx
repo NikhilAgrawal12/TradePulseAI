@@ -53,8 +53,8 @@ export function AboutPage() {
 										Smarter trading, <br />built for real investors.
 						</h1>
 						<p className="about-hero-sub">
-										TradePulse combines real-time market data, ML-powered predictions,
-										deep stock insights, and seamless order execution in one platform.
+								TradePulse combines real-time market data, ML-powered predictions,
+								deep stock analytics, and seamless order execution in one platform.
 						</p>
 						<div className="about-hero-ctas">
 							<Link to="/registration" className="about-btn-primary">
@@ -76,12 +76,12 @@ export function AboutPage() {
 						<span className="about-eyebrow">Our mission</span>
 						<h2>Make market decisions clearer and faster.</h2>
 						<p>
-							We built TradePulse to help users track markets, review insights,
+							We built TradePulse to help users track markets, review analytics,
 							manage portfolios, and place trades from a single dashboard.
 						</p>
 						<p>
 							Our focus is practical tools you can use now: live prices, stock
-							insights, ML predictions, wallet and order flows, and portfolio
+							analytics, ML predictions, wallet and order flows, and portfolio
 							tracking with clear performance visibility.
 						</p>
 					</div>

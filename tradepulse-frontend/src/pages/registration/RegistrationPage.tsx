@@ -416,7 +416,7 @@ export function RegistrationPage() {
         <section className="registration-card" aria-labelledby="registration-title">
           <p className="registration-eyebrow">Get started</p>
           <h1 id="registration-title">Create your TradePulse account</h1>
-          <p className="registration-subtitle">Set up your profile to track insights, portfolios, and live market activity.</p>
+          <p className="registration-subtitle">Set up your profile to track analytics, portfolios, and live market activity.</p>
 
           {(error || locationError) && <div className="registration-error">{error || locationError}</div>}
 

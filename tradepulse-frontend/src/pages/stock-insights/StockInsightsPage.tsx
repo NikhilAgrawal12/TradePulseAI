@@ -3,10 +3,16 @@ import { Link, useParams } from "react-router";
 import { Header } from "../../components/Header.tsx";
 import type { MonthlyReturnHeatmapCell, StockHistoryPoint, StockInsights, StockPrediction } from "../../types/stockInsights";
 import type { Stock } from "../../types/stock";
-import { fetchStockInsights, fetchStockPrediction } from "../../utils/stockInsightsApi";
+import { fetchStockAnalytics, fetchStockPrediction } from "../../utils/stockInsightsApi";
 import { formatMoney, formatPercent, formatSignedCurrency } from "../../utils/money";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./StockInsightsPage.css";
+
+type ParsedNewsHeadline = {
+  headline: string;
+  url: string | null;
+  publisher: string | null;
+};
 
 type RangeKey = "1M" | "3M" | "6M" | "1Y" | "3Y";
 
@@ -19,12 +25,6 @@ type LineDefinition = {
 type AxisTick = {
   index: number;
   label: string;
-};
-
-type ParsedNewsHeadline = {
-  headline: string;
-  url: string | null;
-  publisher: string | null;
 };
 
 const RANGE_DAYS: Record<RangeKey, number> = {
@@ -43,7 +43,6 @@ function parseDisplayDate(value: string): Date {
     const year = Number(dateOnlyMatch[1]);
     const month = Number(dateOnlyMatch[2]);
     const day = Number(dateOnlyMatch[3]);
-    // Date-only strings from the API are trading dates, so parse in local time to avoid UTC day shifts.
     return new Date(year, month - 1, day);
   }
   return new Date(value);
@@ -118,158 +117,80 @@ function formatVolume(value: number | null | undefined): string {
 }
 
 function formatCompactVolume(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "--";
-  }
-  if (Math.abs(value) >= 1_000_000_000) {
-    return `${formatMoney(value / 1_000_000_000)}B`;
-  }
-  if (Math.abs(value) >= 1_000_000) {
-    return `${formatMoney(value / 1_000_000)}M`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${formatMoney(value / 1_000)}K`;
-  }
-   return formatMoney(value);
- }
+  if (!Number.isFinite(value)) return "--";
+  if (Math.abs(value) >= 1_000_000_000) return `${formatMoney(value / 1_000_000_000)}B`;
+  if (Math.abs(value) >= 1_000_000) return `${formatMoney(value / 1_000_000)}M`;
+  if (Math.abs(value) >= 1_000) return `${formatMoney(value / 1_000)}K`;
+  return formatMoney(value);
+}
 
- function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): StockHistoryPoint[] {
-  if (history.length === 0) {
-    return [];
-  }
-
+function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): StockHistoryPoint[] {
+  if (history.length === 0) return [];
   const latest = history[history.length - 1]?.tradingDate;
-  if (!latest) {
-    return history;
-  }
-
+  if (!latest) return history;
   const latestDate = parseDisplayDate(latest);
-  if (Number.isNaN(latestDate.getTime())) {
-    return history;
-  }
-
+  if (Number.isNaN(latestDate.getTime())) return history;
   const cutoff = new Date(latestDate);
   cutoff.setDate(cutoff.getDate() - RANGE_DAYS[range]);
   return history.filter((point) => {
-    if (!point.tradingDate) {
-      return false;
-    }
+    if (!point.tradingDate) return false;
     const pointDate = parseDisplayDate(point.tradingDate);
     return !Number.isNaN(pointDate.getTime()) && pointDate >= cutoff;
   });
 }
 
 function buildXAxisTicks(data: StockHistoryPoint[], maxTicks = 6): AxisTick[] {
-  if (data.length === 0) {
-    return [];
-  }
-
+  if (data.length === 0) return [];
   if (data.length === 1) {
     const onlyDate = data[0]?.tradingDate;
-    return onlyDate
-      ? [{
-          index: 0,
-          label: parseDisplayDate(onlyDate).toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-        }]
-      : [];
+    return onlyDate ? [{ index: 0, label: parseDisplayDate(onlyDate).toLocaleDateString(undefined, { month: "short", year: "2-digit" }) }] : [];
   }
-
   const requestedTicks = Math.max(2, Math.min(maxTicks, data.length));
   const step = (data.length - 1) / (requestedTicks - 1);
   const used = new Set<number>();
   const ticks: AxisTick[] = [];
-
   for (let i = 0; i < requestedTicks; i += 1) {
     const index = Math.round(i * step);
-    if (used.has(index)) {
-      continue;
-    }
+    if (used.has(index)) continue;
     used.add(index);
     const dateLabel = data[index]?.tradingDate;
-    if (!dateLabel) {
-      continue;
-    }
+    if (!dateLabel) continue;
     const parsed = parseDisplayDate(dateLabel);
-    ticks.push({
-      index,
-      label: Number.isNaN(parsed.getTime())
-        ? dateLabel
-        : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-    });
+    ticks.push({ index, label: Number.isNaN(parsed.getTime()) ? dateLabel : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }) });
   }
-
   const lastDateLabel = data[data.length - 1]?.tradingDate;
   if (!used.has(data.length - 1) && lastDateLabel) {
     const parsed = parseDisplayDate(lastDateLabel);
-    ticks.push({
-      index: data.length - 1,
-      label: Number.isNaN(parsed.getTime())
-        ? lastDateLabel
-        : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-    });
+    ticks.push({ index: data.length - 1, label: Number.isNaN(parsed.getTime()) ? lastDateLabel : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }) });
   }
-
-  return ticks.sort((left, right) => left.index - right.index);
+  return ticks.sort((a, b) => a.index - b.index);
 }
 
 function getSeriesBounds(data: StockHistoryPoint[], keys: Array<keyof StockHistoryPoint>): { min: number; max: number } {
-  const values = data.flatMap((point) =>
-    keys
-      .map((key) => point[key])
-      .filter((value): value is number => typeof value === "number" && Number.isFinite(value)),
-  );
-
-  if (values.length === 0) {
-    return { min: 0, max: 1 };
-  }
-
+  const values = data.flatMap((point) => keys.map((key) => point[key]).filter((v): v is number => typeof v === "number" && Number.isFinite(v)));
+  if (values.length === 0) return { min: 0, max: 1 };
   const min = Math.min(...values);
   const max = Math.max(...values);
-  if (min === max) {
-    return { min: min - 1, max: max + 1 };
-  }
-
+  if (min === max) return { min: min - 1, max: max + 1 };
   const padding = (max - min) * 0.08;
   return { min: min - padding, max: max + padding };
 }
 
-function buildLinePath(
-  data: StockHistoryPoint[],
-  key: keyof StockHistoryPoint,
-  left: number,
-  top: number,
-  innerWidth: number,
-  innerHeight: number,
-  min: number,
-  max: number,
-): string {
-  if (data.length === 0) {
-    return "";
-  }
-
-  return data
-    .map((point, index) => {
-      const rawValue = point[key];
-      if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
-        return null;
-      }
-      const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
-      const y = top + innerHeight - ((rawValue - min) / Math.max(max - min, 1e-9)) * innerHeight;
-      return `${index === 0 ? "M" : "L"}${x},${y}`;
-    })
-    .filter((value): value is string => value !== null)
-    .join(" ");
+function buildLinePath(data: StockHistoryPoint[], key: keyof StockHistoryPoint, left: number, top: number, innerWidth: number, innerHeight: number, min: number, max: number): string {
+  if (data.length === 0) return "";
+  return data.map((point, index) => {
+    const rawValue = point[key];
+    if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) return null;
+    const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
+    const y = top + innerHeight - ((rawValue - min) / Math.max(max - min, 1e-9)) * innerHeight;
+    return `${index === 0 ? "M" : "L"}${x},${y}`;
+  }).filter((v): v is string => v !== null).join(" ");
 }
 
 function ChartCard({ title, children, subtitle }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <section className="insights-chart-card">
-      <div className="insights-chart-head">
-        <div>
-          <h3>{title}</h3>
-          {subtitle ? <p>{subtitle}</p> : null}
-        </div>
-      </div>
+      <div className="insights-chart-head"><div><h3>{title}</h3>{subtitle ? <p>{subtitle}</p> : null}</div></div>
       {children}
     </section>
   );
@@ -376,54 +297,6 @@ function DistributionPieChart({ positiveDays, negativeDays, flatDays }: { positi
             <span className="distribution-pie-legend-pct">{pct(s.value)}%</span>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function CandlestickLegend() {
-  return (
-    <div className="chart-legend-grid">
-      <div className="legend-item">
-        <svg viewBox="0 0 60 90" className="legend-candle">
-          {/* Green candle (close > open) */}
-          <line x1="30" y1="10" x2="30" y2="45" stroke="#16a34a" strokeWidth="1.5" />
-          <rect x="24" y="25" width="12" height="20" fill="#16a34a" rx="1" />
-          <text x="30" y="70" textAnchor="middle" className="legend-label">Close &gt; Open</text>
-        </svg>
-      </div>
-      <div className="legend-item">
-        <svg viewBox="0 0 60 90" className="legend-candle">
-          {/* Red candle (close < open) */}
-          <line x1="30" y1="10" x2="30" y2="45" stroke="#dc2626" strokeWidth="1.5" />
-          <rect x="24" y="25" width="12" height="20" fill="#dc2626" rx="1" />
-          <text x="30" y="70" textAnchor="middle" className="legend-label">Close &lt; Open</text>
-        </svg>
-      </div>
-      <div className="legend-note">
-        <p><strong>Wick:</strong> High to low price range</p>
-        <p><strong>Body:</strong> Open to close price range</p>
-      </div>
-    </div>
-  );
-}
-
-function VolumeLegend() {
-  return (
-    <div className="chart-legend-grid">
-      <div className="legend-item">
-        <svg viewBox="0 0 60 90" className="legend-bars">
-          {/* Green bar (positive return) */}
-          <rect x="20" y="15" width="20" height="35" fill="#16a34a" rx="2" />
-          <text x="30" y="70" textAnchor="middle" className="legend-label">Positive Day</text>
-        </svg>
-      </div>
-      <div className="legend-item">
-        <svg viewBox="0 0 60 90" className="legend-bars">
-          {/* Red bar (negative return) */}
-          <rect x="20" y="15" width="20" height="35" fill="#dc2626" rx="2" />
-          <text x="30" y="70" textAnchor="middle" className="legend-label">Negative Day</text>
-        </svg>
       </div>
     </div>
   );
@@ -695,6 +568,123 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
     );
   }
 
+function CandlestickLegend() {
+  return (
+    <div className="chart-legend-grid">
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-candle">
+          <line x1="30" y1="10" x2="30" y2="45" stroke="#16a34a" strokeWidth="1.5" />
+          <rect x="24" y="25" width="12" height="20" fill="#16a34a" rx="1" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Close &gt; Open</text>
+        </svg>
+      </div>
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-candle">
+          <line x1="30" y1="10" x2="30" y2="45" stroke="#dc2626" strokeWidth="1.5" />
+          <rect x="24" y="25" width="12" height="20" fill="#dc2626" rx="1" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Close &lt; Open</text>
+        </svg>
+      </div>
+      <div className="legend-note">
+        <p><strong>Wick:</strong> High to low price range</p>
+        <p><strong>Body:</strong> Open to close price range</p>
+      </div>
+    </div>
+  );
+}
+
+function VolumeLegend() {
+  return (
+    <div className="chart-legend-grid">
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-bars">
+          <rect x="20" y="15" width="20" height="35" fill="#16a34a" rx="2" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Positive Day</text>
+        </svg>
+      </div>
+      <div className="legend-item">
+        <svg viewBox="0 0 60 90" className="legend-bars">
+          <rect x="20" y="15" width="20" height="35" fill="#dc2626" rx="2" />
+          <text x="30" y="70" textAnchor="middle" className="legend-label">Negative Day</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoint[]; lines: LineDefinition[]; valueFormatter?: (value: number) => string }) {
+  const width = 900; const height = 360; const left = 70; const right = 14; const top = 12; const bottom = 60;
+  const innerWidth = width - left - right; const innerHeight = height - top - bottom;
+  const bounds = useMemo(() => getSeriesBounds(data, lines.map((l) => l.key)), [data, lines]);
+  const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
+  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => bounds.max - (bounds.max - bounds.min) * (i / 4)), [bounds]);
+  return (
+    <div className="insights-chart-shell">
+      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock line chart">
+        {yTicks.map((tick, i) => { const y = top + (i / 4) * innerHeight; return (<g key={tick}><line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" /><text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">{valueFormatter ? valueFormatter(tick) : formatMoney(tick)}</text></g>); })}
+        <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
+        {xTicks.map((tick) => { const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth; return (<g key={`${tick.index}-${tick.label}`}><line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" /><text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">{tick.label}</text></g>); })}
+        {lines.map((line) => (<path key={line.label} d={buildLinePath(data, line.key, left, top, innerWidth, innerHeight, bounds.min, bounds.max)} fill="none" stroke={line.color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />))}
+      </svg>
+      <div className="insights-chart-legend">{lines.map((line) => (<span key={line.label}><i style={{ backgroundColor: line.color }} />{line.label}</span>))}</div>
+    </div>
+  );
+}
+
+function CandlestickChart({ data }: { data: StockHistoryPoint[] }) {
+  const width = 900; const height = 360; const left = 70; const right = 14; const top = 12; const bottom = 60;
+  const innerWidth = width - left - right; const innerHeight = height - top - bottom;
+  const bounds = useMemo(() => getSeriesBounds(data, ["low", "high"]), [data]);
+  const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
+  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => bounds.max - (bounds.max - bounds.min) * (i / 4)), [bounds]);
+  return (
+    <div className="insights-chart-shell">
+      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock candlestick chart">
+        {yTicks.map((tick, i) => { const y = top + (i / 4) * innerHeight; return (<g key={tick}><line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" /><text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">{formatMoney(tick)}</text></g>); })}
+        {data.map((point, index) => {
+          if ([point.open, point.high, point.low, point.close].some((v) => typeof v !== "number")) return null;
+          const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
+          const cw = Math.max(innerWidth / Math.max(data.length * 1.8, 24), 2);
+          const highY = top + innerHeight - (((point.high as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const lowY = top + innerHeight - (((point.low as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const openY = top + innerHeight - (((point.open as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const closeY = top + innerHeight - (((point.close as number) - bounds.min) / (bounds.max - bounds.min)) * innerHeight;
+          const color = (point.close as number) >= (point.open as number) ? "#16a34a" : "#dc2626";
+          return (<g key={`${point.tradingDate}-${index}`}><line x1={x} y1={highY} x2={x} y2={lowY} stroke={color} strokeWidth="1.5" /><rect x={x - cw / 2} y={Math.min(openY, closeY)} width={cw} height={Math.max(Math.abs(closeY - openY), 2)} fill={color} rx="1" /></g>);
+        })}
+        <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
+        {xTicks.map((tick) => { const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth; return (<g key={`${tick.index}-${tick.label}`}><line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" /><text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">{tick.label}</text></g>); })}
+      </svg>
+    </div>
+  );
+}
+
+function VolumeChart({ data }: { data: StockHistoryPoint[] }) {
+  const width = 900; const height = 300; const left = 70; const right = 14; const top = 12; const bottom = 60;
+  const innerWidth = width - left - right; const innerHeight = height - top - bottom;
+  const maxVolume = Math.max(...data.map((p) => p.volume ?? 0), 1);
+  const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
+  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => maxVolume * (1 - i / 4)), [maxVolume]);
+  return (
+    <div className="insights-chart-shell">
+      <svg viewBox={`0 0 ${width} ${height}`} className="insights-svg-chart" role="img" aria-label="Stock volume chart">
+        {yTicks.map((tick, i) => { const y = top + (i / 4) * innerHeight; return (<g key={tick}><line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" /><text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">{formatCompactVolume(tick)}</text></g>); })}
+        {data.map((point, index) => {
+          const volume = point.volume ?? 0;
+          const x = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
+          const bw = Math.max(innerWidth / Math.max(data.length * 1.6, 20), 2);
+          const bh = (volume / maxVolume) * innerHeight;
+          const y = top + innerHeight - bh;
+          const isPositive = (point.return1d ?? 0) >= 0;
+          return <rect key={`${point.tradingDate}-${index}`} x={x - bw / 2} y={y} width={bw} height={bh} fill={isPositive ? "#16a34a" : "#dc2626"} rx="1" />;
+        })}
+        <line x1={left} y1={top + innerHeight} x2={width - right} y2={top + innerHeight} className="chart-axis-line" />
+        {xTicks.map((tick) => { const x = left + (tick.index / Math.max(data.length - 1, 1)) * innerWidth; return (<g key={`${tick.index}-${tick.label}`}><line x1={x} y1={top + innerHeight} x2={x} y2={top + innerHeight + 5} className="chart-axis-line" /><text x={x} y={top + innerHeight + 22} className="chart-axis-label chart-axis-label-x" textAnchor="middle">{tick.label}</text></g>); })}
+      </svg>
+    </div>
+  );
+}
+
 function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] }) {
   const years = Array.from(new Set(cells.map((cell) => cell.year))).sort((left, right) => right - left);
   const cellMap = new Map(cells.map((cell) => [`${cell.year}-${cell.month}`, cell.returnPercent]));
@@ -731,7 +721,7 @@ function MonthlyReturnsHeatmap({ cells }: { cells: MonthlyReturnHeatmapCell[] })
   );
 }
 
-export function StockInsightsPage() {
+export function StockAnalyticsPage() {
    const { stockId } = useParams();
    const [insights, setInsights] = useState<StockInsights | null>(null);
    const [prediction, setPrediction] = useState<StockPrediction | null>(null);
@@ -746,7 +736,7 @@ export function StockInsightsPage() {
    const { stocks: streamedStocks, setSearchTerm } = useStreamedStocks();
 
    useEffect(() => {
-     document.title = "Stock Insights | TradePulse";
+     document.title = "Stock Analytics | TradePulse";
    }, []);
 
    useEffect(() => {
@@ -756,7 +746,7 @@ export function StockInsightsPage() {
    useEffect(() => {
      let mounted = true;
 
-     const loadInsights = async () => {
+     const loadAnalytics = async () => {
        if (!stockId) {
          setError("Stock id is missing.");
          setLoading(false);
@@ -766,7 +756,7 @@ export function StockInsightsPage() {
        try {
          setLoading(true);
           const [nextInsights, nextPrediction] = await Promise.all([
-            fetchStockInsights(stockId),
+            fetchStockAnalytics(stockId),
             fetchStockPrediction(stockId).catch(() => null),
           ]);
          if (!mounted) {
@@ -779,7 +769,7 @@ export function StockInsightsPage() {
          if (!mounted) {
            return;
          }
-         setError("Unable to load stock insights right now. Please try again shortly.");
+         setError("Unable to load stock analytics right now. Please try again shortly.");
        } finally {
          if (mounted) {
            setLoading(false);
@@ -787,7 +777,7 @@ export function StockInsightsPage() {
        }
      };
 
-     void loadInsights();
+     void loadAnalytics();
 
      return () => {
        mounted = false;
@@ -910,7 +900,7 @@ export function StockInsightsPage() {
           {loading ? (
             <div className="insights-state-card"><p>Loading stock insights...</p></div>
           ) : error || !insights ? (
-            <div className="insights-state-card error"><p>{error ?? "Unable to load stock insights."}</p></div>
+            <div className="insights-state-card error"><p>{error ?? "Unable to load stock analytics."}</p></div>
           ) : (
             <>
               <section className="insights-hero-card">

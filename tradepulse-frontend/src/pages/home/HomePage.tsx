@@ -137,8 +137,8 @@ export function HomePage() {
                             ⭐ Add to watchlist
                           </button>
                         </div>
-                        <Link className="stock-insights-btn" to={`/stocks/${stock.id}/insights`}>
-                          ✨ Insights
+                        <Link className="stock-analytics-btn" to={`/stocks/${stock.id}/analytics`}>
+                          ✨ Analytics
                         </Link>
                       </article>
                     );

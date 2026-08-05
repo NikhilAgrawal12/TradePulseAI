@@ -460,7 +460,7 @@
   transform: translateY(-1px);
 }
 
-.stock-insights-btn {
+.stock-analytics-btn {
   margin-top: 8px;
   display: block;
   width: 100%;
@@ -477,7 +477,7 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.stock-insights-btn:hover {
+.stock-analytics-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 26px rgba(124, 58, 237, 0.28);
 }

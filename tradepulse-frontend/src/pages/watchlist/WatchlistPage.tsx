@@ -6,7 +6,7 @@ import { useMarketStatus } from "../../context/MarketStatusContext";
 import { useWatchlist } from "../../context/WatchlistContext";
 import type { StockInsights } from "../../types/stockInsights";
 import { formatMoney, formatPercent, formatSignedMoney } from "../../utils/money";
-import { fetchStockInsights } from "../../utils/stockInsightsApi";
+import { fetchStockAnalytics } from "../../utils/stockInsightsApi";
 import { useStreamedStocks } from "../../utils/useStreamedStocks";
 import "./WatchlistPage.css";
 
@@ -21,7 +21,7 @@ export function WatchlistPage() {
   const [performanceByStockId, setPerformanceByStockId] = useState<Record<string, StockInsights["currentPerformance"]>>({});
 
 
-   // Fetch initial insights currentPerformance for all watchlist stocks
+   // Fetch initial analytics currentPerformance for all watchlist stocks
    const watchlistStockIds = useMemo(() => watchlist.map((entry) => entry.stockId), [watchlist]);
 
    useEffect(() => {
@@ -33,7 +33,7 @@ export function WatchlistPage() {
      let cancelled = false;
 
      const loadPerformanceData = async () => {
-       const responses = await Promise.allSettled(watchlistStockIds.map((stockId) => fetchStockInsights(stockId)));
+       const responses = await Promise.allSettled(watchlistStockIds.map((stockId) => fetchStockAnalytics(stockId)));
        if (cancelled) {
          return;
        }
@@ -196,8 +196,8 @@ export function WatchlistPage() {
                           {formatMaybePercent(dailyChangePercent)}
                         </td>
                        <td>
-                         <Link className="wl-insights-btn" to={`/stocks/${stock.id}/insights`}>
-                           Insights
+                          <Link className="wl-analytics-btn" to={`/stocks/${stock.id}/analytics`}>
+                            Analytics
                          </Link>
                        </td>
                        <td>

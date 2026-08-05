@@ -83,10 +83,14 @@ Notes:
 - `POST /api/stocks/featured/refresh-once`
 - `GET /api/stocks/featured/health`
 - `GET /api/stocks/{id}`
-- `GET /api/stocks/{id}/insights`
 - `GET /api/stocks/symbol/{symbol}`
 - `GET /api/stocks/search`
 - `GET /api/stocks/market-status`
+
+### Analytics routes
+
+- `GET /api/analytics/stocks/{id}/insights`
+- `GET /api/analytics/news`
 
 ### Cart and order routes
 

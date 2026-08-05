@@ -8,8 +8,9 @@ from time import sleep
 from typing import Any
 
 import joblib
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 
+from app.analytics_sync import AnalyticsSyncService
 from app.data import StockDataRepository
 from app.ml_pipeline import (
     ACTION_THRESHOLD,
@@ -27,6 +28,7 @@ app = FastAPI(title="TradePulse ML Service", version="1.0.0")
 logger = logging.getLogger(__name__)
 
 repository = StockDataRepository(settings.database_url)
+analytics_sync_service = AnalyticsSyncService(repository, settings)
 state: dict[str, Any] = {
     "estimator": None,
     "model_name": None,
@@ -38,11 +40,17 @@ state: dict[str, Any] = {
     "training_status": "pending",
     "training_error": None,
     "last_trained_at": None,
+    "last_sync_status": "never",
+    "last_sync_error": None,
+    "last_sync_finished_at": None,
+    "last_sync_stats": None,
 }
 training_lock = Lock()
+sync_lock = Lock()
 stop_event = Event()
 scheduler_thread: Thread | None = None
 startup_training_thread: Thread | None = None
+sync_scheduler_thread: Thread | None = None
 
 
 def _expected_feature_names() -> list[str]:
@@ -167,6 +175,43 @@ def _run_scheduled_training() -> None:
             sleep(1)
 
 
+def _run_analytics_sync(trigger: str) -> dict[str, Any]:
+    with sync_lock:
+        try:
+            state["last_sync_status"] = "running"
+            state["last_sync_error"] = None
+            stats = analytics_sync_service.run_pipeline(trigger=trigger)
+            payload = {
+                "trigger": stats.trigger,
+                "synced_stocks": stats.synced_stocks,
+                "inserted_or_updated_ohlc_rows": stats.inserted_or_updated_ohlc_rows,
+                "ohlc_start_date": None if stats.ohlc_start_date is None else stats.ohlc_start_date.isoformat(),
+                "ohlc_end_date": None if stats.ohlc_end_date is None else stats.ohlc_end_date.isoformat(),
+                "metrics_rows": stats.metrics_rows,
+                "weekly_feature_rows": stats.weekly_feature_rows,
+                "finished_at": stats.finished_at,
+            }
+            state["last_sync_status"] = "ok"
+            state["last_sync_finished_at"] = stats.finished_at
+            state["last_sync_stats"] = payload
+            return payload
+        except Exception as error:  # pragma: no cover - external services/db dependency
+            state["last_sync_status"] = "failed"
+            state["last_sync_error"] = str(error)
+            state["last_sync_finished_at"] = datetime.now(timezone.utc).isoformat()
+            raise
+
+
+def _run_scheduled_analytics_sync() -> None:
+    interval_hours = int(getattr(settings, "nightly_sync_interval_hours", 24))
+    interval_seconds = max(interval_hours, 1) * 3600
+    while not stop_event.wait(interval_seconds):
+        try:
+            _run_analytics_sync(trigger="scheduled")
+        except Exception:
+            sleep(1)
+
+
 def _load_model_from_disk() -> bool:
     model_file = Path(settings.model_path)
     if not model_file.exists():
@@ -212,6 +257,14 @@ def _save_model_to_disk(payload: dict[str, Any]) -> None:
 @app.on_event("startup")
 def startup() -> None:
     repository.initialize_tables()
+
+    if bool(getattr(settings, "nightly_sync_enabled", False)) and bool(getattr(settings, "nightly_sync_on_startup", False)):
+        try:
+            _run_analytics_sync(trigger="startup")
+        except Exception:
+            # Startup should not fail if external sync fails once.
+            pass
+
     loaded = _load_model_from_disk()
 
     if settings.train_on_startup and not loaded:
@@ -228,6 +281,11 @@ def startup() -> None:
     if settings.retrain_interval_hours > 0:
         scheduler_thread = Thread(target=_run_scheduled_training, daemon=True, name="ml-retrain-scheduler")
         scheduler_thread.start()
+
+    global sync_scheduler_thread
+    if bool(getattr(settings, "nightly_sync_enabled", False)):
+        sync_scheduler_thread = Thread(target=_run_scheduled_analytics_sync, daemon=True, name="analytics-sync-scheduler")
+        sync_scheduler_thread.start()
 
 
 @app.on_event("shutdown")
@@ -248,7 +306,42 @@ def health() -> dict[str, Any]:
         "training_error": state["training_error"],
         "last_trained_at": state["last_trained_at"],
         "decision_threshold": state["decision_threshold"],
+        "last_sync_status": state["last_sync_status"],
+        "last_sync_error": state["last_sync_error"],
+        "last_sync_finished_at": state["last_sync_finished_at"],
     }
+
+
+@app.post("/v1/admin/sync-nightly")
+def trigger_nightly_sync() -> dict[str, Any]:
+    try:
+        payload = _run_analytics_sync(trigger="manual")
+        return {"accepted": True, "result": payload}
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Nightly sync failed: {error}") from error
+
+
+@app.get("/v1/admin/sync-status")
+def get_sync_status() -> dict[str, Any]:
+    return {
+        "status": state["last_sync_status"],
+        "error": state["last_sync_error"],
+        "finished_at": state["last_sync_finished_at"],
+        "stats": state["last_sync_stats"],
+    }
+
+
+@app.get("/v1/analytics/stocks/{stock_id}/insights")
+def get_stock_insights(stock_id: int) -> dict[str, Any]:
+    payload = repository.fetch_stock_insights_payload(stock_id=stock_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail=f"Stock not found for stock_id={stock_id}")
+    return payload
+
+
+@app.get("/v1/analytics/news")
+def get_analytics_news(limit: int = Query(default=10, ge=1, le=100)) -> list[dict[str, Any]]:
+    return repository.fetch_analytics_news(limit=limit)
 
 
 @app.post("/v1/train", response_model=TrainResponse)

@@ -8,11 +8,9 @@ export type StockHistoryPoint = {
   sma20: number | null;
   sma50: number | null;
   sma200: number | null;
-  volatility5Day: number | null;
   volatility20Day: number | null;
   volatility60Day: number | null;
   volatility90Day: number | null;
-  volatility120Day: number | null;
   return1d: number | null;
 };
 

@@ -72,6 +72,14 @@ spring:
             - StripPrefix=1
             - RateLimit=120,60,ip
 
+        - id: analytics-service-route
+          uri: http://analytics-service:4010
+          predicates:
+            - Path=/api/analytics,/api/analytics/**
+          filters:
+            - RewritePath=/api/analytics(?<segment>/?.*), /v1/analytics${segment}
+            - RateLimit=120,60,ip
+
 
         - id: watchlist-service-route
           uri: http://customer-service:4000

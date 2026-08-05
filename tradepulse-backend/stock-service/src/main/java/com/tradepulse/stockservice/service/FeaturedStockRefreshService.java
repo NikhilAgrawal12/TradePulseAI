@@ -1,9 +1,7 @@
 package com.tradepulse.stockservice.service;
 
 import com.tradepulse.stockservice.model.Stock;
-import com.tradepulse.stockservice.model.StockMarketData;
 import com.tradepulse.stockservice.model.FeaturedStockCache;
-import com.tradepulse.stockservice.repository.StockMarketDataRepository;
 import com.tradepulse.stockservice.repository.StockRepository;
 import com.tradepulse.stockservice.repository.FeaturedStockCacheRepository;
 import jakarta.annotation.PreDestroy;
@@ -22,11 +20,8 @@ import tools.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.util.Calendar;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,7 +33,6 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(FeaturedStockRefreshService.class);
 
     private final StockRepository stockRepository;
-    private final StockMarketDataRepository stockMarketDataRepository;
     private final FeaturedStockCacheRepository featuredStockCacheRepository;
     private final RestClient restClient;
     private final String apiKey;
@@ -49,13 +43,11 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
 
     public FeaturedStockRefreshService(
             StockRepository stockRepository,
-            StockMarketDataRepository stockMarketDataRepository,
             FeaturedStockCacheRepository featuredStockCacheRepository,
             @Value("${massive.api.base-url}") String apiBaseUrl,
             @Value("${massive.api.key:}") String apiKey,
             @Value("${massive.featured.daily-refresh-enabled:true}") boolean dailyRefreshEnabled) {
         this.stockRepository = stockRepository;
-        this.stockMarketDataRepository = stockMarketDataRepository;
         this.featuredStockCacheRepository = featuredStockCacheRepository;
         this.apiKey = apiKey;
         this.dailyRefreshEnabled = dailyRefreshEnabled;
@@ -131,16 +123,9 @@ public class FeaturedStockRefreshService implements ApplicationRunner {
             // Save market cap updates
             stockRepository.saveAll(stocks);
 
-            // Step 2: Compute ranking for all stocks with latest quote.
-            // We still sort by market cap first so /stocks/featured can return top-ranked items.
-            Map<Long, StockMarketData> latestByStockId = new HashMap<>();
-            stockMarketDataRepository.findLatestForAllStocks()
-                    .forEach(data -> latestByStockId.put(data.getStock().getStockId(), data));
-
-            Set<Long> stockIdsWithLatestQuote = latestByStockId.keySet();
-
+            // Step 2: Rank all stocks with a valid stockId by market cap
             List<Stock> rankedStocks = stocks.stream()
-                    .filter(stock -> stock.getStockId() != null && stockIdsWithLatestQuote.contains(stock.getStockId()))
+                    .filter(stock -> stock.getStockId() != null)
                     .sorted(Comparator
                             .comparing(Stock::getMarketCap, Comparator.nullsLast(Comparator.reverseOrder()))
                             .thenComparing(stock -> normalize(stock.getSymbol()), Comparator.nullsLast(String::compareTo)))

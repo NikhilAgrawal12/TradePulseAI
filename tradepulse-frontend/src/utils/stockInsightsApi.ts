@@ -19,17 +19,22 @@ function normalizePoint(point: StockHistoryPoint): StockHistoryPoint {
     sma20: point.sma20 == null ? null : toMoney(point.sma20),
     sma50: point.sma50 == null ? null : toMoney(point.sma50),
     sma200: point.sma200 == null ? null : toMoney(point.sma200),
-    volatility5Day: point.volatility5Day == null ? null : toMoney(point.volatility5Day),
     volatility20Day: point.volatility20Day == null ? null : toMoney(point.volatility20Day),
     volatility60Day: point.volatility60Day == null ? null : toMoney(point.volatility60Day),
     volatility90Day: point.volatility90Day == null ? null : toMoney(point.volatility90Day),
-    volatility120Day: point.volatility120Day == null ? null : toMoney(point.volatility120Day),
     return1d: point.return1d == null ? null : toMoney(point.return1d),
   };
 }
 
-export async function fetchStockInsights(stockId: string): Promise<StockInsights> {
-  const response = await axios.get<StockInsights>(`/api/stocks/${stockId}/insights`);
+export type AnalyticsNewsItem = {
+  stockId: number;
+  symbol: string;
+  tradingDate: string | null;
+  news: string | null;
+};
+
+export async function fetchStockAnalytics(stockId: string): Promise<StockInsights> {
+  const response = await axios.get<StockInsights>(`/api/analytics/stocks/${stockId}/insights`);
   const data = response.data;
 
   return {
@@ -94,13 +99,14 @@ export async function fetchStockInsights(stockId: string): Promise<StockInsights
   };
 }
 
+
 export async function fetchStockPrediction(stockId: string): Promise<StockPrediction> {
   const response = await axios.get<StockPrediction>(`/api/stocks/${stockId}/prediction`);
   return response.data;
 }
 
 export async function fetchAnalyticsNews(limit = 10): Promise<AnalyticsNewsItem[]> {
-  const response = await axios.get<AnalyticsNewsItem[]>(`/api/stocks/analytics/news`, { params: { limit } });
+  const response = await axios.get<AnalyticsNewsItem[]>(`/api/analytics/news`, { params: { limit } });
   return response.data;
 }
 

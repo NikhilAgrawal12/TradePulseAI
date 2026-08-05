@@ -6,58 +6,30 @@ import pandas as pd
 from app.ml_pipeline import _derive_action, _split_train_test_by_date, build_prediction_row, train_and_select_model
 
 
-def synthetic_frame(rows_per_stock: int = 320, stocks: int = 4) -> pd.DataFrame:
+def synthetic_frame(rows_per_stock: int = 180, stocks: int = 4) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     records: list[dict[str, object]] = []
     for stock_id in range(1, stocks + 1):
-        close = 100.0 + stock_id
-        for day in range(rows_per_stock):
-            drift = 0.03 if stock_id % 2 == 0 else -0.01
-            shock = rng.normal(0.0, 1.2)
-            close = max(5.0, close + drift + shock)
-            open_price = close + rng.normal(0.0, 0.8)
-            high_price = max(open_price, close) + abs(rng.normal(0.4, 0.3))
-            low_price = min(open_price, close) - abs(rng.normal(0.4, 0.3))
+        for week in range(rows_per_stock):
+            avg_return = rng.normal(0.25 if stock_id % 2 == 0 else -0.10, 1.4)
+            volatility = abs(rng.normal(2.0, 0.6))
+            score = avg_return - 0.15 * volatility + rng.normal(0.0, 0.6)
             records.append(
                 {
                     "stock_id": stock_id,
                     "symbol": f"STK{stock_id}",
                     "market": "stocks",
-                    "trading_date": pd.Timestamp("2021-01-01") + pd.Timedelta(days=day),
-                    "open_price": open_price,
-                    "high_price": high_price,
-                    "low_price": low_price,
-                    "close_price": close,
-                    "volatility_5d": abs(rng.normal(1.6, 0.5)),
-                    "volatility_20d": abs(rng.normal(1.9, 0.5)),
-                    "volatility_60d": abs(rng.normal(2.1, 0.6)),
-                    "volatility_90d": abs(rng.normal(2.3, 0.7)),
-                    "volatility_120d": abs(rng.normal(2.5, 0.8)),
-                    "return_1d": rng.normal(0.1, 1.5),
-                    "return_5d": rng.normal(0.5, 2.5),
-                    "return_20d": rng.normal(1.2, 4.5),
-                    "return_60d": rng.normal(3.0, 8.0),
-                    "return_90d": rng.normal(4.5, 10.0),
-                    "return_120d": rng.normal(6.0, 12.0),
+                    "trading_date": pd.Timestamp("2021-01-04") + pd.Timedelta(days=7 * week),
+                    "avg_return": avg_return,
+                    "volatility": volatility,
+                    "next_week_label": 1 if score > 0 else 0,
                 }
             )
     return pd.DataFrame(records)
 
 
 def add_week_targets(frame: pd.DataFrame) -> pd.DataFrame:
-    enriched = frame.sort_values(["stock_id", "trading_date"]).reset_index(drop=True).copy()
-    grouped = enriched.groupby("stock_id", group_keys=False)
-    enriched["forward_return_5d"] = (
-        grouped["close_price"].shift(-5).subtract(enriched["close_price"])
-        .divide(enriched["close_price"])
-        .mul(100)
-    )
-    enriched["target_week_direction"] = np.where(
-        enriched["forward_return_5d"] > 0,
-        "POSITIVE",
-        np.where(enriched["forward_return_5d"] < 0, "NEGATIVE", np.where(enriched["forward_return_5d"].isna(), None, "FLAT")),
-    )
-    return enriched
+    return frame.sort_values(["stock_id", "trading_date"]).reset_index(drop=True).copy()
 
 
 def test_training_selects_model() -> None:
@@ -102,14 +74,14 @@ def test_prediction_row_contains_latest_stock_record() -> None:
 
 def test_engineered_targets_skip_null_and_flat_rows() -> None:
     frame = add_week_targets(synthetic_frame(rows_per_stock=40, stocks=1))
-    frame.loc[0, "target_week_direction"] = "FLAT"
+    frame.loc[0, "next_week_label"] = np.nan
     bundle_input = frame.copy()
 
     from app.ml_pipeline import _engineer_features
 
     engineered = _engineer_features(bundle_input, horizon_days=5, positive_return_threshold=0.015, neutral_return_band=0.015)
     assert pd.isna(engineered.iloc[0]["target"])
-    assert engineered.tail(5)["target"].isna().all()
+    assert engineered["target"].notna().any()
 
 
 def test_derive_action_prefers_higher_sell_probability_when_both_clear_threshold() -> None:

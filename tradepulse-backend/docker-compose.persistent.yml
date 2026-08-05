@@ -166,24 +166,40 @@ services:
     networks:
       - tradepulse
 
+  analytics-service-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - analytics_db_data:/var/lib/postgresql/data
+    ports:
+      - "5007:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tradepulse
+
   stock-service:
     build: ./stock-service
     image: stock-service:latest
     depends_on:
       stock-service-db:
         condition: service_healthy
-      ml-service:
+      analytics-service:
         condition: service_started
     environment:
       MASSIVE_API_KEY: ${MASSIVE_API_KEY}
-      MASSIVE_NEWS_INTEGRATION_ENABLED: "true"
-      MASSIVE_NEWS_DAILY_SCHEDULER_ENABLED: "false"
       SPRING_DATASOURCE_URL: jdbc:postgresql://stock-service-db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_SQL_INIT_MODE: always
-      ML_SERVICE_BASE_URL: http://ml-service:4010/v1
+      ML_SERVICE_BASE_URL: http://analytics-service:4010/v1
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:4003/stocks/market-status >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -265,16 +281,25 @@ services:
     networks:
       - tradepulse
 
-  ml-service:
-    build: ./ml-service
-    image: ml-service:latest
+  analytics-service:
+    build: ./analytics-service
+    image: analytics-service:latest
     depends_on:
-      stock-service-db:
+      analytics-service-db:
         condition: service_healthy
     environment:
-      ML_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@stock-service-db:5432/${POSTGRES_DB}
+      ML_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@analytics-service-db:5432/${POSTGRES_DB}
       ML_MODEL_PATH: /ml-model/tradepulse_model.joblib
       ML_SERVICE_PORT: 4010
+      STOCK_SERVICE_BASE_URL: http://stock-service:4003
+      STOCK_REPLICA_SYNC_ENABLED: false
+      MASSIVE_API_BASE_URL: https://api.massive.com
+      MASSIVE_API_KEY: ${MASSIVE_API_KEY}
+      MASSIVE_NEWS_LIMIT: 5
+      OHLC_YEARS_BACK: 3
+      NIGHTLY_SYNC_ENABLED: true
+      NIGHTLY_SYNC_ON_STARTUP: false
+      NIGHTLY_SYNC_INTERVAL_HOURS: 24
       ML_DEFAULT_DAYS_BACK: 730
       ML_DEFAULT_HORIZON_DAYS: 5
       ML_DEFAULT_POSITIVE_RETURN_THRESHOLD: 0.015
@@ -346,5 +371,6 @@ volumes:
   payment_db_data:
   portfolio_db_data:
   stock_db_data:
+  analytics_db_data:
   kafka_data:
   ml_model_data:

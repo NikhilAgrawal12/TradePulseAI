@@ -3,7 +3,6 @@ package com.tradepulse.stockservice.mapper;
 import com.tradepulse.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulse.stockservice.model.AllStocksLastValueCache;
 import com.tradepulse.stockservice.model.Stock;
-import com.tradepulse.stockservice.model.StockMarketData;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -11,23 +10,6 @@ import java.math.RoundingMode;
 public class StockMapper {
 
     private StockMapper() {
-    }
-
-    public static StockResponseDTO toDTO(Stock stock, StockMarketData latestMarketData) {
-        StockResponseDTO dto = baseDTO(stock);
-
-        if (latestMarketData != null) {
-            dto.setOpen(toTwoDecimals(latestMarketData.getOpenPrice()));
-            dto.setHigh(toTwoDecimals(latestMarketData.getHighPrice()));
-            dto.setLow(toTwoDecimals(latestMarketData.getLowPrice()));
-            dto.setPrice(toTwoDecimals(latestMarketData.getClosePrice()));
-            dto.setVwap(toTwoDecimals(latestMarketData.getVwap()));
-            dto.setChangePercent(calculateChangePercent(latestMarketData.getOpenPrice(), latestMarketData.getClosePrice()));
-            dto.setVolume(latestMarketData.getVolume());
-            dto.setLastUpdated(latestMarketData.getUpdatedAt() == null ? null : latestMarketData.getUpdatedAt().toString());
-        }
-
-        return dto;
     }
 
     public static StockResponseDTO toDTO(AllStocksLastValueCache cacheEntry) {
@@ -62,19 +44,6 @@ public class StockMapper {
 
     public static StockResponseDTO toDTOFromCache(Stock stock) {
         return baseDTO(stock);
-    }
-
-    private static Double calculateChangePercent(BigDecimal openPrice, BigDecimal closePrice) {
-        if (openPrice == null || closePrice == null || openPrice.compareTo(BigDecimal.ZERO) == 0) {
-            return null;
-        }
-
-        return closePrice
-                .subtract(openPrice)
-                .divide(openPrice, 6, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(100))
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
     }
 
     private static Double toTwoDecimals(BigDecimal value) {
