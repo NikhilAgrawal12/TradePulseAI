@@ -51,6 +51,7 @@ stop_event = Event()
 scheduler_thread: Thread | None = None
 startup_training_thread: Thread | None = None
 sync_scheduler_thread: Thread | None = None
+startup_sync_thread: Thread | None = None
 
 
 def _expected_feature_names() -> list[str]:
@@ -75,7 +76,7 @@ def _extract_artifact_feature_names(artifact: dict[str, Any]) -> list[str] | Non
 
 
 def _persist_trained_model(trained: Any) -> None:
-
+    now_iso = datetime.now(timezone.utc).isoformat()
     artifact = {
         "estimator": trained.estimator,
         "model_name": trained.selected_model,
@@ -85,6 +86,7 @@ def _persist_trained_model(trained: Any) -> None:
         "neutral_return_band": float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band)),
         "decision_threshold": trained.decision_threshold,
         "feature_names": _expected_feature_names(),
+        "trained_at": now_iso,
     }
     _save_model_to_disk(artifact)
 
@@ -162,6 +164,7 @@ def _run_startup_training() -> None:
 def _run_scheduled_training() -> None:
     interval_seconds = max(settings.retrain_interval_hours, 1) * 3600
     # Wait first interval to avoid duplicate startup training.
+    # (Startup already handled overdue retraining, so we always wait a full interval here.)
     while not stop_event.wait(interval_seconds):
         try:
             _train_model(
@@ -212,6 +215,14 @@ def _run_scheduled_analytics_sync() -> None:
             sleep(1)
 
 
+def _run_startup_analytics_sync() -> None:
+    try:
+        _run_analytics_sync(trigger="startup")
+    except Exception:
+        # Keep service available even if one startup catch-up run fails.
+        pass
+
+
 def _load_model_from_disk() -> bool:
     model_file = Path(settings.model_path)
     if not model_file.exists():
@@ -245,6 +256,13 @@ def _load_model_from_disk() -> bool:
     state["decision_threshold"] = float(artifact.get("decision_threshold", ACTION_THRESHOLD))
     state["training_status"] = "loaded"
     state["training_error"] = None
+    # Restore last_trained_at from artifact (preferred) or file mtime as fallback.
+    trained_at = artifact.get("trained_at")
+    if trained_at:
+        state["last_trained_at"] = trained_at
+    else:
+        mtime = model_file.stat().st_mtime
+        state["last_trained_at"] = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
     return True
 
 
@@ -259,15 +277,30 @@ def startup() -> None:
     repository.initialize_tables()
 
     if bool(getattr(settings, "nightly_sync_enabled", False)) and bool(getattr(settings, "nightly_sync_on_startup", False)):
-        try:
-            _run_analytics_sync(trigger="startup")
-        except Exception:
-            # Startup should not fail if external sync fails once.
-            pass
+        global startup_sync_thread
+        startup_sync_thread = Thread(target=_run_startup_analytics_sync, daemon=True, name="analytics-sync-startup")
+        startup_sync_thread.start()
 
     loaded = _load_model_from_disk()
 
-    if settings.train_on_startup and not loaded:
+    # Determine if we need to (re)train on startup.
+    # Retrain if: no model loaded, OR model is older than retrain_interval_hours (missed schedule while off).
+    needs_training = not loaded
+    if loaded and settings.retrain_interval_hours > 0 and state.get("last_trained_at"):
+        try:
+            last_trained = datetime.fromisoformat(state["last_trained_at"])
+            age_hours = (datetime.now(timezone.utc) - last_trained).total_seconds() / 3600
+            if age_hours >= settings.retrain_interval_hours:
+                logger.info(
+                    "ML model is %.1f hours old (interval=%dh) — retraining on startup.",
+                    age_hours,
+                    settings.retrain_interval_hours,
+                )
+                needs_training = True
+        except Exception:
+            pass  # If we can't parse the date, don't force retrain
+
+    if settings.train_on_startup and needs_training:
         state["training_status"] = "training"
         state["training_error"] = None
         global startup_training_thread

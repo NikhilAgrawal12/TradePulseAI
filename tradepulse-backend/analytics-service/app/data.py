@@ -196,6 +196,33 @@ class StockDataRepository:
 
             connection.execute(text("DROP TABLE IF EXISTS ml_predictions"))
 
+            # Keep serial sequences aligned after manual imports/restores.
+            self._repair_serial_sequence(connection, "stock_daily_ohlc", "id")
+            self._repair_serial_sequence(connection, "ml_weekly_features", "id")
+            self._repair_serial_sequence(connection, "ml_model_candidates", "candidate_id")
+
+    @staticmethod
+    def _repair_serial_sequence(connection, table_name: str, id_column: str) -> None:
+        sequence_name = connection.execute(
+            text("SELECT pg_get_serial_sequence(:table_name, :id_column)"),
+            {"table_name": table_name, "id_column": id_column},
+        ).scalar()
+        if not sequence_name:
+            return
+
+        connection.execute(
+            text(
+                """
+                SELECT setval(
+                    :sequence_name,
+                    COALESCE((SELECT MAX(id_value) FROM (SELECT {id_column} AS id_value FROM {table_name}) max_rows), 1),
+                    true
+                )
+                """.replace("{id_column}", id_column).replace("{table_name}", table_name)
+            ),
+            {"sequence_name": sequence_name},
+        )
+
     def fetch_training_data(self, days_back: int, max_training_stocks: int) -> pd.DataFrame:
         query = text(
             """
