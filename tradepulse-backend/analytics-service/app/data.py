@@ -140,16 +140,43 @@ class StockDataRepository:
                     id              BIGSERIAL PRIMARY KEY,
                     stock_id        BIGINT        NOT NULL REFERENCES stocks(stock_id),
                     date            DATE          NOT NULL,
-                    year            INT           NOT NULL,
-                    month           INT           NOT NULL,
-                    week_number     INT           NOT NULL,
-                    avg_return      NUMERIC(12,6) NOT NULL,
-                    volatility      NUMERIC(12,6) NOT NULL,
-                    next_week_label SMALLINT,
+                    return_5d       NUMERIC(12,2) NOT NULL,
+                    return_10d      NUMERIC(12,2) NOT NULL,
+                    return_20d      NUMERIC(12,2) NOT NULL,
+                    volatility_5d   NUMERIC(12,2) NOT NULL,
+                    volatility_10d  NUMERIC(12,2) NOT NULL,
+                    volatility_20d  NUMERIC(12,2) NOT NULL,
+                    sma20_distance  NUMERIC(12,2) NOT NULL,
+                    sma50_distance  NUMERIC(12,2) NOT NULL,
+                    rsi             NUMERIC(12,2) NOT NULL,
+                    macd            NUMERIC(12,2) NOT NULL,
+                    volume_change   NUMERIC(12,2) NOT NULL,
+                    label           SMALLINT      NOT NULL,
                     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-                    UNIQUE (stock_id, year, week_number)
+                    UNIQUE (stock_id, date)
                 )
             """))
+            # Migrate old weekly schema -> current feature schema.
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP CONSTRAINT IF EXISTS ml_weekly_features_stock_id_year_week_number_key"))
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP COLUMN IF EXISTS year"))
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP COLUMN IF EXISTS month"))
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP COLUMN IF EXISTS week_number"))
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP COLUMN IF EXISTS avg_return"))
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP COLUMN IF EXISTS volatility"))
+            connection.execute(text("ALTER TABLE ml_weekly_features DROP COLUMN IF EXISTS next_week_label"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS return_5d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS return_10d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS return_20d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS volatility_5d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS volatility_10d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS volatility_20d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS sma20_distance NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS sma50_distance NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS rsi NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS macd NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS volume_change NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS label SMALLINT"))
+            connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_ml_weekly_features_stock_date ON ml_weekly_features (stock_id, date)"))
 
             connection.execute(
                 text(
@@ -240,13 +267,22 @@ class StockDataRepository:
                 rs.ticker AS symbol,
                 rs.market,
                 w.date AS trading_date,
-                w.avg_return,
-                w.volatility,
-                w.next_week_label
+                w.return_5d,
+                w.return_10d,
+                w.return_20d,
+                w.volatility_5d,
+                w.volatility_10d,
+                w.volatility_20d,
+                w.sma20_distance,
+                w.sma50_distance,
+                w.rsi,
+                w.macd,
+                w.volume_change,
+                w.label
             FROM ml_weekly_features w
             JOIN ranked_stocks rs ON rs.stock_id = w.stock_id
             WHERE w.date >= CURRENT_DATE - make_interval(days => :days_back)
-              AND rs.stock_rank <= :max_training_stocks
+              AND rs.stock_rank <= LEAST(:max_training_stocks, 50)
             ORDER BY rs.market_cap DESC, w.stock_id, w.date
             """
         )
@@ -262,7 +298,7 @@ class StockDataRepository:
     def fetch_latest_stock_row(self, stock_id: int) -> pd.DataFrame:
         """Fetch only the latest weekly feature row for a stock.
 
-        Prediction uses avg_return + volatility from the latest completed week.
+        Prediction uses precomputed weekly features from the latest completed week.
         """
         query = text(
             """
@@ -271,9 +307,18 @@ class StockDataRepository:
                 s.ticker AS symbol,
                 COALESCE(s.market, 'UNKNOWN') AS market,
                 w.date AS trading_date,
-                w.avg_return,
-                w.volatility,
-                w.next_week_label
+                w.return_5d,
+                w.return_10d,
+                w.return_20d,
+                w.volatility_5d,
+                w.volatility_10d,
+                w.volatility_20d,
+                w.sma20_distance,
+                w.sma50_distance,
+                w.rsi,
+                w.macd,
+                w.volume_change,
+                w.label
             FROM ml_weekly_features w
             JOIN stocks s ON s.stock_id = w.stock_id
             WHERE w.stock_id = :stock_id

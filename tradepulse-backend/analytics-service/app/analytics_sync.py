@@ -238,6 +238,17 @@ class AnalyticsSyncService:
 
     def refresh_metrics_with_pyspark(self) -> tuple[int, int]:
         with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            top_stock_rows = connection.execute(
+                text(
+                    """
+                    SELECT stock_id
+                    FROM stocks
+                    ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                    LIMIT 50
+                    """
+                )
+            ).mappings().all()
+            top_stock_ids = [int(row["stock_id"]) for row in top_stock_rows]
             base_frame = pd.read_sql_query(
                 text(
                     """
@@ -430,8 +441,8 @@ class AnalyticsSyncService:
             upserted_metric_count = self._upsert_metrics(metric_rows)
             self._refresh_latest_news_for_metrics()
 
-            weekly_frame = _build_weekly_features(feat).toPandas()
-            weekly_rows = self._upsert_weekly_features(weekly_frame)
+            weekly_frame = _build_weekly_features(feat, top_stock_ids).toPandas()
+            weekly_rows = self._upsert_weekly_features(weekly_frame, top_stock_ids)
 
             return max(ohlc_updated_rows, upserted_metric_count), weekly_rows
         finally:
@@ -721,31 +732,32 @@ class AnalyticsSyncService:
 
         return len(updates)
 
-    def _upsert_weekly_features(self, weekly: pd.DataFrame) -> int:
+    def _upsert_weekly_features(self, weekly: pd.DataFrame, top_stock_ids: list[int]) -> int:
         if weekly.empty:
             return 0
 
         rows: list[dict[str, Any]] = []
         for row in weekly.to_dict("records"):
             stock_id = row.get("stock_id")
-            year = row.get("year")
-            month = row.get("month")
-            week_number = row.get("week_number")
             week_date = row.get("date")
             if hasattr(week_date, "date"):
                 week_date = week_date.date()
 
-            next_week_label = row.get("next_week_label")
-
             normalized = {
                 "stock_id": None if pd.isna(stock_id) else int(stock_id),
                 "date": week_date,
-                "year": None if pd.isna(year) else int(year),
-                "month": None if pd.isna(month) else int(month),
-                "week_number": None if pd.isna(week_number) else int(week_number),
-                "avg_return": _to_optional_float(row.get("avg_return")),
-                "volatility": _to_optional_float(row.get("volatility")),
-                "next_week_label": None if pd.isna(next_week_label) else int(next_week_label),
+                "return_5d": _to_rounded(row.get("return_5d")),
+                "return_10d": _to_rounded(row.get("return_10d")),
+                "return_20d": _to_rounded(row.get("return_20d")),
+                "volatility_5d": _to_rounded(row.get("volatility_5d")),
+                "volatility_10d": _to_rounded(row.get("volatility_10d")),
+                "volatility_20d": _to_rounded(row.get("volatility_20d")),
+                "sma20_distance": _to_rounded(row.get("sma20_distance")),
+                "sma50_distance": _to_rounded(row.get("sma50_distance")),
+                "rsi": _to_rounded(row.get("rsi")),
+                "macd": _to_rounded(row.get("macd")),
+                "volume_change": _to_rounded(row.get("volume_change")),
+                "label": None if pd.isna(row.get("label")) else int(row.get("label")),
             }
             rows.append(normalized)
 
@@ -754,35 +766,72 @@ class AnalyticsSyncService:
             INSERT INTO ml_weekly_features (
                 stock_id,
                 date,
-                year,
-                month,
-                week_number,
-                avg_return,
-                volatility,
-                next_week_label,
+                return_5d,
+                return_10d,
+                return_20d,
+                volatility_5d,
+                volatility_10d,
+                volatility_20d,
+                sma20_distance,
+                sma50_distance,
+                rsi,
+                macd,
+                volume_change,
+                label,
                 created_at
             ) VALUES (
                 :stock_id,
                 :date,
-                :year,
-                :month,
-                :week_number,
-                :avg_return,
-                :volatility,
-                :next_week_label,
+                :return_5d,
+                :return_10d,
+                :return_20d,
+                :volatility_5d,
+                :volatility_10d,
+                :volatility_20d,
+                :sma20_distance,
+                :sma50_distance,
+                :rsi,
+                :macd,
+                :volume_change,
+                :label,
                 NOW()
             )
-            ON CONFLICT (stock_id, year, week_number)
+            ON CONFLICT (stock_id, date)
             DO UPDATE SET
-                month = EXCLUDED.month,
-                avg_return = EXCLUDED.avg_return,
-                volatility = EXCLUDED.volatility,
-                next_week_label = EXCLUDED.next_week_label
+                return_5d = EXCLUDED.return_5d,
+                return_10d = EXCLUDED.return_10d,
+                return_20d = EXCLUDED.return_20d,
+                volatility_5d = EXCLUDED.volatility_5d,
+                volatility_10d = EXCLUDED.volatility_10d,
+                volatility_20d = EXCLUDED.volatility_20d,
+                sma20_distance = EXCLUDED.sma20_distance,
+                sma50_distance = EXCLUDED.sma50_distance,
+                rsi = EXCLUDED.rsi,
+                macd = EXCLUDED.macd,
+                volume_change = EXCLUDED.volume_change,
+                label = EXCLUDED.label
             """
         )
 
         with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            # Rebuild table contents each run to avoid carrying forward legacy rows from
+            # previous schema/label semantics.
+            connection.execute(text("DELETE FROM ml_weekly_features"))
             connection.execute(sql, rows)
+            connection.execute(text("DELETE FROM ml_weekly_features WHERE date < CURRENT_DATE - INTERVAL '365 days'"))
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM ml_weekly_features
+                    WHERE stock_id NOT IN (
+                        SELECT stock_id
+                        FROM stocks
+                        ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                        LIMIT 50
+                    )
+                    """
+                )
+            )
 
         return len(rows)
 
@@ -909,40 +958,84 @@ def _count_priority_candidates(candidates: list[tuple[int, int, dict[str, Any]]]
     return sum(1 for score, _, _ in candidates if score >= _PRIORITY_NEWS_SCORE)
 
 
-def _build_weekly_features(feature_df):
+def _build_weekly_features(feature_df, top_stock_ids: list[int]):
+    if not top_stock_ids:
+        return feature_df.limit(0)
+
+    daily_w = Window.partitionBy("stock_id").orderBy("trading_date")
+    vol10_w = daily_w.rowsBetween(-9, 0)
     week_start = F.date_sub(F.next_day(F.col("trading_date"), "Mon"), 7)
-    weekly = (
-        feature_df.where(F.col("return_1d").isNotNull())
-        .withColumn("week_start", week_start)
-        .groupBy("stock_id", "week_start")
-        .agg(
-            F.avg("return_1d").alias("avg_return"),
-            F.stddev_samp("return_1d").alias("volatility"),
+    prepared = (
+        feature_df.where(F.col("stock_id").isin(top_stock_ids))
+        .where(F.col("trading_date") >= F.date_sub(F.current_date(), 365))
+        .where(F.col("return_1d").isNotNull())
+        .withColumn(
+            "return_10d",
+            ((F.col("close_price") - F.lag("close_price", 10).over(daily_w)) / F.lag("close_price", 10).over(daily_w)) * 100,
         )
-        .withColumn("year", F.year("week_start"))
-        .withColumn("month", F.month("week_start"))
-        .withColumn("week_number", F.weekofyear("week_start"))
+        .withColumn(
+            "return_20d",
+            ((F.col("close_price") - F.lag("close_price", 20).over(daily_w)) / F.lag("close_price", 20).over(daily_w)) * 100,
+        )
+        .withColumn(
+            "volatility_10d",
+            F.when(
+                F.count(F.col("return_1d")).over(vol10_w) == 10,
+                F.stddev_samp(F.col("return_1d")).over(vol10_w),
+            ),
+        )
+        .withColumn(
+            "sma20_distance",
+            ((F.col("close_price") - F.col("sma_20")) / F.col("sma_20")) * 100,
+        )
+        .withColumn(
+            "sma50_distance",
+            ((F.col("close_price") - F.col("sma_50")) / F.col("sma_50")) * 100,
+        )
+        .withColumn(
+            "volume_prev",
+            F.lag("volume", 1).over(daily_w),
+        )
+        .withColumn(
+            "volume_change",
+            ((F.col("volume") - F.col("volume_prev")) / F.col("volume_prev")) * 100,
+        )
+        .withColumn("label", F.when(F.col("return_1d") > 0, F.lit(1)).otherwise(F.lit(0)))
     )
 
-    week_w = Window.partitionBy("stock_id").orderBy("week_start")
+    week_w = Window.partitionBy("stock_id", "week_start").orderBy(F.col("trading_date").desc())
     return (
-        weekly.withColumn("next_week_avg", F.lead("avg_return", 1).over(week_w))
-        .withColumn(
-            "next_week_label",
-            F.when(F.col("next_week_avg") > 0, F.lit(1))
-            .when(F.col("next_week_avg") <= 0, F.lit(0))
-            .otherwise(F.lit(None)),
+        prepared.withColumn("week_start", week_start)
+        .withColumn("rn", F.row_number().over(week_w))
+        .where(F.col("rn") == 1)
+        .where(
+            F.col("return_5d").isNotNull()
+            & F.col("return_10d").isNotNull()
+            & F.col("return_20d").isNotNull()
+            & F.col("volatility_5d").isNotNull()
+            & F.col("volatility_10d").isNotNull()
+            & F.col("volatility_20d").isNotNull()
+            & F.col("sma20_distance").isNotNull()
+            & F.col("sma50_distance").isNotNull()
+            & F.col("rsi_14").isNotNull()
+            & F.col("macd").isNotNull()
+            & F.col("volume_change").isNotNull()
         )
-        .where(F.col("volatility").isNotNull())
         .select(
             "stock_id",
-            F.col("week_start").alias("date"),
-            "year",
-            "month",
-            "week_number",
-            "avg_return",
-            "volatility",
-            "next_week_label",
+            F.col("trading_date").alias("date"),
+            "return_5d",
+            "return_10d",
+            "return_20d",
+            "volatility_5d",
+            "volatility_10d",
+            "volatility_20d",
+            "sma20_distance",
+            "sma50_distance",
+            F.col("rsi_14").alias("rsi"),
+            "macd",
+            "volume_change",
+            "label",
         )
     )
 

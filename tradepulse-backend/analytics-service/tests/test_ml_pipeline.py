@@ -11,18 +11,36 @@ def synthetic_frame(rows_per_stock: int = 180, stocks: int = 4) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     for stock_id in range(1, stocks + 1):
         for week in range(rows_per_stock):
-            avg_return = rng.normal(0.25 if stock_id % 2 == 0 else -0.10, 1.4)
-            volatility = abs(rng.normal(2.0, 0.6))
-            score = avg_return - 0.15 * volatility + rng.normal(0.0, 0.6)
+            return_5d = rng.normal(0.25 if stock_id % 2 == 0 else -0.10, 1.4)
+            return_10d = return_5d + rng.normal(0.0, 0.5)
+            return_20d = return_10d + rng.normal(0.0, 0.5)
+            volatility_5d = abs(rng.normal(2.0, 0.6))
+            volatility_10d = abs(volatility_5d + rng.normal(0.0, 0.2))
+            volatility_20d = abs(volatility_10d + rng.normal(0.0, 0.2))
+            sma20_distance = rng.normal(0.0, 2.0)
+            sma50_distance = rng.normal(0.0, 2.5)
+            rsi = np.clip(rng.normal(50.0, 15.0), 1.0, 99.0)
+            macd = rng.normal(0.0, 3.0)
+            volume_change = rng.normal(0.0, 10.0)
+            score = return_5d - 0.10 * volatility_20d + 0.05 * sma20_distance + rng.normal(0.0, 0.8)
             records.append(
                 {
                     "stock_id": stock_id,
                     "symbol": f"STK{stock_id}",
                     "market": "stocks",
                     "trading_date": pd.Timestamp("2021-01-04") + pd.Timedelta(days=7 * week),
-                    "avg_return": avg_return,
-                    "volatility": volatility,
-                    "next_week_label": 1 if score > 0 else 0,
+                    "return_5d": return_5d,
+                    "return_10d": return_10d,
+                    "return_20d": return_20d,
+                    "volatility_5d": volatility_5d,
+                    "volatility_10d": volatility_10d,
+                    "volatility_20d": volatility_20d,
+                    "sma20_distance": sma20_distance,
+                    "sma50_distance": sma50_distance,
+                    "rsi": rsi,
+                    "macd": macd,
+                    "volume_change": volume_change,
+                    "label": 1 if score > 0 else 0,
                 }
             )
     return pd.DataFrame(records)
@@ -74,7 +92,7 @@ def test_prediction_row_contains_latest_stock_record() -> None:
 
 def test_engineered_targets_skip_null_and_flat_rows() -> None:
     frame = add_week_targets(synthetic_frame(rows_per_stock=40, stocks=1))
-    frame.loc[0, "next_week_label"] = np.nan
+    frame.loc[0, "label"] = np.nan
     bundle_input = frame.copy()
 
     from app.ml_pipeline import _engineer_features

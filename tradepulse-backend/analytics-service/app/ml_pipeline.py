@@ -35,8 +35,17 @@ except Exception:
 
 
 NUMERIC_FEATURES = [
-    "avg_return",
-    "volatility",
+    "return_5d",
+    "return_10d",
+    "return_20d",
+    "volatility_5d",
+    "volatility_10d",
+    "volatility_20d",
+    "sma20_distance",
+    "sma50_distance",
+    "rsi",
+    "macd",
+    "volume_change",
 ]
 CATEGORICAL_FEATURES: list[str] = []
 
@@ -76,14 +85,14 @@ def _engineer_features(
     data["trading_date"] = pd.to_datetime(data["trading_date"])
     data = data.sort_values(["stock_id", "trading_date"]).reset_index(drop=True)
 
-    for col in ["avg_return", "volatility"]:
+    for col in NUMERIC_FEATURES:
         if col not in data.columns:
             data[col] = np.nan
 
-    if "next_week_label" not in data.columns:
-        data["next_week_label"] = np.nan
+    if "label" not in data.columns:
+        data["label"] = np.nan
 
-    label = pd.to_numeric(data["next_week_label"], errors="coerce")
+    label = pd.to_numeric(data["label"], errors="coerce")
     data["target"] = np.where(label == 1, 1.0, np.where(label == 0, 0.0, np.nan))
 
     return data.replace([np.inf, -np.inf], np.nan)
@@ -298,7 +307,7 @@ def _evaluate_arima_benchmark(
         if test_stock.empty:
             continue
 
-        train_series = train_stock.sort_values("trading_date")["avg_return"].dropna().astype(float)
+        train_series = train_stock.sort_values("trading_date")["return_5d"].dropna().astype(float)
         if len(train_series) < 60:
             continue
 
@@ -709,18 +718,18 @@ def predict_action(
     else:
         conviction_label = "NEUTRAL"
 
-    avg_return = float(prediction_row.iloc[0]["avg_return"]) if pd.notna(prediction_row.iloc[0]["avg_return"]) else None
-    volatility = float(prediction_row.iloc[0]["volatility"]) if pd.notna(prediction_row.iloc[0]["volatility"]) else None
+    return_5d = float(prediction_row.iloc[0]["return_5d"]) if pd.notna(prediction_row.iloc[0]["return_5d"]) else None
+    volatility_20d = float(prediction_row.iloc[0]["volatility_20d"]) if pd.notna(prediction_row.iloc[0]["volatility_20d"]) else None
 
     reasoning: list[str] = [
         f"Model horizon: {horizon_days} trading days",
         f"BUY probability: {probability_buy:.2%}",
         f"SELL probability: {probability_sell:.2%}",
     ]
-    if avg_return is not None:
-        reasoning.append(f"Current week average return: {avg_return:.2f}%")
-    if volatility is not None:
-        reasoning.append(f"Current week volatility: {volatility:.2f}%")
+    if return_5d is not None:
+        reasoning.append(f"Current 5-day return: {return_5d:.2f}%")
+    if volatility_20d is not None:
+        reasoning.append(f"Current 20-day volatility: {volatility_20d:.2f}%")
 
     return {
         "action": action,
