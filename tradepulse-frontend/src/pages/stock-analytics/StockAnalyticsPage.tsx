@@ -832,15 +832,32 @@ export function StockAnalyticsPage() {
           ) : (
             <>
               <section className="analytics-hero-card">
+                {(() => {
+                  const exchangeLabel = analytics.exchange?.trim() ?? "";
+                  const marketLabel = analytics.market?.trim() ?? "";
+                  const subtitleParts: string[] = [];
+
+                  if (exchangeLabel) {
+                    subtitleParts.push(exchangeLabel);
+                  }
+                  if (marketLabel && marketLabel.toLowerCase() !== exchangeLabel.toLowerCase()) {
+                    subtitleParts.push(marketLabel);
+                  }
+                  if (subtitleParts.length === 0) {
+                    subtitleParts.push("Exchange unavailable");
+                  }
+                  if (analytics.lastUpdated) {
+                    subtitleParts.push(`Updated ${formatDateLabel(analytics.lastUpdated)}`);
+                  }
+
+                  return (
                 <div>
                   <p className="analytics-eyebrow">Stock Overview Statistics</p>
                   <h1>{analytics.symbol} · {analytics.name}</h1>
-                  <p className="analytics-subtitle">
-                    {analytics.exchange ?? "Exchange unavailable"}
-                    {analytics.market ? ` • ${analytics.market}` : ""}
-                    {analytics.lastUpdated ? ` • Updated ${formatDateLabel(analytics.lastUpdated)}` : ""}
-                  </p>
+                  <p className="analytics-subtitle">{subtitleParts.join(" • ")}</p>
                 </div>
+                  );
+                })()}
                 <div className="analytics-hero-price">
                   <strong>{formatMaybeMoney(analytics.currentPerformance.currentPrice)}</strong>
                   <span className={toneClass(analytics.currentPerformance.dailyChangePercent)}>
@@ -895,53 +912,6 @@ export function StockAnalyticsPage() {
                 )}
               </MetricSection>
 
-              <MetricSection title="52-Week Metrics">
-                <MetricGrid
-                  items={[
-                    { label: "52-Week High", value: formatMaybeMoney(analytics.metrics52Week.high52Week) },
-                    { label: "52-Week Low", value: formatMaybeMoney(analytics.metrics52Week.low52Week) },
-                    { label: "Distance from 52-Week High", value: formatMaybePercent(analytics.metrics52Week.distanceFromHighPercent), tone: summaryTone(analytics.metrics52Week.distanceFromHighPercent) },
-                    { label: "Distance from 52-Week Low", value: formatMaybePercent(analytics.metrics52Week.distanceFromLowPercent), tone: summaryTone(analytics.metrics52Week.distanceFromLowPercent) },
-                  ]}
-                />
-              </MetricSection>
-
-              <MetricSection title="Returns">
-                <MetricGrid
-                  items={[
-                    { label: "1 Week Return", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
-                    { label: "1 Month Return", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
-                    { label: "3 Month Return", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
-                    { label: "6 Month Return", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
-                    { label: "1 Year Return", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
-                    { label: "3 Year Return", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
-                  ]}
-                />
-              </MetricSection>
-
-              <MetricSection title="Volume Metrics">
-                <MetricGrid
-                  items={[
-                    { label: "Volume As Of", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
-                    { label: "Latest Trading Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
-                    { label: "Average 30-Day Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
-                    { label: "Relative Volume", value: formatMaybeRatio(analytics.volumeMetrics.relativeVolume) },
-                  ]}
-                />
-              </MetricSection>
-
-              <MetricSection title="Volatility">
-                <MetricGrid
-                  items={[
-                    { label: "5-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility5Day) },
-                    { label: "20-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility20Day) },
-                    { label: "60-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility60Day) },
-                    { label: "90-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility90Day) },
-                    { label: "120-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility120Day) },
-                  ]}
-                />
-              </MetricSection>
-
               <section className="analytics-ml-section-card">
                 <div className="analytics-ml-head">
                   <h3>Machine Learning Signal</h3>
@@ -994,6 +964,52 @@ export function StockAnalyticsPage() {
                 )}
               </section>
 
+              <MetricSection title="52-Week Metrics">
+                <MetricGrid
+                  items={[
+                    { label: "52-Week High", value: formatMaybeMoney(analytics.metrics52Week.high52Week) },
+                    { label: "52-Week Low", value: formatMaybeMoney(analytics.metrics52Week.low52Week) },
+                    { label: "Distance from 52-Week High", value: formatMaybePercent(analytics.metrics52Week.distanceFromHighPercent), tone: summaryTone(analytics.metrics52Week.distanceFromHighPercent) },
+                    { label: "Distance from 52-Week Low", value: formatMaybePercent(analytics.metrics52Week.distanceFromLowPercent), tone: summaryTone(analytics.metrics52Week.distanceFromLowPercent) },
+                  ]}
+                />
+              </MetricSection>
+
+              <MetricSection title="Returns">
+                <MetricGrid
+                  items={[
+                    { label: "1 Week Return", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
+                    { label: "1 Month Return", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
+                    { label: "3 Month Return", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
+                    { label: "6 Month Return", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
+                    { label: "1 Year Return", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
+                    { label: "3 Year Return", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
+                  ]}
+                />
+              </MetricSection>
+
+              <MetricSection title="Volume Metrics">
+                <MetricGrid
+                  items={[
+                    { label: "Volume As Of", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
+                    { label: "Latest Trading Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
+                    { label: "Average 30-Day Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
+                    { label: "Relative Volume", value: formatMaybeRatio(analytics.volumeMetrics.relativeVolume) },
+                  ]}
+                />
+              </MetricSection>
+
+              <MetricSection title="Volatility">
+                <MetricGrid
+                  items={[
+                    { label: "5-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility5Day) },
+                    { label: "20-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility20Day) },
+                    { label: "60-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility60Day) },
+                    { label: "90-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility90Day) },
+                    { label: "120-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility120Day) },
+                  ]}
+                />
+              </MetricSection>
 
                <ChartCard title="Price History" subtitle="Line chart showing price movement over time">
                  <section className="analytics-range-row" aria-label="Price history range selector">
