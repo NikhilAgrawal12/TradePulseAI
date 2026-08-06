@@ -249,7 +249,8 @@ class AnalyticsSyncService:
                         high_price,
                         low_price,
                         close_price,
-                        volume
+                        volume,
+                        return_1d
                     FROM stock_daily_ohlc
                     ORDER BY stock_id, trading_date
                     """
@@ -291,14 +292,13 @@ class AnalyticsSyncService:
                 return F.when(F.count(F.col(col)).over(frame) == days, F.stddev_samp(F.col(col)).over(frame))
 
             prev_close = F.lag("close_price", 1).over(w)
-            # Round to 2dp immediately — matches NUMERIC(12,2) column in stock_daily_ohlc.
-            # This ensures weekly feature avg_return/volatility are computed from the same
-            # 2dp values that are persisted, keeping calculations fully consistent.
-            daily_return_pct = F.round(((F.col("close_price") - prev_close) / prev_close) * F.lit(100.0), 2)
+            # return_1d is read directly from stock_daily_ohlc (NUMERIC(12,2), already 2dp).
+            # No need to recompute — use stored value so avg_return/volatility in
+            # ml_weekly_features are derived from exactly the same number that's in the DB.
             daily_return_ratio = ((F.col("close_price") - prev_close) / prev_close)
 
             feat = (
-                sdf.withColumn("return_1d", daily_return_pct)
+                sdf  # return_1d already present from the SQL SELECT
                 .withColumn("sma_20", rolling_avg("close_price", 20))
                 .withColumn("sma_50", rolling_avg("close_price", 50))
                 .withColumn("sma_200", rolling_avg("close_price", 200))
@@ -340,7 +340,6 @@ class AnalyticsSyncService:
                 "volatility_20d",
                 "volatility_60d",
                 "volatility_90d",
-                "return_1d",
             ).toPandas()
 
             ohlc_updated_rows = self._persist_ohlc_updates(ohlc_updates)
@@ -442,7 +441,6 @@ class AnalyticsSyncService:
                 volatility_20d = :volatility_20d,
                 volatility_60d = :volatility_60d,
                 volatility_90d = :volatility_90d,
-                return_1d = :return_1d,
                 updated_at = NOW()
             WHERE id = :id
             """
