@@ -281,6 +281,16 @@ class AnalyticsSyncService:
 
         try:
             sdf = spark.createDataFrame(base_frame.to_dict("records"))
+            # pandas reads NULL NUMERIC columns as float NaN; Spark createDataFrame preserves
+            # those as Spark NaN (not null), so isNotNull() won't filter them and AVG(NaN)=NaN
+            # which causes NOT NULL constraint violations.  Coerce NaN → null explicitly.
+            sdf = sdf.withColumn(
+                "return_1d",
+                F.when(
+                    F.col("return_1d").isNull() | F.isnan(F.col("return_1d")),
+                    F.lit(None).cast("double"),
+                ).otherwise(F.col("return_1d").cast("double")),
+            )
             w = Window.partitionBy("stock_id").orderBy("trading_date")
 
             def rolling_avg(col: str, days: int):
