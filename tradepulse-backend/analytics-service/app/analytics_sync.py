@@ -291,7 +291,10 @@ class AnalyticsSyncService:
                 return F.when(F.count(F.col(col)).over(frame) == days, F.stddev_samp(F.col(col)).over(frame))
 
             prev_close = F.lag("close_price", 1).over(w)
-            daily_return_pct = ((F.col("close_price") - prev_close) / prev_close) * F.lit(100.0)
+            # Round to 2dp immediately — matches NUMERIC(12,2) column in stock_daily_ohlc.
+            # This ensures weekly feature avg_return/volatility are computed from the same
+            # 2dp values that are persisted, keeping calculations fully consistent.
+            daily_return_pct = F.round(((F.col("close_price") - prev_close) / prev_close) * F.lit(100.0), 2)
             daily_return_ratio = ((F.col("close_price") - prev_close) / prev_close)
 
             feat = (
