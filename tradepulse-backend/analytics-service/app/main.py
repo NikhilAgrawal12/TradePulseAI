@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +16,6 @@ from app.data import StockDataRepository
 from app.ml_pipeline import (
     ACTION_THRESHOLD,
     CATEGORICAL_FEATURES,
-    FIXED_RETURN_THRESHOLD,
     NUMERIC_FEATURES,
     build_prediction_row,
     predict_action,
@@ -34,8 +34,6 @@ state: dict[str, Any] = {
     "model_name": None,
     "model_version": None,
     "horizon_days": None,
-    "positive_return_threshold": None,
-    "neutral_return_band": None,
     "decision_threshold": ACTION_THRESHOLD,
     "training_status": "pending",
     "training_error": None,
@@ -82,8 +80,6 @@ def _persist_trained_model(trained: Any) -> None:
         "model_name": trained.selected_model,
         "model_version": trained.model_version,
         "horizon_days": trained.horizon_days,
-        "positive_return_threshold": trained.positive_return_threshold,
-        "neutral_return_band": float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band)),
         "decision_threshold": trained.decision_threshold,
         "feature_names": _expected_feature_names(),
         "trained_at": now_iso,
@@ -94,8 +90,6 @@ def _persist_trained_model(trained: Any) -> None:
     state["model_name"] = trained.selected_model
     state["model_version"] = trained.model_version
     state["horizon_days"] = trained.horizon_days
-    state["positive_return_threshold"] = trained.positive_return_threshold
-    state["neutral_return_band"] = float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band))
     state["decision_threshold"] = trained.decision_threshold
     state["training_status"] = "trained"
     state["training_error"] = None
@@ -107,7 +101,6 @@ def _persist_trained_model(trained: Any) -> None:
             "model_version": trained.model_version,
             "model_name": trained.selected_model,
             "horizon_days": trained.horizon_days,
-            "positive_return_threshold": trained.positive_return_threshold,
             "decision_threshold": trained.decision_threshold,
             "trained_rows": trained.trained_rows,
             "cv_f1": top_metric["cv_f1"],
@@ -122,9 +115,51 @@ def _persist_trained_model(trained: Any) -> None:
         metrics=trained.metrics,
         selected_model=trained.selected_model,
     )
+    try:
+        _refresh_prediction_cache()
+    except Exception:
+        logger.exception("Failed to refresh prediction cache after training")
 
 
-def _train_model(days_back: int, horizon_days: int, positive_return_threshold: float, neutral_return_band: float) -> Any:
+def _refresh_prediction_cache() -> int:
+    if state["estimator"] is None or state.get("model_version") is None or state.get("horizon_days") is None:
+        return 0
+
+    feature_rows = repository.fetch_prediction_feature_rows()
+    if feature_rows.empty:
+        return 0
+
+    prediction_rows: list[dict[str, Any]] = []
+    for _, source_row in feature_rows.iterrows():
+        prediction_input = build_prediction_row(source_row.to_frame().T)
+        signal = predict_action(
+            estimator=state["estimator"],
+            prediction_row=prediction_input,
+            horizon_days=int(state["horizon_days"]),
+            decision_threshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
+        )
+        prediction_rows.append(
+            {
+                "stock_id": int(source_row["stock_id"]),
+                "prediction_action": str(signal["action"]),
+                "prediction_confidence": float(signal["confidence"]),
+                "prediction_probability_buy": float(signal["probability_buy"]),
+                "prediction_probability_sell": float(signal["probability_sell"]),
+                "prediction_confidence_edge": float(signal["confidence_edge"]),
+                "prediction_probability_gap": float(signal["probability_gap"]),
+                "prediction_conviction_label": str(signal["conviction_label"]),
+                "prediction_reasoning": json.dumps(signal["reasoning"]),
+                "prediction_model_version": str(state["model_version"]),
+                "prediction_horizon_days": int(state["horizon_days"]),
+                "prediction_decision_threshold": float(state.get("decision_threshold", ACTION_THRESHOLD)),
+                "prediction_generated_at": datetime.now(timezone.utc),
+            }
+        )
+
+    return repository.store_prediction_snapshots(prediction_rows)
+
+
+def _train_model(days_back: int, horizon_days: int) -> Any:
     with training_lock:
         training_frame = repository.fetch_training_data(
             days_back=days_back,
@@ -136,8 +171,6 @@ def _train_model(days_back: int, horizon_days: int, positive_return_threshold: f
         trained = train_and_select_model(
             frame=training_frame,
             horizon_days=horizon_days,
-            positive_return_threshold=positive_return_threshold,
-            neutral_return_band=neutral_return_band,
         )
         _persist_trained_model(trained)
         return trained
@@ -148,8 +181,6 @@ def _run_startup_training() -> None:
         _train_model(
             days_back=settings.default_days_back,
             horizon_days=settings.default_horizon_days,
-            positive_return_threshold=FIXED_RETURN_THRESHOLD,
-            neutral_return_band=FIXED_RETURN_THRESHOLD,
         )
     except ValueError as error:
         state["training_status"] = "waiting_for_data"
@@ -170,8 +201,6 @@ def _run_scheduled_training() -> None:
             _train_model(
                 days_back=settings.default_days_back,
                 horizon_days=settings.default_horizon_days,
-                positive_return_threshold=FIXED_RETURN_THRESHOLD,
-                neutral_return_band=FIXED_RETURN_THRESHOLD,
             )
         except Exception:
             # Keep scheduler alive even when one retraining run fails.
@@ -194,6 +223,12 @@ def _run_analytics_sync(trigger: str) -> dict[str, Any]:
                 "weekly_feature_rows": stats.weekly_feature_rows,
                 "finished_at": stats.finished_at,
             }
+            if state["estimator"] is not None:
+                try:
+                    payload["prediction_rows"] = _refresh_prediction_cache()
+                except Exception:
+                    logger.exception("Failed to refresh prediction cache after sync")
+                    payload["prediction_rows"] = 0
             state["last_sync_status"] = "ok"
             state["last_sync_finished_at"] = stats.finished_at
             state["last_sync_stats"] = payload
@@ -236,8 +271,6 @@ def _load_model_from_disk() -> bool:
         state["model_name"] = None
         state["model_version"] = None
         state["horizon_days"] = None
-        state["positive_return_threshold"] = None
-        state["neutral_return_band"] = None
         state["decision_threshold"] = ACTION_THRESHOLD
         state["training_status"] = "artifact_incompatible"
         state["training_error"] = (
@@ -251,8 +284,6 @@ def _load_model_from_disk() -> bool:
     state["model_name"] = artifact["model_name"]
     state["model_version"] = artifact["model_version"]
     state["horizon_days"] = artifact["horizon_days"]
-    state["positive_return_threshold"] = artifact["positive_return_threshold"]
-    state["neutral_return_band"] = float(artifact.get("neutral_return_band", getattr(settings, "default_neutral_return_band", 0.02)))
     state["decision_threshold"] = float(artifact.get("decision_threshold", ACTION_THRESHOLD))
     state["training_status"] = "loaded"
     state["training_error"] = None
@@ -333,8 +364,6 @@ def health() -> dict[str, Any]:
         "model_loaded": state["estimator"] is not None,
         "model_name": state["model_name"],
         "model_version": state["model_version"],
-        "positive_return_threshold": state["positive_return_threshold"],
-        "neutral_return_band": state["neutral_return_band"],
         "training_status": state["training_status"],
         "training_error": state["training_error"],
         "last_trained_at": state["last_trained_at"],
@@ -383,8 +412,6 @@ def train_model(payload: TrainRequest) -> TrainResponse:
         trained = _train_model(
             days_back=payload.days_back,
             horizon_days=payload.horizon_days,
-            positive_return_threshold=FIXED_RETURN_THRESHOLD,
-            neutral_return_band=FIXED_RETURN_THRESHOLD,
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
@@ -393,8 +420,6 @@ def train_model(payload: TrainRequest) -> TrainResponse:
         selected_model=trained.selected_model,
         trained_rows=trained.trained_rows,
         horizon_days=trained.horizon_days,
-        positive_return_threshold=trained.positive_return_threshold,
-        neutral_return_band=float(getattr(trained, "neutral_return_band", settings.default_neutral_return_band)),
          metrics=[
              {
                  "model_name": row["model_name"],
@@ -418,28 +443,54 @@ def get_prediction(stock_id: int) -> PredictionResponse:
     if history.empty:
         raise HTTPException(status_code=404, detail=f"No historical rows found for stock_id={stock_id}")
 
-    prediction_row = build_prediction_row(history)
+    cached = repository.fetch_prediction_snapshot(stock_id=stock_id, model_version=str(state["model_version"]))
+    if cached is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Prediction snapshot unavailable. Run sync/training to populate stock_metrics.",
+        )
+
     model_metrics = repository.fetch_model_metrics(str(state["model_version"])) if state["model_version"] else None
-    signal = predict_action(
-        estimator=state["estimator"],
-        prediction_row=prediction_row,
-        horizon_days=int(state["horizon_days"]),
-        decision_threshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
-    )
+    reasoning_raw = cached.get("prediction_reasoning")
+    try:
+        reasoning = json.loads(reasoning_raw) if isinstance(reasoning_raw, str) else []
+        if not isinstance(reasoning, list):
+            reasoning = []
+    except Exception:
+        reasoning = []
 
     return PredictionResponse(
         stockId=stock_id,
-        symbol=str(prediction_row.iloc[0]["symbol"]),
-        action=signal["action"],
-        confidence=signal["confidence"],
-        probabilityBuy=signal["probability_buy"],
-        probabilitySell=signal["probability_sell"],
-        horizonDays=int(state["horizon_days"]),
+        symbol=str(cached.get("symbol") or history.iloc[0].get("symbol")),
+        action=str(cached["prediction_action"]),
+        confidence=float(cached["prediction_confidence"]),
+        probabilityBuy=float(cached["prediction_probability_buy"]),
+        probabilitySell=float(cached["prediction_probability_sell"]),
+        confidenceEdge=(
+            float(cached["prediction_confidence_edge"])
+            if cached.get("prediction_confidence_edge") is not None
+            else None
+        ),
+        probabilityGap=(
+            float(cached["prediction_probability_gap"])
+            if cached.get("prediction_probability_gap") is not None
+            else None
+        ),
+        decisionThreshold=(
+            float(cached["prediction_decision_threshold"])
+            if cached.get("prediction_decision_threshold") is not None
+            else float(state.get("decision_threshold", ACTION_THRESHOLD))
+        ),
+        horizonDays=int(cached.get("prediction_horizon_days") or state["horizon_days"]),
         modelName=str(state["model_name"]),
         modelVersion=str(state["model_version"]),
-        generatedAt=datetime.now(timezone.utc).isoformat(),
-        reasoning=signal["reasoning"],
-        convictionLabel=signal["conviction_label"],
+        generatedAt=(
+            cached["prediction_generated_at"].isoformat()
+            if hasattr(cached.get("prediction_generated_at"), "isoformat")
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        reasoning=[str(item) for item in reasoning],
+        convictionLabel=str(cached["prediction_conviction_label"]),
         cvF1=(model_metrics["cv_f1"] if model_metrics else None),
         testF1=(model_metrics["test_f1"] if model_metrics else None),
         testBalancedAccuracy=(model_metrics["test_balanced_accuracy"] if model_metrics else None),

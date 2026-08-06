@@ -117,12 +117,14 @@ class AnalyticsSyncService:
             return 0, None, None
 
         years_back = int(getattr(self._settings, "ohlc_years_back", 3))
+        retention_buffer_days = int(getattr(self._settings, "ohlc_retention_buffer_days", 90))
         adjusted = bool(getattr(self._settings, "ohlc_adjusted", True))
         include_otc = bool(getattr(self._settings, "ohlc_include_otc", False))
         base_url = getattr(self._settings, "massive_api_base_url", "https://api.massive.com")
 
         end_date = datetime.now(timezone.utc).date()
         configured_start = end_date - timedelta(days=max(1, years_back) * 365)
+        retention_cutoff = end_date - timedelta(days=max(1, years_back) * 365 + max(0, retention_buffer_days))
 
         with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
             max_date = connection.execute(text("SELECT MAX(trading_date) FROM stock_daily_ohlc")).scalar_one_or_none()
@@ -234,21 +236,21 @@ class AnalyticsSyncService:
 
                 cursor += timedelta(days=1)
 
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM stock_daily_ohlc
+                    WHERE trading_date < :retention_cutoff
+                    """
+                ),
+                {"retention_cutoff": retention_cutoff},
+            )
+
         return total_rows, first_synced, last_synced
 
     def refresh_metrics_with_pyspark(self) -> tuple[int, int]:
         with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
-            top_stock_rows = connection.execute(
-                text(
-                    """
-                    SELECT stock_id
-                    FROM stocks
-                    ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
-                    LIMIT 50
-                    """
-                )
-            ).mappings().all()
-            top_stock_ids = [int(row["stock_id"]) for row in top_stock_rows]
             base_frame = pd.read_sql_query(
                 text(
                     """
@@ -303,6 +305,7 @@ class AnalyticsSyncService:
                 ).otherwise(F.col("return_1d").cast("double")),
             )
             w = Window.partitionBy("stock_id").orderBy("trading_date")
+            vol10_w = w.rowsBetween(-9, 0)
 
             def rolling_avg(col: str, days: int):
                 frame = Window.partitionBy("stock_id").orderBy("trading_date").rowsBetween(-(days - 1), 0)
@@ -329,11 +332,20 @@ class AnalyticsSyncService:
                 .withColumn("volatility_90d", rolling_std("return_1d", 90))
                 .withColumn("volatility_120d", rolling_std("return_1d", 120))
                 .withColumn("return_5d", ((F.col("close_price") - F.lag("close_price", 5).over(w)) / F.lag("close_price", 5).over(w)) * 100)
+                .withColumn("return_10d", ((F.col("close_price") - F.lag("close_price", 10).over(w)) / F.lag("close_price", 10).over(w)) * 100)
+                .withColumn("return_20d", ((F.col("close_price") - F.lag("close_price", 20).over(w)) / F.lag("close_price", 20).over(w)) * 100)
                 .withColumn("ret_21d", ((F.col("close_price") - F.lag("close_price", 21).over(w)) / F.lag("close_price", 21).over(w)) * 100)
                 .withColumn("ret_63d", ((F.col("close_price") - F.lag("close_price", 63).over(w)) / F.lag("close_price", 63).over(w)) * 100)
                 .withColumn("ret_126d", ((F.col("close_price") - F.lag("close_price", 126).over(w)) / F.lag("close_price", 126).over(w)) * 100)
                 .withColumn("ret_252d", ((F.col("close_price") - F.lag("close_price", 252).over(w)) / F.lag("close_price", 252).over(w)) * 100)
                 .withColumn("ret_756d", ((F.col("close_price") - F.lag("close_price", 756).over(w)) / F.lag("close_price", 756).over(w)) * 100)
+                .withColumn(
+                    "volatility_10d",
+                    F.when(
+                        F.count(F.col("return_1d")).over(vol10_w) == 10,
+                        F.stddev_samp(F.col("return_1d")).over(vol10_w),
+                    ),
+                )
                 .withColumn("delta", F.col("close_price") - prev_close)
                 .withColumn("gain", F.when(F.col("delta") > 0, F.col("delta")).otherwise(F.lit(0.0)))
                 .withColumn("loss", F.when(F.col("delta") < 0, -F.col("delta")).otherwise(F.lit(0.0)))
@@ -349,6 +361,11 @@ class AnalyticsSyncService:
                 .withColumn("sma_26", rolling_avg("close_price", 26))
                 .withColumn("macd", F.col("sma_12") - F.col("sma_26"))
                 .withColumn("macd_signal", rolling_avg("macd", 9))
+                .withColumn("sma20_distance", ((F.col("close_price") - F.col("sma_20")) / F.col("sma_20")) * 100)
+                .withColumn("sma50_distance", ((F.col("close_price") - F.col("sma_50")) / F.col("sma_50")) * 100)
+                .withColumn("volume_prev", F.lag("volume", 1).over(w))
+                .withColumn("volume_change", ((F.col("volume") - F.col("volume_prev")) / F.col("volume_prev")) * 100)
+                .withColumn("label", F.when(F.col("return_1d") > 0, F.lit(1)).otherwise(F.lit(0)))
                 .withColumn("daily_return_ratio", daily_return_ratio)
             )
 
@@ -415,6 +432,12 @@ class AnalyticsSyncService:
                     "volatility_60d",
                     "volatility_90d",
                     "volatility_120d",
+                    "return_5d",
+                    "return_10d",
+                    "return_20d",
+                    "volatility_10d",
+                    "sma20_distance",
+                    "sma50_distance",
                     "rsi_14",
                     "macd",
                     "macd_signal",
@@ -425,6 +448,8 @@ class AnalyticsSyncService:
                     "avg_volume_30d",
                     F.col("volume").alias("latest_trading_day_volume"),
                     F.col("trading_date").alias("latest_trading_date"),
+                    "volume_change",
+                    "label",
                     "relative_volume",
                     "positive_days_1y",
                     "negative_days_1y",
@@ -441,8 +466,7 @@ class AnalyticsSyncService:
             upserted_metric_count = self._upsert_metrics(metric_rows)
             self._refresh_latest_news_for_metrics()
 
-            weekly_frame = _build_weekly_features(feat, top_stock_ids).toPandas()
-            weekly_rows = self._upsert_weekly_features(weekly_frame, top_stock_ids)
+            weekly_rows = self._upsert_weekly_features_from_metrics_snapshot()
 
             return max(ohlc_updated_rows, upserted_metric_count), weekly_rows
         finally:
@@ -493,6 +517,12 @@ class AnalyticsSyncService:
                 volatility_60d,
                 volatility_90d,
                 volatility_120d,
+                return_5d,
+                return_10d,
+                return_20d,
+                volatility_10d,
+                sma20_distance,
+                sma50_distance,
                 rsi_14,
                 macd,
                 macd_signal,
@@ -503,6 +533,8 @@ class AnalyticsSyncService:
                 avg_volume_30d,
                 latest_trading_day_volume,
                 latest_trading_date,
+                volume_change,
+                label,
                 relative_volume,
                 positive_days_1y,
                 negative_days_1y,
@@ -530,6 +562,12 @@ class AnalyticsSyncService:
                 :volatility_60d,
                 :volatility_90d,
                 :volatility_120d,
+                :return_5d,
+                :return_10d,
+                :return_20d,
+                :volatility_10d,
+                :sma20_distance,
+                :sma50_distance,
                 :rsi_14,
                 :macd,
                 :macd_signal,
@@ -540,6 +578,8 @@ class AnalyticsSyncService:
                 :avg_volume_30d,
                 :latest_trading_day_volume,
                 :latest_trading_date,
+                :volume_change,
+                :label,
                 :relative_volume,
                 :positive_days_1y,
                 :negative_days_1y,
@@ -568,6 +608,12 @@ class AnalyticsSyncService:
                 volatility_60d = EXCLUDED.volatility_60d,
                 volatility_90d = EXCLUDED.volatility_90d,
                 volatility_120d = EXCLUDED.volatility_120d,
+                return_5d = EXCLUDED.return_5d,
+                return_10d = EXCLUDED.return_10d,
+                return_20d = EXCLUDED.return_20d,
+                volatility_10d = EXCLUDED.volatility_10d,
+                sma20_distance = EXCLUDED.sma20_distance,
+                sma50_distance = EXCLUDED.sma50_distance,
                 rsi_14 = EXCLUDED.rsi_14,
                 macd = EXCLUDED.macd,
                 macd_signal = EXCLUDED.macd_signal,
@@ -578,6 +624,8 @@ class AnalyticsSyncService:
                 avg_volume_30d = EXCLUDED.avg_volume_30d,
                 latest_trading_day_volume = EXCLUDED.latest_trading_day_volume,
                 latest_trading_date = EXCLUDED.latest_trading_date,
+                volume_change = EXCLUDED.volume_change,
+                label = EXCLUDED.label,
                 relative_volume = EXCLUDED.relative_volume,
                 positive_days_1y = EXCLUDED.positive_days_1y,
                 negative_days_1y = EXCLUDED.negative_days_1y,
@@ -591,6 +639,18 @@ class AnalyticsSyncService:
                 golden_cross = EXCLUDED.golden_cross,
                 death_cross = EXCLUDED.death_cross,
                 latest_news = COALESCE(EXCLUDED.latest_news, stock_metrics.latest_news),
+                prediction_action = NULL,
+                prediction_confidence = NULL,
+                prediction_probability_buy = NULL,
+                prediction_probability_sell = NULL,
+                prediction_confidence_edge = NULL,
+                prediction_probability_gap = NULL,
+                prediction_conviction_label = NULL,
+                prediction_reasoning = NULL,
+                prediction_model_version = NULL,
+                prediction_horizon_days = NULL,
+                prediction_decision_threshold = NULL,
+                prediction_generated_at = NULL,
                 updated_at = NOW()
             """
         )
@@ -732,92 +792,92 @@ class AnalyticsSyncService:
 
         return len(updates)
 
-    def _upsert_weekly_features(self, weekly: pd.DataFrame, top_stock_ids: list[int]) -> int:
-        if weekly.empty:
-            return 0
-
-        rows: list[dict[str, Any]] = []
-        for row in weekly.to_dict("records"):
-            stock_id = row.get("stock_id")
-            week_date = row.get("date")
-            if hasattr(week_date, "date"):
-                week_date = week_date.date()
-
-            normalized = {
-                "stock_id": None if pd.isna(stock_id) else int(stock_id),
-                "date": week_date,
-                "return_5d": _to_rounded(row.get("return_5d")),
-                "return_10d": _to_rounded(row.get("return_10d")),
-                "return_20d": _to_rounded(row.get("return_20d")),
-                "volatility_5d": _to_rounded(row.get("volatility_5d")),
-                "volatility_10d": _to_rounded(row.get("volatility_10d")),
-                "volatility_20d": _to_rounded(row.get("volatility_20d")),
-                "sma20_distance": _to_rounded(row.get("sma20_distance")),
-                "sma50_distance": _to_rounded(row.get("sma50_distance")),
-                "rsi": _to_rounded(row.get("rsi")),
-                "macd": _to_rounded(row.get("macd")),
-                "volume_change": _to_rounded(row.get("volume_change")),
-                "label": None if pd.isna(row.get("label")) else int(row.get("label")),
-            }
-            rows.append(normalized)
-
+    def _upsert_weekly_features_from_metrics_snapshot(self) -> int:
         sql = text(
             """
-            INSERT INTO ml_weekly_features (
-                stock_id,
-                date,
-                return_5d,
-                return_10d,
-                return_20d,
-                volatility_5d,
-                volatility_10d,
-                volatility_20d,
-                sma20_distance,
-                sma50_distance,
-                rsi,
-                macd,
-                volume_change,
-                label,
-                created_at
-            ) VALUES (
-                :stock_id,
-                :date,
-                :return_5d,
-                :return_10d,
-                :return_20d,
-                :volatility_5d,
-                :volatility_10d,
-                :volatility_20d,
-                :sma20_distance,
-                :sma50_distance,
-                :rsi,
-                :macd,
-                :volume_change,
-                :label,
-                NOW()
+            WITH ranked_stocks AS (
+                SELECT stock_id
+                FROM stocks
+                ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                LIMIT 50
+            ),
+            inserted AS (
+                INSERT INTO ml_weekly_features (
+                    stock_id,
+                    date,
+                    return_5d,
+                    return_10d,
+                    return_20d,
+                    volatility_5d,
+                    volatility_10d,
+                    volatility_20d,
+                    sma20_distance,
+                    sma50_distance,
+                    rsi,
+                    macd,
+                    volume_change,
+                    label,
+                    created_at
+                )
+                SELECT
+                    m.stock_id,
+                    m.latest_trading_date AS date,
+                    m.return_5d,
+                    m.return_10d,
+                    m.return_20d,
+                    m.volatility_5d,
+                    m.volatility_10d,
+                    m.volatility_20d,
+                    m.sma20_distance,
+                    m.sma50_distance,
+                    m.rsi_14,
+                    m.macd,
+                    m.volume_change,
+                    m.label,
+                    NOW()
+                FROM stock_metrics m
+                JOIN ranked_stocks rs ON rs.stock_id = m.stock_id
+                WHERE m.latest_trading_date IS NOT NULL
+                  AND m.return_5d IS NOT NULL
+                  AND m.return_10d IS NOT NULL
+                  AND m.return_20d IS NOT NULL
+                  AND m.volatility_5d IS NOT NULL
+                  AND m.volatility_10d IS NOT NULL
+                  AND m.volatility_20d IS NOT NULL
+                  AND m.sma20_distance IS NOT NULL
+                  AND m.sma50_distance IS NOT NULL
+                  AND m.rsi_14 IS NOT NULL
+                  AND m.macd IS NOT NULL
+                  AND m.volume_change IS NOT NULL
+                  AND m.label IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM ml_weekly_features w
+                      WHERE w.stock_id = m.stock_id
+                        AND date_trunc('week', w.date) = date_trunc('week', m.latest_trading_date)
+                  )
+                ON CONFLICT (stock_id, date)
+                DO UPDATE SET
+                    return_5d = EXCLUDED.return_5d,
+                    return_10d = EXCLUDED.return_10d,
+                    return_20d = EXCLUDED.return_20d,
+                    volatility_5d = EXCLUDED.volatility_5d,
+                    volatility_10d = EXCLUDED.volatility_10d,
+                    volatility_20d = EXCLUDED.volatility_20d,
+                    sma20_distance = EXCLUDED.sma20_distance,
+                    sma50_distance = EXCLUDED.sma50_distance,
+                    rsi = EXCLUDED.rsi,
+                    macd = EXCLUDED.macd,
+                    volume_change = EXCLUDED.volume_change,
+                    label = EXCLUDED.label
+                RETURNING 1
             )
-            ON CONFLICT (stock_id, date)
-            DO UPDATE SET
-                return_5d = EXCLUDED.return_5d,
-                return_10d = EXCLUDED.return_10d,
-                return_20d = EXCLUDED.return_20d,
-                volatility_5d = EXCLUDED.volatility_5d,
-                volatility_10d = EXCLUDED.volatility_10d,
-                volatility_20d = EXCLUDED.volatility_20d,
-                sma20_distance = EXCLUDED.sma20_distance,
-                sma50_distance = EXCLUDED.sma50_distance,
-                rsi = EXCLUDED.rsi,
-                macd = EXCLUDED.macd,
-                volume_change = EXCLUDED.volume_change,
-                label = EXCLUDED.label
+            SELECT COUNT(*) FROM inserted
             """
         )
 
         with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
-            # Rebuild table contents each run to avoid carrying forward legacy rows from
-            # previous schema/label semantics.
-            connection.execute(text("DELETE FROM ml_weekly_features"))
-            connection.execute(sql, rows)
+            inserted_rows = int(connection.execute(sql).scalar() or 0)
             connection.execute(text("DELETE FROM ml_weekly_features WHERE date < CURRENT_DATE - INTERVAL '365 days'"))
             connection.execute(
                 text(
@@ -833,7 +893,7 @@ class AnalyticsSyncService:
                 )
             )
 
-        return len(rows)
+        return inserted_rows
 
 
 def _to_rounded(value: Any) -> float | None:
@@ -958,88 +1018,6 @@ def _count_priority_candidates(candidates: list[tuple[int, int, dict[str, Any]]]
     return sum(1 for score, _, _ in candidates if score >= _PRIORITY_NEWS_SCORE)
 
 
-def _build_weekly_features(feature_df, top_stock_ids: list[int]):
-    if not top_stock_ids:
-        return feature_df.limit(0)
-
-    daily_w = Window.partitionBy("stock_id").orderBy("trading_date")
-    vol10_w = daily_w.rowsBetween(-9, 0)
-    week_start = F.date_sub(F.next_day(F.col("trading_date"), "Mon"), 7)
-    prepared = (
-        feature_df.where(F.col("stock_id").isin(top_stock_ids))
-        .where(F.col("trading_date") >= F.date_sub(F.current_date(), 365))
-        .where(F.col("return_1d").isNotNull())
-        .withColumn(
-            "return_10d",
-            ((F.col("close_price") - F.lag("close_price", 10).over(daily_w)) / F.lag("close_price", 10).over(daily_w)) * 100,
-        )
-        .withColumn(
-            "return_20d",
-            ((F.col("close_price") - F.lag("close_price", 20).over(daily_w)) / F.lag("close_price", 20).over(daily_w)) * 100,
-        )
-        .withColumn(
-            "volatility_10d",
-            F.when(
-                F.count(F.col("return_1d")).over(vol10_w) == 10,
-                F.stddev_samp(F.col("return_1d")).over(vol10_w),
-            ),
-        )
-        .withColumn(
-            "sma20_distance",
-            ((F.col("close_price") - F.col("sma_20")) / F.col("sma_20")) * 100,
-        )
-        .withColumn(
-            "sma50_distance",
-            ((F.col("close_price") - F.col("sma_50")) / F.col("sma_50")) * 100,
-        )
-        .withColumn(
-            "volume_prev",
-            F.lag("volume", 1).over(daily_w),
-        )
-        .withColumn(
-            "volume_change",
-            ((F.col("volume") - F.col("volume_prev")) / F.col("volume_prev")) * 100,
-        )
-        .withColumn("label", F.when(F.col("return_1d") > 0, F.lit(1)).otherwise(F.lit(0)))
-    )
-
-    week_w = Window.partitionBy("stock_id", "week_start").orderBy(F.col("trading_date").desc())
-    return (
-        prepared.withColumn("week_start", week_start)
-        .withColumn("rn", F.row_number().over(week_w))
-        .where(F.col("rn") == 1)
-        .where(
-            F.col("return_5d").isNotNull()
-            & F.col("return_10d").isNotNull()
-            & F.col("return_20d").isNotNull()
-            & F.col("volatility_5d").isNotNull()
-            & F.col("volatility_10d").isNotNull()
-            & F.col("volatility_20d").isNotNull()
-            & F.col("sma20_distance").isNotNull()
-            & F.col("sma50_distance").isNotNull()
-            & F.col("rsi_14").isNotNull()
-            & F.col("macd").isNotNull()
-            & F.col("volume_change").isNotNull()
-        )
-        .select(
-            "stock_id",
-            F.col("trading_date").alias("date"),
-            "return_5d",
-            "return_10d",
-            "return_20d",
-            "volatility_5d",
-            "volatility_10d",
-            "volatility_20d",
-            "sma20_distance",
-            "sma50_distance",
-            F.col("rsi_14").alias("rsi"),
-            "macd",
-            "volume_change",
-            "label",
-        )
-    )
-
-
 def _compute_pandas_extras(base_frame: pd.DataFrame) -> dict[int, dict[str, Any]]:
     extras: dict[int, dict[str, Any]] = {}
     frame = base_frame.sort_values(["stock_id", "trading_date"]).copy()
@@ -1113,6 +1091,12 @@ def _merge_metric_rows(metrics_latest: pd.DataFrame, extras: dict[int, dict[str,
                 "volatility_60d": _round_or_none(row.get("volatility_60d"), 2),
                 "volatility_90d": _round_or_none(row.get("volatility_90d"), 2),
                 "volatility_120d": _round_or_none(row.get("volatility_120d"), 2),
+                "return_5d": _round_or_none(row.get("return_5d"), 2),
+                "return_10d": _round_or_none(row.get("return_10d"), 2),
+                "return_20d": _round_or_none(row.get("return_20d"), 2),
+                "volatility_10d": _round_or_none(row.get("volatility_10d"), 2),
+                "sma20_distance": _round_or_none(row.get("sma20_distance"), 2),
+                "sma50_distance": _round_or_none(row.get("sma50_distance"), 2),
                 "high_52w": _round_or_none(row.get("high_52w"), 2),
                 "low_52w": _round_or_none(row.get("low_52w"), 2),
                 "distance_from_high_percent": _round_or_none(row.get("distance_from_high_percent"), 2),
@@ -1120,6 +1104,8 @@ def _merge_metric_rows(metrics_latest: pd.DataFrame, extras: dict[int, dict[str,
                 "avg_volume_30d": _round_or_none(row.get("avg_volume_30d"), 2),
                 "latest_trading_day_volume": _int_or_none(row.get("latest_trading_day_volume")),
                 "latest_trading_date": _date_or_none(row.get("latest_trading_date")),
+                "volume_change": _round_or_none(row.get("volume_change"), 2),
+                "label": _int_or_none(row.get("label")),
                 "relative_volume": _round_or_none(row.get("relative_volume"), 2),
                 "rsi_14": _round_or_none(row.get("rsi_14"), 4),
                 "macd": _round_or_none(row.get("macd"), 4),

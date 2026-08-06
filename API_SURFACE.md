@@ -116,7 +116,7 @@ Notes:
 
 - Served by `ml-service` (FastAPI)
 - `POST /v1/train`
-- `GET /v1/predictions/{stock_id}`
+- `GET /v1/predictions/{stock_id}` (serves cached snapshot from `stock_metrics`; on-demand inference only if cache missing)
 
 ## 3. SSE endpoints
 

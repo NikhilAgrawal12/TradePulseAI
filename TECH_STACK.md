@@ -268,7 +268,8 @@ Stock Service DB:
 ├── stock_metrics (precomputed analytics)
 │   ├── 52-week high/low
 │   ├── Sharpe/Sortino ratios
-│   └── RSI, MACD, technical indicators
+│   ├── RSI, MACD, technical indicators
+│   └── cached ML predictions (`prediction_*` fields)
 └── cache tables (featured_stock_cache)
 
 Order Service DB:

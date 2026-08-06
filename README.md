@@ -129,7 +129,7 @@ Full setup details in `QUICK_START.md`.
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Java 21, Spring Boot 3.x, Spring Security, Spring Cloud Gateway |
-| **ML Service** | Python, FastAPI, scikit-learn, XGBoost, TensorFlow, statsmodels |
+| **ML Service** | Python, FastAPI, scikit-learn, XGBoost |
 | **Data Access** | Spring Data JPA, Hibernate, PostgreSQL |
 | **Messaging** | Apache Kafka, Protobuf |
 | **RPC** | gRPC with Protocol Buffers |

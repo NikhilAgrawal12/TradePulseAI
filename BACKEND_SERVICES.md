@@ -91,13 +91,14 @@ This document summarizes the live responsibilities of each backend service in th
 - JWT validation and injection of validated `X-User-Id`
 - rate limiting and docs aggregation
 
-## ml-service
+## analytics-service
 
 ### Main responsibilities
 
 - model training and retraining
 - prediction endpoints / internal ML APIs
-- reads from stock-service database
+- owns analytics persistence in `analytics-service-db`
+- syncs OHLC + computes stock metrics + builds weekly ML training features
 
 ## notification-service
 

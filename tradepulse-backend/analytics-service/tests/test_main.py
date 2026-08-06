@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pandas as pd
 import app.main as main
+from fastapi import HTTPException
 
 
 def _reset_state() -> None:
@@ -12,7 +15,6 @@ def _reset_state() -> None:
             "model_name": None,
             "model_version": None,
             "horizon_days": None,
-            "positive_return_threshold": None,
             "decision_threshold": 0.55,
             "training_status": "pending",
             "training_error": None,
@@ -27,9 +29,8 @@ def test_startup_survives_missing_training_data(monkeypatch) -> None:
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=730,
+        default_days_back=365,
         default_horizon_days=5,
-        default_positive_return_threshold=0.0,
     ))
     monkeypatch.setattr(main.repository, "initialize_tables", lambda: None)
     monkeypatch.setattr(main, "_load_model_from_disk", lambda: False)
@@ -65,11 +66,9 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=730,
+        default_days_back=365,
         default_horizon_days=5,
-        default_positive_return_threshold=0.0,
         max_training_stocks=100,
-        max_training_rows=100000,
     ))
     monkeypatch.setattr(main.repository, "initialize_tables", lambda: None)
     monkeypatch.setattr(main, "_load_model_from_disk", lambda: False)
@@ -79,7 +78,6 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
             "model_name": trained.selected_model,
             "model_version": trained.model_version,
             "horizon_days": trained.horizon_days,
-            "positive_return_threshold": trained.positive_return_threshold,
             "training_status": "trained",
             "training_error": None,
             "last_trained_at": "2026-07-06T00:00:00+00:00",
@@ -91,7 +89,6 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
         selected_model = "logistic_regression"
         model_version = "v20260706000000"
         horizon_days = 5
-        positive_return_threshold = 0.0
         decision_threshold = 0.55
         trained_rows = 1234
         metrics = [{
@@ -122,11 +119,9 @@ def test_startup_background_training_handles_missing_data(monkeypatch) -> None:
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=730,
+        default_days_back=365,
         default_horizon_days=5,
-        default_positive_return_threshold=0.0,
         max_training_stocks=100,
-        max_training_rows=100000,
     ))
 
     def _raise_no_data(*_args, **_kwargs):
@@ -168,7 +163,6 @@ def test_persist_trained_model_saves_candidate_metrics(monkeypatch) -> None:
         selected_model="logistic_regression",
         model_version="v20260707010101",
         horizon_days=5,
-        positive_return_threshold=0.0,
         decision_threshold=0.55,
         trained_rows=1234,
         metrics=[
@@ -221,8 +215,6 @@ def test_load_model_from_disk_rejects_incompatible_feature_set(monkeypatch) -> N
             "model_name": "xgboost",
             "model_version": "v20260718000000",
             "horizon_days": 5,
-            "positive_return_threshold": 0.015,
-            "neutral_return_band": 0.015,
             "decision_threshold": 0.55,
             "feature_names": [*main.NUMERIC_FEATURES, "news_count"],
         },
@@ -242,12 +234,9 @@ def test_startup_retrains_when_saved_artifact_is_incompatible(monkeypatch) -> No
     monkeypatch.setattr(main, "settings", SimpleNamespace(
         train_on_startup=True,
         retrain_interval_hours=0,
-        default_days_back=730,
+        default_days_back=365,
         default_horizon_days=5,
-        default_positive_return_threshold=0.0,
-        default_neutral_return_band=0.015,
         max_training_stocks=100,
-        max_training_rows=100000,
         model_path="/tmp/tradepulse_model.joblib",
     ))
     monkeypatch.setattr(main.repository, "initialize_tables", lambda: None)
@@ -271,5 +260,93 @@ def test_startup_retrains_when_saved_artifact_is_incompatible(monkeypatch) -> No
 
     assert main.state["training_status"] == "training"
     assert len(created_threads) == 1
+
+
+def test_get_prediction_reads_snapshot_only(monkeypatch) -> None:
+    _reset_state()
+    main.state.update(
+        {
+            "estimator": object(),
+            "model_name": "logistic_regression",
+            "model_version": "v20260806000000",
+            "horizon_days": 5,
+        }
+    )
+
+    monkeypatch.setattr(main, "_load_model_from_disk", lambda: True)
+    monkeypatch.setattr(
+        main.repository,
+        "fetch_latest_stock_row",
+        lambda stock_id: pd.DataFrame([{"stock_id": stock_id, "symbol": "AAPL"}]),
+    )
+    monkeypatch.setattr(
+        main.repository,
+        "fetch_prediction_snapshot",
+        lambda stock_id, model_version: {
+            "stock_id": stock_id,
+            "symbol": "AAPL",
+            "prediction_action": "BUY",
+            "prediction_confidence": 0.84,
+            "prediction_probability_buy": 0.84,
+            "prediction_probability_sell": 0.16,
+            "prediction_confidence_edge": 0.68,
+            "prediction_probability_gap": 0.68,
+            "prediction_conviction_label": "strong",
+            "prediction_reasoning": '["momentum", "volume"]',
+            "prediction_model_version": model_version,
+            "prediction_generated_at": datetime(2026, 8, 6, 0, 0, tzinfo=timezone.utc),
+            "prediction_horizon_days": 5,
+            "prediction_decision_threshold": 0.55,
+        },
+    )
+    monkeypatch.setattr(
+        main.repository,
+        "fetch_model_metrics",
+        lambda _model_version: {
+            "cv_f1": 0.63,
+            "test_f1": 0.61,
+            "test_balanced_accuracy": 0.62,
+            "test_precision": 0.60,
+            "test_recall": 0.64,
+        },
+    )
+    monkeypatch.setattr(main, "predict_action", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("should not run live inference")))
+
+    response = main.get_prediction(stock_id=1)
+
+    assert response.stockId == 1
+    assert response.action == "BUY"
+    assert response.decisionThreshold == 0.55
+    assert response.confidenceEdge == 0.68
+    assert response.probabilityGap == 0.68
+    assert response.modelVersion == "v20260806000000"
+    assert response.reasoning == ["momentum", "volume"]
+
+
+def test_get_prediction_returns_503_when_snapshot_missing(monkeypatch) -> None:
+    _reset_state()
+    main.state.update(
+        {
+            "estimator": object(),
+            "model_name": "logistic_regression",
+            "model_version": "v20260806000000",
+            "horizon_days": 5,
+        }
+    )
+
+    monkeypatch.setattr(main, "_load_model_from_disk", lambda: True)
+    monkeypatch.setattr(
+        main.repository,
+        "fetch_latest_stock_row",
+        lambda stock_id: pd.DataFrame([{"stock_id": stock_id, "symbol": "AAPL"}]),
+    )
+    monkeypatch.setattr(main.repository, "fetch_prediction_snapshot", lambda stock_id, model_version: None)
+
+    try:
+        main.get_prediction(stock_id=1)
+        assert False, "Expected HTTPException"
+    except HTTPException as error:
+        assert error.status_code == 503
+        assert "Prediction snapshot unavailable" in str(error.detail)
 
 

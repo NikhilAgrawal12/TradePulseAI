@@ -52,7 +52,7 @@ def add_week_targets(frame: pd.DataFrame) -> pd.DataFrame:
 
 def test_training_selects_model() -> None:
     frame = add_week_targets(synthetic_frame())
-    bundle = train_and_select_model(frame, horizon_days=5, positive_return_threshold=0.015, neutral_return_band=0.015)
+    bundle = train_and_select_model(frame, horizon_days=5)
 
     assert bundle.estimator is not None
     assert bundle.selected_model in {
@@ -60,9 +60,11 @@ def test_training_selects_model() -> None:
         "random_forest",
         "gradient_boosting",
         "xgboost",
+        "knn",
+        "svm",
     }
     assert bundle.trained_rows > 600
-    assert len(bundle.metrics) >= 4
+    assert len(bundle.metrics) >= 6
     top_metric = bundle.metrics[0]
 
 
@@ -97,27 +99,27 @@ def test_engineered_targets_skip_null_and_flat_rows() -> None:
 
     from app.ml_pipeline import _engineer_features
 
-    engineered = _engineer_features(bundle_input, horizon_days=5, positive_return_threshold=0.015, neutral_return_band=0.015)
+    engineered = _engineer_features(bundle_input)
     assert pd.isna(engineered.iloc[0]["target"])
     assert engineered["target"].notna().any()
 
 
 def test_derive_action_prefers_higher_sell_probability_when_both_clear_threshold() -> None:
-    action, confidence = _derive_action(probability_sell=0.58, probability_buy=0.52, decision_threshold=0.50)
+    action, confidence = _derive_action(probability_sell=0.58, probability_buy=0.52, decision_threshold=0.55)
 
     assert action == "SELL"
     assert confidence == 0.58
 
 
 def test_derive_action_prefers_higher_buy_probability_when_both_clear_threshold() -> None:
-    action, confidence = _derive_action(probability_sell=0.51, probability_buy=0.57, decision_threshold=0.50)
+    action, confidence = _derive_action(probability_sell=0.51, probability_buy=0.57, decision_threshold=0.55)
 
     assert action == "BUY"
     assert confidence == 0.57
 
 
 def test_derive_action_returns_hold_on_exact_tie_above_threshold() -> None:
-    action, confidence = _derive_action(probability_sell=0.55, probability_buy=0.55, decision_threshold=0.50)
+    action, confidence = _derive_action(probability_sell=0.55, probability_buy=0.55, decision_threshold=0.55)
 
     assert action == "HOLD"
     assert confidence == 0.55

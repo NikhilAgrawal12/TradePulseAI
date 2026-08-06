@@ -107,12 +107,9 @@ public class LocalStack extends Stack {
                         Map.entry("ML_DATABASE_URL",  "postgresql+psycopg2://" + DOT_ENV.get("POSTGRES_USER") + ":" + DOT_ENV.get("POSTGRES_PASSWORD") + "@stock-service-db:5432/" + DOT_ENV.get("POSTGRES_DB")),
                         Map.entry("ML_MODEL_PATH",                          "/ml-model/tradepulse_model.joblib"),
                         Map.entry("ML_SERVICE_PORT",                        "4010"),
-                        Map.entry("ML_DEFAULT_DAYS_BACK",                   "730"),
+                        Map.entry("ML_DEFAULT_DAYS_BACK",                   "365"),
                         Map.entry("ML_DEFAULT_HORIZON_DAYS",                "5"),
-                        Map.entry("ML_DEFAULT_POSITIVE_RETURN_THRESHOLD",   "0.015"),
-                        Map.entry("ML_DEFAULT_NEUTRAL_RETURN_BAND",         "0.015"),
                         Map.entry("ML_MAX_TRAINING_STOCKS",                 "100"),
-                        Map.entry("ML_MAX_TRAINING_ROWS",                   "100000"),
                         Map.entry("ML_TRAIN_ON_STARTUP",                    "true"),
                         Map.entry("ML_RETRAIN_INTERVAL_HOURS",              "168")
                 ));

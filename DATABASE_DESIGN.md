@@ -11,6 +11,7 @@ TradePulse uses **database-per-service** ownership. Each main backend service pe
 | Order Service | `order-service-db` | carts, orders, order items |
 | Payment Service | `payment-service-db` | wallets, wallet transactions, payments |
 | Stock Service | `stock-service-db` | stock catalog, OHLC history, metrics, caches |
+| Analytics Service | `analytics-service-db` | analytics replica, ML features, model registry |
 
 This separation is intentional and matches the service boundaries in code.
 
@@ -257,6 +258,7 @@ Constraints and indexes:
 
 Purpose:
 - precomputed stock analytics for insight pages
+- stores cached ML prediction snapshots to avoid repeated per-request inference
 
 Examples of stored fields:
 - week/month/year returns
@@ -267,6 +269,7 @@ Examples of stored fields:
 - Sharpe / Sortino
 - RSI / MACD / momentum
 - golden cross / death cross
+- prediction snapshot fields: `prediction_action`, probabilities/confidence, conviction/reasoning, model version, generated timestamp
 
 ### Additional stock-service cache tables
 
@@ -277,7 +280,47 @@ The live codebase also contains persistent cache entities for:
 
 These support fast startup and live market UX rather than being user-owned transactional data.
 
-## 7. Cross-service identity model
+## 7. Analytics Service schema
+
+### `stocks` (replica)
+
+Purpose:
+- replica of stock identity metadata used by analytics/ML jobs
+
+### `stock_daily_ohlc`
+
+Purpose:
+- analytics-owned OHLC history used as the source for metrics and ML features
+
+### `stock_metrics`
+
+Purpose:
+- latest per-stock computed metrics used by insights and prediction input
+- includes cached prediction outputs (`prediction_*`) for frontend-visible stocks
+
+### `ml_weekly_features`
+
+Purpose:
+- weekly snapshots for top stocks used as model training history
+
+Current training fields:
+- `return_5d`, `return_10d`, `return_20d`
+- `volatility_5d`, `volatility_10d`, `volatility_20d`
+- `sma20_distance`, `sma50_distance`
+- `rsi`, `macd`, `volume_change`, `label`
+
+### `ml_model_registry`
+
+Purpose:
+- selected model metadata and quality metrics by `model_version`
+
+### `ml_model_candidates`
+
+Purpose:
+- ranked candidate models and metrics for each training run/version
+- current candidate families: logistic regression, random forest, gradient boosting, xgboost, knn, svm
+
+## 8. Cross-service identity model
 
 There is no shared relational foreign-key graph across services.
 
@@ -286,7 +329,7 @@ Instead:
 - `stock_id` is the logical stock link between stock, cart, order, watchlist, and portfolio domains
 - integrity across services is enforced in application logic, not cross-database foreign keys
 
-## 8. Indexing strategy summary
+## 9. Indexing strategy summary
 
 Already visible in entity mappings:
 
@@ -296,7 +339,7 @@ Already visible in entity mappings:
 - stock OHLC uniqueness and lookup index for chart/insight access patterns
 - wallet transaction history indexes for descending history reads
 
-## 9. Data design strengths
+## 10. Data design strengths
 
 - service-owned persistence boundaries are clear
 - hot user-path queries have explicit indexes in the JPA models
@@ -304,7 +347,7 @@ Already visible in entity mappings:
 - portfolios use both current-state holdings and event-style transactions
 - wallets use both current balance and transaction ledger
 
-## 10. Next database improvements for a hosted production deployment
+## 11. Next database improvements for a hosted production deployment
 
 Recommended future upgrades:
 

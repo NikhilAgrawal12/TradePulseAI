@@ -169,22 +169,15 @@ Responsibilities:
 - fetches user email metadata from auth-service
 - sends email notifications asynchronously
 
-### ML Service
-
-Responsibilities:
-
-- trains forecasting/classification models from stock-service data
-- serves prediction endpoints consumed by stock-service
-- supports startup and scheduled retraining
-
 ### Analytics Service
 
 Responsibilities today:
 
-- consumes protobuf customer events from Kafka
-- logs received events
-
-It currently acts as the starting point of analytics/event processing.
+- owns analytics storage in `analytics-service-db`
+- syncs stock OHLC history and computes `stock_metrics`
+- snapshots weekly ML features to `ml_weekly_features`
+- trains and serves ML prediction endpoints for stock-service/frontend
+- supports startup + scheduled sync/retraining
 
 ## 4. Key request flows
 

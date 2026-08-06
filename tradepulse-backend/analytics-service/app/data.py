@@ -129,10 +129,32 @@ class StockDataRepository:
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS rsi_14 NUMERIC(8,4)"))
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS macd NUMERIC(12,4)"))
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS macd_signal NUMERIC(12,4)"))
+            # Persist today's ML features in stock_metrics so prediction can run on the latest daily snapshot.
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS return_5d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS return_10d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS return_20d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_10d NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS sma20_distance NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS sma50_distance NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volume_change NUMERIC(12,2)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS label SMALLINT"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_action VARCHAR(10)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_confidence DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_probability_buy DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_probability_sell DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_confidence_edge DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_probability_gap DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_conviction_label VARCHAR(20)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_reasoning TEXT"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_model_version VARCHAR(64)"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_horizon_days INTEGER"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_decision_threshold DOUBLE PRECISION"))
+            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS prediction_generated_at TIMESTAMPTZ"))
             # Drop sma columns from stock_metrics — trendMetrics.sma20/50/200 is read from OHLC history, not from metrics.
             connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_20"))
             connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50"))
             connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200"))
+            connection.execute(text("DROP TABLE IF EXISTS stock_metrics_daily"))
 
             # ── ml_weekly_features (new) ─────────────────────────────────────────
             connection.execute(text("""
@@ -176,6 +198,8 @@ class StockDataRepository:
             connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS macd NUMERIC(12,2)"))
             connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS volume_change NUMERIC(12,2)"))
             connection.execute(text("ALTER TABLE ml_weekly_features ADD COLUMN IF NOT EXISTS label SMALLINT"))
+            connection.execute(text("UPDATE ml_weekly_features SET label = 0 WHERE label IS NULL"))
+            connection.execute(text("ALTER TABLE ml_weekly_features ALTER COLUMN label SET NOT NULL"))
             connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_ml_weekly_features_stock_date ON ml_weekly_features (stock_id, date)"))
 
             connection.execute(
@@ -185,7 +209,6 @@ class StockDataRepository:
                         model_version VARCHAR(64) PRIMARY KEY,
                         model_name VARCHAR(100) NOT NULL,
                         horizon_days INTEGER NOT NULL,
-                        positive_return_threshold DOUBLE PRECISION NOT NULL,
                         decision_threshold DOUBLE PRECISION NOT NULL DEFAULT 0.55,
                         trained_rows INTEGER NOT NULL,
                         cv_f1 DOUBLE PRECISION NOT NULL,
@@ -199,6 +222,8 @@ class StockDataRepository:
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_precision DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS test_recall DOUBLE PRECISION"))
             connection.execute(text("ALTER TABLE ml_model_registry ADD COLUMN IF NOT EXISTS decision_threshold DOUBLE PRECISION DEFAULT 0.55"))
+            connection.execute(text("ALTER TABLE ml_model_registry ALTER COLUMN decision_threshold SET DEFAULT 0.55"))
+            connection.execute(text("ALTER TABLE ml_model_registry DROP COLUMN IF EXISTS positive_return_threshold"))
 
             connection.execute(
                 text(
@@ -296,33 +321,34 @@ class StockDataRepository:
         )
 
     def fetch_latest_stock_row(self, stock_id: int) -> pd.DataFrame:
-        """Fetch only the latest weekly feature row for a stock.
+        """Fetch the latest daily ML feature snapshot for a stock.
 
-        Prediction uses precomputed weekly features from the latest completed week.
+        Prediction uses today's metrics snapshot from stock_metrics.
         """
         query = text(
             """
             SELECT
-                w.stock_id,
+                m.stock_id,
                 s.ticker AS symbol,
                 COALESCE(s.market, 'UNKNOWN') AS market,
-                w.date AS trading_date,
-                w.return_5d,
-                w.return_10d,
-                w.return_20d,
-                w.volatility_5d,
-                w.volatility_10d,
-                w.volatility_20d,
-                w.sma20_distance,
-                w.sma50_distance,
-                w.rsi,
-                w.macd,
-                w.volume_change,
-                w.label
-            FROM ml_weekly_features w
-            JOIN stocks s ON s.stock_id = w.stock_id
-            WHERE w.stock_id = :stock_id
-            ORDER BY w.date DESC
+                m.latest_trading_date AS trading_date,
+                m.return_5d,
+                m.return_10d,
+                m.return_20d,
+                m.volatility_5d,
+                m.volatility_10d,
+                m.volatility_20d,
+                m.sma20_distance,
+                m.sma50_distance,
+                m.rsi_14 AS rsi,
+                m.macd,
+                m.volume_change,
+                m.label
+            FROM stock_metrics m
+            JOIN stocks s ON s.stock_id = m.stock_id
+            WHERE m.stock_id = :stock_id
+              AND m.latest_trading_date IS NOT NULL
+            ORDER BY m.latest_trading_date DESC
             LIMIT 1
             """
         )
@@ -331,6 +357,103 @@ class StockDataRepository:
             self._engine,
             params={"stock_id": stock_id},
         )
+
+    def fetch_prediction_snapshot(self, stock_id: int, model_version: str) -> dict[str, Any] | None:
+        query = text(
+            """
+            SELECT
+                m.stock_id,
+                s.ticker AS symbol,
+                m.prediction_action,
+                m.prediction_confidence,
+                m.prediction_probability_buy,
+                m.prediction_probability_sell,
+                m.prediction_confidence_edge,
+                m.prediction_probability_gap,
+                m.prediction_conviction_label,
+                m.prediction_reasoning,
+                m.prediction_model_version,
+                m.prediction_generated_at,
+                m.prediction_horizon_days,
+                m.prediction_decision_threshold
+            FROM stock_metrics m
+            JOIN stocks s ON s.stock_id = m.stock_id
+            WHERE m.stock_id = :stock_id
+              AND m.prediction_generated_at IS NOT NULL
+              AND m.prediction_model_version = :model_version
+            LIMIT 1
+            """
+        )
+        with self._engine.begin() as connection:
+            row = connection.execute(query, {"stock_id": stock_id, "model_version": model_version}).mappings().first()
+        return dict(row) if row is not None else None
+
+    def fetch_prediction_feature_rows(self) -> pd.DataFrame:
+        query = text(
+            """
+            SELECT
+                m.stock_id,
+                s.ticker AS symbol,
+                COALESCE(s.market, 'UNKNOWN') AS market,
+                m.latest_trading_date AS trading_date,
+                m.return_5d,
+                m.return_10d,
+                m.return_20d,
+                m.volatility_5d,
+                m.volatility_10d,
+                m.volatility_20d,
+                m.sma20_distance,
+                m.sma50_distance,
+                m.rsi_14 AS rsi,
+                m.macd,
+                m.volume_change,
+                m.label
+            FROM stock_metrics m
+            JOIN stocks s ON s.stock_id = m.stock_id
+            WHERE m.latest_trading_date IS NOT NULL
+              AND m.return_5d IS NOT NULL
+              AND m.return_10d IS NOT NULL
+              AND m.return_20d IS NOT NULL
+              AND m.volatility_5d IS NOT NULL
+              AND m.volatility_10d IS NOT NULL
+              AND m.volatility_20d IS NOT NULL
+              AND m.sma20_distance IS NOT NULL
+              AND m.sma50_distance IS NOT NULL
+              AND m.rsi_14 IS NOT NULL
+              AND m.macd IS NOT NULL
+              AND m.volume_change IS NOT NULL
+            ORDER BY m.stock_id
+            """
+        )
+        return pd.read_sql_query(query, self._engine)
+
+    def store_prediction_snapshots(self, rows: list[dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+
+        sql = text(
+            """
+            UPDATE stock_metrics
+            SET
+                prediction_action = :prediction_action,
+                prediction_confidence = :prediction_confidence,
+                prediction_probability_buy = :prediction_probability_buy,
+                prediction_probability_sell = :prediction_probability_sell,
+                prediction_confidence_edge = :prediction_confidence_edge,
+                prediction_probability_gap = :prediction_probability_gap,
+                prediction_conviction_label = :prediction_conviction_label,
+                prediction_reasoning = :prediction_reasoning,
+                prediction_model_version = :prediction_model_version,
+                prediction_horizon_days = :prediction_horizon_days,
+                prediction_decision_threshold = :prediction_decision_threshold,
+                prediction_generated_at = :prediction_generated_at,
+                updated_at = NOW()
+            WHERE stock_id = :stock_id
+            """
+        )
+        with self._engine.begin() as connection:
+            connection.execute(sql, rows)
+        return len(rows)
 
     def fetch_stock_insights_payload(self, stock_id: int, history_days: int = 365 * 3 + 1) -> dict[str, Any] | None:
         stock_query = text(
@@ -552,7 +675,6 @@ class StockDataRepository:
                         model_version,
                         model_name,
                         horizon_days,
-                        positive_return_threshold,
                         decision_threshold,
                          trained_rows,
                          cv_f1,
@@ -566,7 +688,6 @@ class StockDataRepository:
                          :model_version,
                          :model_name,
                          :horizon_days,
-                         :positive_return_threshold,
                          :decision_threshold,
                          :trained_rows,
                          :cv_f1,
@@ -580,7 +701,6 @@ class StockDataRepository:
                      DO UPDATE SET
                          model_name = EXCLUDED.model_name,
                          horizon_days = EXCLUDED.horizon_days,
-                         positive_return_threshold = EXCLUDED.positive_return_threshold,
                          decision_threshold = EXCLUDED.decision_threshold,
                          trained_rows = EXCLUDED.trained_rows,
                          cv_f1 = EXCLUDED.cv_f1,

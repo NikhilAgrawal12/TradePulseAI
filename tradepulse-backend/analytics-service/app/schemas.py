@@ -2,10 +2,8 @@ from pydantic import BaseModel, Field
 
 
 class TrainRequest(BaseModel):
-    days_back: int = Field(default=730, ge=180, le=365 * 10)
+    days_back: int = Field(default=365, ge=180, le=365 * 10)
     horizon_days: int = Field(default=5, ge=1, le=30)
-    positive_return_threshold: float = Field(default=0.015, ge=0.0, le=0.2)
-    neutral_return_band: float = Field(default=0.015, ge=0.0, le=0.2)
 
 
 class ModelMetrics(BaseModel):
@@ -21,8 +19,6 @@ class TrainResponse(BaseModel):
     selected_model: str
     trained_rows: int
     horizon_days: int
-    positive_return_threshold: float
-    neutral_return_band: float
     metrics: list[ModelMetrics]
 
 
@@ -33,6 +29,9 @@ class PredictionResponse(BaseModel):
     confidence: float
     probabilityBuy: float
     probabilitySell: float
+    confidenceEdge: float | None = None
+    probabilityGap: float | None = None
+    decisionThreshold: float | None = None
     horizonDays: int
     modelName: str
     modelVersion: str

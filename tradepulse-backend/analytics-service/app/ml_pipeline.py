@@ -10,28 +10,15 @@ import pandas as pd
 from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.feature_selection import SelectFromModel, SelectKBest, mutual_info_classif
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.svm import SVC
 from xgboost import XGBClassifier
-
-try:
-    from statsmodels.tsa.arima.model import ARIMA  # type: ignore[import-not-found]
-
-    HAS_ARIMA = True
-except Exception:
-    HAS_ARIMA = False
-
-try:
-    import tensorflow as tf  # type: ignore[import-not-found]
-
-    HAS_TENSORFLOW = True
-except Exception:
-    HAS_TENSORFLOW = False
 
 
 NUMERIC_FEATURES = [
@@ -52,9 +39,7 @@ CATEGORICAL_FEATURES: list[str] = []
 ACTION_BUY = "BUY"
 ACTION_SELL = "SELL"
 ACTION_HOLD = "HOLD"
-ACTION_THRESHOLD = 0.50
-FIXED_RETURN_THRESHOLD = 0.01
-LSTM_SEQUENCE_LENGTH = 20
+ACTION_THRESHOLD = 0.55
 
 
 @dataclass
@@ -64,23 +49,14 @@ class TrainedModelBundle:
     selected_model: str
     model_version: str
     horizon_days: int
-    positive_return_threshold: float
-    neutral_return_band: float
     decision_threshold: float
     trained_rows: int
 
 
 def _engineer_features(
     frame: pd.DataFrame,
-    horizon_days: int,
-    positive_return_threshold: float,
-    neutral_return_band: float,
 ) -> pd.DataFrame:
     # Features and label are persisted in ml_weekly_features.
-    _ = positive_return_threshold
-    _ = neutral_return_band
-    _ = horizon_days
-
     data = frame.copy()
     data["trading_date"] = pd.to_datetime(data["trading_date"])
     data = data.sort_values(["stock_id", "trading_date"]).reset_index(drop=True)
@@ -104,7 +80,7 @@ def build_prediction_row(frame: pd.DataFrame) -> pd.DataFrame:
     All model features are pre-stored in the database so no rolling
     computation is needed — just normalise the frame and return it.
     """
-    engineered = _engineer_features(frame, horizon_days=5, positive_return_threshold=0.0, neutral_return_band=0.0)
+    engineered = _engineer_features(frame)
     latest = engineered.sort_values("trading_date").tail(1)
     return latest[NUMERIC_FEATURES + CATEGORICAL_FEATURES + ["stock_id", "symbol", "trading_date"]].copy()
 
@@ -274,215 +250,6 @@ def _compute_trade_policy_metrics(
     }
 
 
-def _build_experimental_benchmarks(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    decision_threshold: float,
-) -> list[dict[str, float | str]]:
-    rows: list[dict[str, float | str]] = []
-
-    if HAS_ARIMA:
-        arima_metric = _evaluate_arima_benchmark(train_df=train_df, test_df=test_df, decision_threshold=decision_threshold)
-        if arima_metric is not None:
-            rows.append(arima_metric)
-
-    if HAS_TENSORFLOW:
-        lstm_metric = _evaluate_lstm_benchmark(train_df=train_df, test_df=test_df, decision_threshold=decision_threshold)
-        if lstm_metric is not None:
-            rows.append(lstm_metric)
-
-    return rows
-
-
-def _evaluate_arima_benchmark(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    decision_threshold: float,
-) -> dict[str, float | str] | None:
-    y_true_parts: list[np.ndarray] = []
-    buy_parts: list[np.ndarray] = []
-
-    for stock_id, train_stock in train_df.groupby("stock_id"):
-        test_stock = test_df[test_df["stock_id"] == stock_id].sort_values("trading_date")
-        if test_stock.empty:
-            continue
-
-        train_series = train_stock.sort_values("trading_date")["return_5d"].dropna().astype(float)
-        if len(train_series) < 60:
-            continue
-
-        try:
-            fit = ARIMA(train_series, order=(2, 0, 1)).fit()
-            forecast = np.asarray(fit.forecast(steps=len(test_stock)), dtype=float)
-        except Exception:
-            continue
-
-        # Convert return forecasts to class probabilities.
-        logits = np.clip(forecast * 20.0, -12.0, 12.0)
-        probability_buy = 1.0 / (1.0 + np.exp(-logits))
-        y_true_parts.append(test_stock["target"].astype(int).to_numpy())
-        buy_parts.append(probability_buy)
-
-    if not y_true_parts:
-        return None
-
-    y_true = np.concatenate(y_true_parts)
-    probability_buy = np.clip(np.concatenate(buy_parts), 0.0, 1.0)
-    probability_sell = 1.0 - probability_buy
-    metrics = _compute_trade_policy_metrics(probability_sell, probability_buy, y_true, decision_threshold)
-    return {
-        "model_name": "arima",
-        "cv_f1": float(metrics["test_f1"]),
-        "test_f1": float(metrics["test_f1"]),
-        "test_balanced_accuracy": float(metrics["test_balanced_accuracy"]),
-        "test_precision": float(metrics["test_precision"]),
-        "test_recall": float(metrics["test_recall"]),
-    }
-
-
-def _evaluate_lstm_benchmark(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    decision_threshold: float,
-) -> dict[str, float | str] | None:
-    if train_df.empty or test_df.empty:
-        return None
-
-    train_core_df, valid_df = _split_train_test_by_date(train_df, train_fraction=0.85)
-    if train_core_df.empty or valid_df.empty:
-        return None
-
-    numeric_core = train_core_df[NUMERIC_FEATURES].copy()
-
-    core_medians = numeric_core.median(numeric_only=True)
-    core_means = numeric_core.fillna(core_medians).mean(numeric_only=True)
-    core_stds = numeric_core.fillna(core_medians).std(numeric_only=True).replace(0, 1.0)
-
-    def _normalize_frame(frame: pd.DataFrame) -> pd.DataFrame:
-        normalized = frame.copy()
-        filled = normalized[NUMERIC_FEATURES].fillna(core_medians)
-        normalized.loc[:, NUMERIC_FEATURES] = ((filled - core_means) / core_stds).astype(np.float32)
-        return normalized
-
-    def _build_sequences(frame: pd.DataFrame, sequence_length: int) -> tuple[np.ndarray, np.ndarray]:
-        sequence_parts: list[np.ndarray] = []
-        target_parts: list[float] = []
-        for _, stock_frame in frame.groupby("stock_id"):
-            ordered = stock_frame.sort_values("trading_date")
-            features = ordered[NUMERIC_FEATURES].to_numpy(dtype=np.float32)
-            targets = ordered["target"].to_numpy(dtype=np.float32)
-            if len(ordered) < sequence_length:
-                continue
-            for end_index in range(sequence_length - 1, len(ordered)):
-                start_index = end_index - sequence_length + 1
-                sequence_parts.append(features[start_index : end_index + 1])
-                target_parts.append(float(targets[end_index]))
-
-        if not sequence_parts:
-            empty_sequences = np.empty((0, sequence_length, len(NUMERIC_FEATURES)), dtype=np.float32)
-            empty_targets = np.empty((0,), dtype=np.float32)
-            return empty_sequences, empty_targets
-
-        return np.stack(sequence_parts), np.asarray(target_parts, dtype=np.float32)
-
-    normalized_core = _normalize_frame(train_core_df)
-    normalized_valid = _normalize_frame(valid_df)
-    normalized_test = _normalize_frame(test_df)
-
-    sequence_length = LSTM_SEQUENCE_LENGTH
-    x_core, y_core = _build_sequences(normalized_core, sequence_length)
-    x_valid, y_valid = _build_sequences(normalized_valid, sequence_length)
-    x_test, y_test = _build_sequences(normalized_test, sequence_length)
-
-    if len(y_core) == 0 or len(y_valid) == 0 or len(y_test) == 0:
-        # Smaller windows can collapse validation/test per-stock history; back off sequence length.
-        for fallback_length in (15, 12, 10, 5):
-            if fallback_length >= sequence_length:
-                continue
-            x_core, y_core = _build_sequences(normalized_core, fallback_length)
-            x_valid, y_valid = _build_sequences(normalized_valid, fallback_length)
-            x_test, y_test = _build_sequences(normalized_test, fallback_length)
-            if len(y_core) > 0 and len(y_valid) > 0 and len(y_test) > 0:
-                sequence_length = fallback_length
-                break
-
-    if len(y_core) == 0 or len(y_valid) == 0 or len(y_test) == 0:
-        return None
-
-    if len(np.unique(y_core)) < 2:
-        return None
-
-    tf.keras.utils.set_random_seed(42)
-    model = tf.keras.Sequential(
-        [
-            tf.keras.layers.Input(shape=(sequence_length, x_core.shape[2])),
-            tf.keras.layers.LSTM(32, dropout=0.2),
-            tf.keras.layers.Dense(16, activation="relu"),
-            tf.keras.layers.Dense(1, activation="sigmoid"),
-        ]
-    )
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss="binary_crossentropy")
-
-    core_counts = np.bincount(y_core.astype(int), minlength=2)
-    class_weight = {
-        0: float(len(y_core) / max(2.0 * core_counts[0], 1.0)),
-        1: float(len(y_core) / max(2.0 * core_counts[1], 1.0)),
-    }
-    callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=2, restore_best_weights=True),
-    ]
-    model.fit(
-        x_core,
-        y_core,
-        validation_data=(x_valid, y_valid.astype(np.float32)),
-        epochs=6,
-        batch_size=256,
-        class_weight=class_weight,
-        shuffle=False,
-        verbose=0,
-        callbacks=callbacks,
-    )
-
-    valid_probability_buy = model.predict(x_valid, verbose=0).reshape(-1)
-    valid_probability_buy = np.clip(valid_probability_buy.astype(float), 0.0, 1.0)
-    valid_probability_sell = 1.0 - valid_probability_buy
-
-    def _threshold_objective(metrics: dict[str, float]) -> tuple[float, float, float, float]:
-        return (
-            float(metrics["test_f1"]),
-            float(metrics["test_balanced_accuracy"]),
-            float(metrics["test_precision"]),
-            float(_score_trade_policy(metrics)),
-        )
-
-    best_threshold = float(decision_threshold)
-    valid_metrics = _compute_trade_policy_metrics(valid_probability_sell, valid_probability_buy, y_valid, best_threshold)
-    best_objective = _threshold_objective(valid_metrics)
-    best_valid_metrics = valid_metrics
-    for threshold in _build_threshold_candidates(pd.Series(y_valid, dtype=int)):
-        candidate_threshold = float(threshold)
-        candidate_metrics = _compute_trade_policy_metrics(valid_probability_sell, valid_probability_buy, y_valid, candidate_threshold)
-        candidate_objective = _threshold_objective(candidate_metrics)
-        if candidate_objective > best_objective:
-            best_objective = candidate_objective
-            best_threshold = candidate_threshold
-            best_valid_metrics = candidate_metrics
-
-    probability_buy = model.predict(x_test, verbose=0).reshape(-1)
-    probability_buy = np.clip(probability_buy.astype(float), 0.0, 1.0)
-    probability_sell = 1.0 - probability_buy
-
-    metrics = _compute_trade_policy_metrics(probability_sell, probability_buy, y_test, best_threshold)
-    return {
-        "model_name": "lstm",
-        "cv_f1": float(best_valid_metrics["test_f1"]),
-        "test_f1": float(metrics["test_f1"]),
-        "test_balanced_accuracy": float(metrics["test_balanced_accuracy"]),
-        "test_precision": float(metrics["test_precision"]),
-        "test_recall": float(metrics["test_recall"]),
-    }
-
-
 def _score_trade_policy(metrics: dict[str, float]) -> float:
     quality_score = (
         float(metrics["test_f1"]) * 0.6
@@ -492,35 +259,12 @@ def _score_trade_policy(metrics: dict[str, float]) -> float:
     return quality_score
 
 
-def _build_threshold_candidates(y_valid: pd.Series) -> list[float]:
-    positive_rate = float(y_valid.mean()) if len(y_valid) else 0.5
-    lower_bound = max(0.35, positive_rate - 0.20)
-    upper_bound = min(0.60, max(lower_bound + 0.15, positive_rate + 0.15))
-    grid = np.linspace(lower_bound, upper_bound, num=11)
-    candidates = {float(round(value, 3)) for value in grid}
-    candidates.update({0.4, 0.45, 0.5, 0.55, 0.6})
-    candidates.add(ACTION_THRESHOLD)
-    return sorted(candidates)
-
 
 def train_and_select_model(
     frame: pd.DataFrame,
     horizon_days: int,
-    positive_return_threshold: float,
-    neutral_return_band: float,
 ) -> TrainedModelBundle:
-    # Keep training labels fixed to +/-1.5% regardless of request payload.
-    _ = positive_return_threshold
-    _ = neutral_return_band
-    positive_return_threshold = FIXED_RETURN_THRESHOLD
-    neutral_return_band = FIXED_RETURN_THRESHOLD
-
-    engineered = _engineer_features(
-        frame,
-        horizon_days=horizon_days,
-        positive_return_threshold=positive_return_threshold,
-        neutral_return_band=neutral_return_band,
-    )
+    engineered = _engineer_features(frame)
     dataset = engineered.dropna(subset=NUMERIC_FEATURES + ["target"]).copy()
     dataset["target"] = dataset["target"].astype(int)
     dataset = dataset.sort_values(["market", "stock_id", "trading_date"]).reset_index(drop=True)
@@ -615,17 +359,41 @@ def train_and_select_model(
                 "model__scale_pos_weight": [xgb_scale_pos_weight],
             },
         ),
+        (
+            "knn",
+            KNeighborsClassifier(),
+            {
+                "model__n_neighbors": [5, 9, 15, 25],
+                "model__weights": ["uniform", "distance"],
+                "model__p": [1, 2],
+                "model__leaf_size": [20, 30, 40],
+            },
+        ),
+        (
+            "svm",
+            SVC(probability=True, random_state=42),
+            {
+                "model__C": [0.1, 0.5, 1.0, 2.0, 5.0],
+                "model__kernel": ["linear", "rbf"],
+                "model__gamma": ["scale", "auto", 0.01, 0.1],
+                "model__class_weight": [None, "balanced"],
+            },
+        ),
     ]
 
-    splitter = TimeSeriesSplit(n_splits=2)
+    splitter = TimeSeriesSplit(n_splits=3)
     evaluations: list[dict[str, float | str | Any]] = []
 
     for model_name, model, params in model_specs:
-        pipeline = _build_logistic_pipeline(model) if model_name == "logistic_regression" else _build_tree_pipeline(model)
+        pipeline = (
+            _build_logistic_pipeline(model)
+            if model_name in {"logistic_regression", "knn", "svm"}
+            else _build_tree_pipeline(model)
+        )
         search = RandomizedSearchCV(
             estimator=pipeline,
             param_distributions=params,
-            n_iter=_max_search_iterations(params, requested_n_iter=4),
+            n_iter=_max_search_iterations(params, requested_n_iter=8),
             cv=splitter,
             n_jobs=1,
             random_state=42,
@@ -665,11 +433,6 @@ def train_and_select_model(
     winner = ranked[0]
 
     model_version = datetime.now(timezone.utc).strftime("v%Y%m%d%H%M%S")
-    experimental_metrics = _build_experimental_benchmarks(
-        train_df=train_df,
-        test_df=test_df,
-        decision_threshold=float(winner["decision_threshold"]),
-    )
     return TrainedModelBundle(
         estimator=winner["estimator"],
         metrics=[
@@ -682,13 +445,10 @@ def train_and_select_model(
                 "test_recall": float(item["test_recall"]),
             }
             for item in ranked
-        ]
-        + experimental_metrics,
+        ],
         selected_model=str(winner["model_name"]),
         model_version=model_version,
         horizon_days=horizon_days,
-        positive_return_threshold=positive_return_threshold,
-        neutral_return_band=neutral_return_band,
         decision_threshold=float(winner["decision_threshold"]),
         trained_rows=len(dataset),
     )
