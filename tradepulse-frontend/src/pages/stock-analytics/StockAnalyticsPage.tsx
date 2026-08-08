@@ -187,19 +187,32 @@ function buildLinePath(data: StockHistoryPoint[], key: keyof StockHistoryPoint, 
   }).filter((v): v is string => v !== null).join(" ");
 }
 
-function ChartCard({ title, children, subtitle }: { title: string; subtitle?: string; children: ReactNode }) {
+function ChartCard({ title, children, subtitle, icon }: { title: string; subtitle?: string; children: ReactNode; icon?: string }) {
   return (
     <section className="analytics-chart-card">
-      <div className="analytics-chart-head"><div><h3>{title}</h3>{subtitle ? <p>{subtitle}</p> : null}</div></div>
+      <div className="analytics-chart-head">
+        <div>
+          <div className="analytics-section-head">
+            {icon && <span className="analytics-section-icon">{icon}</span>}
+            <h3>{title}</h3>
+          </div>
+          {subtitle ? <p>{subtitle}</p> : null}
+        </div>
+      </div>
       {children}
     </section>
   );
 }
 
-function MetricSection({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+type AccentColor = "green" | "blue" | "amber" | "teal" | "red" | "indigo" | "violet";
+
+function MetricSection({ title, subtitle, children, icon, accent }: { title: string; subtitle?: string; children: ReactNode; icon?: string; accent?: AccentColor }) {
   return (
-    <section className="analytics-section-card">
-      <h3>{title}</h3>
+    <section className={`analytics-section-card${accent ? ` analytics-section-card--${accent}` : ""}`}>
+      <div className="analytics-section-head">
+        {icon && <span className="analytics-section-icon">{icon}</span>}
+        <h3>{title}</h3>
+      </div>
       {subtitle && <p className="analytics-section-subtitle">{subtitle}</p>}
       {children}
     </section>
@@ -312,9 +325,7 @@ function MlProbabilityDonut({ buyProbability, sellProbability }: { buyProbabilit
     <div className="ml-probability-wrap">
       <div
         className="ml-probability-donut"
-        style={{
-          background: `conic-gradient(#16a34a 0 ${buyPct}%, #dc2626 ${buyPct}% 100%)`,
-        }}
+        style={{ background: `conic-gradient(#16a34a 0 ${buyPct}%, #dc2626 ${buyPct}% 100%)` }}
       >
         <div className="ml-probability-inner">
           <strong>{buyPct}%</strong>
@@ -339,7 +350,6 @@ function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
         <span>Signal split</span>
         <strong>{prediction.action === "BUY" ? "BUY bias" : prediction.action === "SELL" ? "SELL bias" : "Balanced setup"}</strong>
       </div>
-
       <div className="ml-signal-row">
         <div className="ml-signal-row-head">
           <span>BUY probability</span>
@@ -349,7 +359,6 @@ function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
           <div className="ml-signal-fill buy" style={{ width: `${buyPct}%` }} />
         </div>
       </div>
-
       <div className="ml-signal-row">
         <div className="ml-signal-row-head">
           <span>SELL probability</span>
@@ -359,10 +368,7 @@ function MlSignalBreakdown({ prediction }: { prediction: StockPrediction }) {
           <div className="ml-signal-fill sell" style={{ width: `${sellPct}%` }} />
         </div>
       </div>
-
-      <p className="ml-signal-note">
-        Latest BUY and SELL probabilities for the next trading window.
-      </p>
+      <p className="ml-signal-note">Latest BUY and SELL probabilities for the next trading window.</p>
     </div>
   );
 }
@@ -735,8 +741,7 @@ export function StockAnalyticsPage() {
        return;
      }
 
-     const livePrice = typeof matchedStock.price === "number" ? matchedStock.price : null;
-     const liveChangePercent = typeof matchedStock.changePercent === "number" ? matchedStock.changePercent : null;
+      const livePrice = typeof matchedStock.price === "number" ? matchedStock.price : null;
 
      setAnalytics((prev) => {
        if (!prev) {
@@ -750,6 +755,10 @@ export function StockAnalyticsPage() {
          nextCurrentPrice != null && nextPreviousClose != null
            ? nextCurrentPrice - nextPreviousClose
            : prev.currentPerformance.dailyChange;
+        const nextDailyChangePercent =
+          nextCurrentPrice != null && nextPreviousClose != null && nextPreviousClose !== 0
+            ? ((nextCurrentPrice - nextPreviousClose) / nextPreviousClose) * 100
+            : prev.currentPerformance.dailyChangePercent;
 
        return {
          ...prev,
@@ -759,9 +768,7 @@ export function StockAnalyticsPage() {
            currentPrice: nextCurrentPrice,
            previousClose: nextPreviousClose,
            dailyChange: nextDailyChange,
-           dailyChangePercent: liveChangePercent == null
-             ? prev.currentPerformance.dailyChangePercent
-             : liveChangePercent,
+            dailyChangePercent: nextDailyChangePercent,
          },
        };
      });
@@ -785,6 +792,18 @@ export function StockAnalyticsPage() {
      [analytics?.latestNews],
    );
 
+   const displayDailyChangePercent = useMemo(() => {
+     if (!analytics) {
+       return null;
+     }
+     const current = analytics.currentPerformance.currentPrice;
+     const previous = analytics.currentPerformance.previousClose;
+     if (current == null || previous == null || previous === 0) {
+       return analytics.currentPerformance.dailyChangePercent;
+     }
+     return ((current - previous) / previous) * 100;
+   }, [analytics]);
+
   const summaryTone = (value: number | null | undefined): "positive" | "negative" | undefined => {
     if (value == null) return undefined;
     if (value > 0) return "positive";
@@ -792,29 +811,10 @@ export function StockAnalyticsPage() {
     return undefined;
   };
 
-  const toneClass = (value: number | null | undefined): string => {
-    const tone = summaryTone(value);
-    if (tone === "positive") {
-      return "metric-positive";
-    }
-    if (tone === "negative") {
-      return "metric-negative";
-    }
-    return "";
+  const formatFlag = (value: boolean | null | undefined): string => {
+    if (value == null) return "--";
+    return value ? "Yes" : "No";
   };
-
-  const marketStateLabel = useMemo(() => {
-    if (!analytics?.trendMetrics) {
-      return "--";
-    }
-    if (analytics.trendMetrics.goldenCross) {
-      return "Golden cross active";
-    }
-    if (analytics.trendMetrics.deathCross) {
-      return "Death cross active";
-    }
-    return "Trend neutral";
-  }, [analytics?.trendMetrics]);
 
   return (
     <>
@@ -850,34 +850,86 @@ export function StockAnalyticsPage() {
                     subtitleParts.push(`Updated ${formatDateLabel(analytics.lastUpdated)}`);
                   }
 
+                  const dailyPct = displayDailyChangePercent ?? 0;
+                  const changeClass = dailyPct > 0 ? "hero-change hero-change--positive" : dailyPct < 0 ? "hero-change hero-change--negative" : "hero-change";
+
                   return (
-                <div>
-                  <p className="analytics-eyebrow">Stock Overview Statistics</p>
-                  <h1>{analytics.symbol} · {analytics.name}</h1>
-                  <p className="analytics-subtitle">{subtitleParts.join(" • ")}</p>
-                </div>
+                <>
+                  <div className="analytics-hero-left">
+                    <p className="analytics-eyebrow">Stock Analytics</p>
+                    <h1>{analytics.symbol} <span className="hero-name">· {analytics.name}</span></h1>
+                    <p className="analytics-subtitle">{subtitleParts.join(" • ")}</p>
+                  </div>
+                  <div className="analytics-hero-price">
+                    <strong>{formatMaybeMoney(analytics.currentPerformance.currentPrice)}</strong>
+                    <span className={changeClass}>
+                      {formatMaybeSignedMoney(analytics.currentPerformance.dailyChange)}
+                      <em>{formatMaybePercent(displayDailyChangePercent)}</em>
+                    </span>
+                    <small className="hero-prev-close">Prev close {formatMaybeMoney(analytics.currentPerformance.previousClose)}</small>
+                  </div>
+                </>
                   );
                 })()}
-                <div className="analytics-hero-price">
-                  <strong>{formatMaybeMoney(analytics.currentPerformance.currentPrice)}</strong>
-                  <span className={toneClass(analytics.currentPerformance.dailyChangePercent)}>
-                    {formatMaybeSignedMoney(analytics.currentPerformance.dailyChange)} · {formatMaybePercent(analytics.currentPerformance.dailyChangePercent)}
-                  </span>
-                </div>
               </section>
 
-              <MetricSection title="Current Performance">
+              <MetricSection title="Current Performance" icon="📊">
                 <MetricGrid
                   items={[
                     { label: "Current Price", value: formatMaybeMoney(analytics.currentPerformance.currentPrice) },
                     { label: "Previous Day Close", value: formatMaybeMoney(analytics.currentPerformance.previousClose) },
                     { label: "Daily Change ($)", value: formatMaybeSignedMoney(analytics.currentPerformance.dailyChange), tone: summaryTone(analytics.currentPerformance.dailyChange) },
-                    { label: "Daily Change (%)", value: formatMaybePercent(analytics.currentPerformance.dailyChangePercent), tone: summaryTone(analytics.currentPerformance.dailyChangePercent) },
+                    { label: "Daily Change (%)", value: formatMaybePercent(displayDailyChangePercent), tone: summaryTone(displayDailyChangePercent) },
                   ]}
                 />
               </MetricSection>
 
-              <MetricSection title="Latest News">
+              <section className="analytics-ml-section-card">
+                <div className="analytics-section-head analytics-ml-title-row">
+                  <span className="analytics-section-icon">🤖</span>
+                  <h3>Machine Learning Signal</h3>
+                </div>
+                {prediction ? (
+                  <div className="analytics-ml-grid">
+                    <div className="analytics-ml-primary">
+                      <div className="analytics-ml-action-row">
+                        <span>Action</span>
+                        <strong className={`analytics-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}>
+                          {prediction.action}
+                        </strong>
+                      </div>
+                      <MlSignalBreakdown prediction={prediction} />
+                      <div className="analytics-ml-meta-row">
+                        <span className="analytics-ml-meta-pill">
+                          <small>Confidence</small>
+                          <strong>{formatMaybePercent(prediction.confidence * 100)}</strong>
+                        </span>
+                        <span className="analytics-ml-meta-pill">
+                          <small>Model</small>
+                          <strong>{prediction.modelName}</strong>
+                        </span>
+                        <span className="analytics-ml-meta-pill subtle">
+                          <small>Updated</small>
+                          <strong>{formatDateLabel(prediction.generatedAt)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="analytics-ml-visual">
+                      <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
+                      <div className="analytics-ml-side-grid">
+                        <div className="analytics-ml-side-card">
+                          <span>Conviction</span>
+                          <strong>{convictionTone(prediction.convictionLabel)}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="analytics-state-card error"><p>ML prediction is currently unavailable.</p></div>
+                )}
+              </section>
+
+              <MetricSection title="Latest News" icon="📰">
                 {latestNewsHeadlines.length > 0 ? (
                   <article className="analytics-news-featured-card">
                     <ol className="analytics-news-headline-list">
@@ -886,13 +938,7 @@ export function StockAnalyticsPage() {
                           <span className="analytics-news-rank">{index + 1}</span>
                           <div>
                             {item.url ? (
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="analytics-news-link"
-                                title={item.headline}
-                              >
+                              <a href={item.url} target="_blank" rel="noopener noreferrer" className="analytics-news-link" title={item.headline}>
                                 {item.headline}
                               </a>
                             ) : (
@@ -912,94 +958,77 @@ export function StockAnalyticsPage() {
                 )}
               </MetricSection>
 
-              <section className="analytics-ml-section-card">
-                <div className="analytics-ml-head">
-                  <h3>Machine Learning Signal</h3>
-                  <p>Model summary and confidence for the next trading window.</p>
-                </div>
-
-                {prediction ? (
-                  <div className="analytics-ml-grid">
-                    <div className="analytics-ml-primary">
-                      <div className="analytics-ml-action-row">
-                        <span>Action</span>
-                        <strong
-                          className={`analytics-ml-action-chip ${prediction.action === "BUY" ? "buy" : prediction.action === "SELL" ? "sell" : "hold"}`}
-                        >
-                          {prediction.action}
-                        </strong>
-                      </div>
-                      <MlSignalBreakdown prediction={prediction} />
-                      <div className="analytics-ml-meta-row">
-                        <span className="analytics-ml-meta-pill">
-                          <small>Horizon</small>
-                          <strong>{prediction.horizonDays} trading days</strong>
-                        </span>
-                        <span className="analytics-ml-meta-pill">
-                          <small>Model</small>
-                          <strong>{prediction.modelName}</strong>
-                        </span>
-                        <span className="analytics-ml-meta-pill subtle">
-                          <small>Updated</small>
-                          <strong>{formatDateLabel(prediction.generatedAt)}</strong>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="analytics-ml-visual">
-                      <MlProbabilityDonut buyProbability={prediction.probabilityBuy} sellProbability={prediction.probabilitySell} />
-                      <div className="analytics-ml-side-grid">
-                        <div className="analytics-ml-side-card">
-                          <span>Action</span>
-                          <strong>{prediction.action}</strong>
-                        </div>
-                        <div className="analytics-ml-side-card">
-                          <span>Conviction</span>
-                          <strong>{convictionTone(prediction.convictionLabel)}</strong>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="analytics-state-card error"><p>ML prediction is currently unavailable.</p></div>
-                )}
-              </section>
-
-              <MetricSection title="52-Week Metrics">
+              <MetricSection title="52-Week Range" icon="📉" accent="indigo">
                 <MetricGrid
                   items={[
                     { label: "52-Week High", value: formatMaybeMoney(analytics.metrics52Week.high52Week) },
                     { label: "52-Week Low", value: formatMaybeMoney(analytics.metrics52Week.low52Week) },
-                    { label: "Distance from 52-Week High", value: formatMaybePercent(analytics.metrics52Week.distanceFromHighPercent), tone: summaryTone(analytics.metrics52Week.distanceFromHighPercent) },
-                    { label: "Distance from 52-Week Low", value: formatMaybePercent(analytics.metrics52Week.distanceFromLowPercent), tone: summaryTone(analytics.metrics52Week.distanceFromLowPercent) },
+                    { label: "Distance from High", value: formatMaybePercent(analytics.metrics52Week.distanceFromHighPercent), tone: summaryTone(analytics.metrics52Week.distanceFromHighPercent) },
+                    { label: "Distance from Low", value: formatMaybePercent(analytics.metrics52Week.distanceFromLowPercent), tone: summaryTone(analytics.metrics52Week.distanceFromLowPercent) },
                   ]}
                 />
               </MetricSection>
 
-              <MetricSection title="Returns">
+              <MetricSection title="Returns" icon="📈" accent="green">
                 <MetricGrid
                   items={[
-                    { label: "1 Week Return", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
-                    { label: "1 Month Return", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
-                    { label: "3 Month Return", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
-                    { label: "6 Month Return", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
-                    { label: "1 Year Return", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
-                    { label: "3 Year Return", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
+                    { label: "1 Week", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
+                    { label: "1 Month", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
+                    { label: "3 Months", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
+                    { label: "6 Months", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
+                    { label: "1 Year", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
+                    { label: "3 Years", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
                   ]}
                 />
               </MetricSection>
 
-              <MetricSection title="Volume Metrics">
+              <MetricSection title="Volume" icon="📦" accent="blue">
                 <MetricGrid
                   items={[
-                    { label: "Volume As Of", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
-                    { label: "Latest Trading Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
-                    { label: "Average 30-Day Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
+                    { label: "As Of Date", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
+                    { label: "Latest Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
+                    { label: "30-Day Avg Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
                     { label: "Relative Volume", value: formatMaybeRatio(analytics.volumeMetrics.relativeVolume) },
                   ]}
                 />
               </MetricSection>
 
-              <MetricSection title="Volatility">
+              <ChartCard title="Price History" subtitle="Closing price movement over selected period" icon="📈">
+                <section className="analytics-range-row" aria-label="Price history range selector">
+                  {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${selectedRange === range ? "active" : ""}`} onClick={() => setSelectedRange(range)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
+                <MultiLineChart data={rangeHistory} lines={[{ key: "close", label: "Price", color: "#7c3aed" }]} valueFormatter={(value) => formatMoney(value)} />
+              </ChartCard>
+
+              <ChartCard title="Candlestick Chart" subtitle="Open / High / Low / Close per trading day" icon="🕯️">
+                <section className="analytics-range-row" aria-label="Candlestick range selector">
+                  {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${candlestickRange === range ? "active" : ""}`} onClick={() => setCandlestickRange(range as RangeKey)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
+                <CandlestickChart data={candlestickHistory} />
+                <CandlestickLegend />
+              </ChartCard>
+
+              <ChartCard title="Volume Chart" subtitle="Daily trading volume coloured by price direction" icon="📊">
+                <section className="analytics-range-row" aria-label="Volume range selector">
+                  {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${volumeRange === range ? "active" : ""}`} onClick={() => setVolumeRange(range as RangeKey)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
+                <VolumeChart data={volumeHistory} />
+                <VolumeLegend />
+              </ChartCard>
+
+              <MetricSection title="Volatility" icon="⚡" accent="amber">
                 <MetricGrid
                   items={[
                     { label: "5-Day Volatility", value: formatMaybePercent(analytics.volatilityMetrics.volatility5Day) },
@@ -1011,42 +1040,7 @@ export function StockAnalyticsPage() {
                 />
               </MetricSection>
 
-               <ChartCard title="Price History" subtitle="Line chart showing price movement over time">
-                 <section className="analytics-range-row" aria-label="Price history range selector">
-                   {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
-                     <button key={range} type="button" className={`range-pill ${selectedRange === range ? "active" : ""}`} onClick={() => setSelectedRange(range)}>
-                       {range}
-                     </button>
-                   ))}
-                 </section>
-                 <MultiLineChart data={rangeHistory} lines={[{ key: "close", label: "Price", color: "#7c3aed" }]} valueFormatter={(value) => formatMoney(value)} />
-               </ChartCard>
-
-               <ChartCard title="Candlestick Chart">
-                 <section className="analytics-range-row" aria-label="Candlestick range selector">
-                   {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
-                     <button key={range} type="button" className={`range-pill ${candlestickRange === range ? "active" : ""}`} onClick={() => setCandlestickRange(range as RangeKey)}>
-                       {range}
-                     </button>
-                   ))}
-                 </section>
-                 <CandlestickChart data={candlestickHistory} />
-                 <CandlestickLegend />
-               </ChartCard>
-
-               <ChartCard title="Volume Chart">
-                 <section className="analytics-range-row" aria-label="Volume range selector">
-                   {(["1M", "3M", "6M", "1Y"] as const).map((range) => (
-                     <button key={range} type="button" className={`range-pill ${volumeRange === range ? "active" : ""}`} onClick={() => setVolumeRange(range as RangeKey)}>
-                       {range}
-                     </button>
-                   ))}
-                 </section>
-                 <VolumeChart data={volumeHistory} />
-                 <VolumeLegend />
-               </ChartCard>
-
-              <ChartCard title="Moving Averages" subtitle="20, 50, and 200 day SMAs">
+              <ChartCard title="Moving Averages" subtitle="20, 50 and 200 day simple moving averages" icon="〰️">
                 <section className="analytics-range-row" aria-label="Moving averages range selector">
                   {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${movingAverageRange === range ? "active" : ""}`} onClick={() => setMovingAverageRange(range)}>
@@ -1065,7 +1059,19 @@ export function StockAnalyticsPage() {
                 />
               </ChartCard>
 
-              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 20-day, 60-day, and 90-day windows">
+              <MetricSection title="Trend" icon="📐" accent="teal">
+                <MetricGrid
+                  items={[
+                    { label: "20-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma20) },
+                    { label: "50-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma50) },
+                    { label: "200-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma200) },
+                    { label: "Golden Cross", value: formatFlag(analytics.trendMetrics.goldenCross) },
+                    { label: "Death Cross", value: formatFlag(analytics.trendMetrics.deathCross) },
+                  ]}
+                />
+              </MetricSection>
+
+              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 20, 60 and 90-day windows" icon="🌊">
                 <section className="analytics-range-row" aria-label="Rolling volatility range selector">
                   {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
                     <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
@@ -1084,11 +1090,21 @@ export function StockAnalyticsPage() {
                 />
               </ChartCard>
 
-              <MetricSection title="Performance Distribution" subtitle="Based on last 1 year of trading data">
+              <MetricSection title="Momentum" icon="💹" accent="indigo">
                 <MetricGrid
                   items={[
-                    { label: "Positive Days", value: analytics.performanceDistribution.positiveDays.toString() },
-                    { label: "Negative Days", value: analytics.performanceDistribution.negativeDays.toString() },
+                    { label: "RSI (14)", value: formatMaybePlain(analytics.momentumMetrics.rsi14) },
+                    { label: "MACD", value: formatMaybePlain(analytics.momentumMetrics.macd), tone: summaryTone(analytics.momentumMetrics.macd) },
+                    { label: "MACD Signal", value: formatMaybePlain(analytics.momentumMetrics.macdSignal), tone: summaryTone(analytics.momentumMetrics.macdSignal) },
+                  ]}
+                />
+              </MetricSection>
+
+              <MetricSection title="Performance Distribution" icon="🎯" subtitle="Based on last 1 year of trading data" accent="violet">
+                <MetricGrid
+                  items={[
+                    { label: "Positive Days", value: analytics.performanceDistribution.positiveDays.toString(), tone: "positive" },
+                    { label: "Negative Days", value: analytics.performanceDistribution.negativeDays.toString(), tone: "negative" },
                     { label: "Flat Days", value: analytics.performanceDistribution.flatDays.toString() },
                   ]}
                 />
@@ -1099,30 +1115,18 @@ export function StockAnalyticsPage() {
                 />
               </MetricSection>
 
-              <MetricSection title="Monthly Returns Heatmap">
+              <MetricSection title="Monthly Returns Heatmap" icon="🔥" subtitle="Month-by-month return percentage across all tracked years">
                 <MonthlyReturnsHeatmap cells={analytics.monthlyReturnsHeatmap} />
               </MetricSection>
 
-              <MetricSection title="Drawdown Analysis">
-                <MetricGrid
-                  items={[
-                    { label: "Maximum Drawdown", value: formatMaybePercent(analytics.drawdownAnalysis.maxDrawdown), tone: "negative" },
-                    { label: "Peak Date", value: formatDateLabel(analytics.drawdownAnalysis.peakDate) },
-                    { label: "Trough Date", value: formatDateLabel(analytics.drawdownAnalysis.troughDate) },
-                  ]}
-                />
-              </MetricSection>
-
-
-              <MetricSection title="Advanced Metrics">
+              <MetricSection title="Risk & Drawdown" icon="🛡️" accent="red">
                 <MetricGrid
                   items={[
                     { label: "Sharpe Ratio", value: formatMaybePlain(analytics.riskMetrics.sharpeRatio), tone: summaryTone(analytics.riskMetrics.sharpeRatio) },
                     { label: "Sortino Ratio", value: formatMaybePlain(analytics.riskMetrics.sortinoRatio), tone: summaryTone(analytics.riskMetrics.sortinoRatio) },
-                    { label: "Trend State", value: marketStateLabel },
-                    { label: "RSI (14)", value: formatMaybePlain(analytics.momentumMetrics.rsi14) },
-                    { label: "MACD", value: formatMaybePlain(analytics.momentumMetrics.macd), tone: summaryTone(analytics.momentumMetrics.macd) },
-                    { label: "MACD Signal", value: formatMaybePlain(analytics.momentumMetrics.macdSignal), tone: summaryTone(analytics.momentumMetrics.macdSignal) },
+                    { label: "Maximum Drawdown", value: formatMaybePercent(analytics.drawdownAnalysis.maxDrawdown), tone: "negative" },
+                    { label: "Peak Date", value: formatDateLabel(analytics.drawdownAnalysis.peakDate) },
+                    { label: "Trough Date", value: formatDateLabel(analytics.drawdownAnalysis.troughDate) },
                   ]}
                 />
               </MetricSection>

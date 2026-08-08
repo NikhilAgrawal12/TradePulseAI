@@ -534,9 +534,6 @@ class AnalyticsSyncService:
                     F.col("ret_252d").alias("year_return"),
                     F.col("ret_756d").alias("three_year_return"),
                     "volatility_5d",
-                    "volatility_20d",
-                    "volatility_60d",
-                    "volatility_90d",
                     "volatility_120d",
                     "return_5d",
                     "return_10d",
@@ -619,9 +616,6 @@ class AnalyticsSyncService:
                 year_return,
                 three_year_return,
                 volatility_5d,
-                volatility_20d,
-                volatility_60d,
-                volatility_90d,
                 volatility_120d,
                 return_5d,
                 return_10d,
@@ -664,9 +658,6 @@ class AnalyticsSyncService:
                 :year_return,
                 :three_year_return,
                 :volatility_5d,
-                :volatility_20d,
-                :volatility_60d,
-                :volatility_90d,
                 :volatility_120d,
                 :return_5d,
                 :return_10d,
@@ -710,9 +701,6 @@ class AnalyticsSyncService:
                 year_return = EXCLUDED.year_return,
                 three_year_return = EXCLUDED.three_year_return,
                 volatility_5d = EXCLUDED.volatility_5d,
-                volatility_20d = EXCLUDED.volatility_20d,
-                volatility_60d = EXCLUDED.volatility_60d,
-                volatility_90d = EXCLUDED.volatility_90d,
                 volatility_120d = EXCLUDED.volatility_120d,
                 return_5d = EXCLUDED.return_5d,
                 return_10d = EXCLUDED.return_10d,
@@ -907,6 +895,17 @@ class AnalyticsSyncService:
                 ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
                 LIMIT 50
             ),
+            latest_ohlc AS (
+                SELECT o.stock_id, o.trading_date, o.volatility_20d
+                FROM stock_daily_ohlc o
+                JOIN (
+                    SELECT stock_id, MAX(trading_date) AS latest_trading_date
+                    FROM stock_daily_ohlc
+                    GROUP BY stock_id
+                ) mx
+                  ON mx.stock_id = o.stock_id
+                 AND mx.latest_trading_date = o.trading_date
+            ),
             inserted AS (
                 INSERT INTO ml_weekly_features (
                     stock_id,
@@ -933,7 +932,7 @@ class AnalyticsSyncService:
                     m.return_20d,
                     m.volatility_5d,
                     m.volatility_10d,
-                    m.volatility_20d,
+                    o.volatility_20d,
                     m.sma20_distance,
                     m.sma50_distance,
                     m.rsi_14,
@@ -943,13 +942,16 @@ class AnalyticsSyncService:
                     NOW()
                 FROM stock_metrics m
                 JOIN ranked_stocks rs ON rs.stock_id = m.stock_id
+                JOIN latest_ohlc o
+                  ON o.stock_id = m.stock_id
+                 AND o.trading_date = m.latest_trading_date
                 WHERE m.latest_trading_date IS NOT NULL
                   AND m.return_5d IS NOT NULL
                   AND m.return_10d IS NOT NULL
                   AND m.return_20d IS NOT NULL
                   AND m.volatility_5d IS NOT NULL
                   AND m.volatility_10d IS NOT NULL
-                  AND m.volatility_20d IS NOT NULL
+                  AND o.volatility_20d IS NOT NULL
                   AND m.sma20_distance IS NOT NULL
                   AND m.sma50_distance IS NOT NULL
                   AND m.rsi_14 IS NOT NULL

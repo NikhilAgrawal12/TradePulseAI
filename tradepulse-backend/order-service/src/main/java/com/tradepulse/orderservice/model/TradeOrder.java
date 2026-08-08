@@ -39,8 +39,6 @@ public class TradeOrder {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "subtotal", nullable = false, precision = 18, scale = 2)
-    private BigDecimal subtotal;
 
     @Column(name = "total", nullable = false, precision = 18, scale = 2)
     private BigDecimal total;

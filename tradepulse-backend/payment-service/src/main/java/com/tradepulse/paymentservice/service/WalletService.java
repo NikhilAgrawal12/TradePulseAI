@@ -55,11 +55,6 @@ public class WalletService {
 
     @Transactional
     public Wallet deposit(Long userId, BigDecimal amount) {
-        return deposit(userId, null, null, amount);
-    }
-
-    @Transactional
-    public Wallet deposit(Long userId, String firstName, String lastName, BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Deposit amount must be greater than zero.");
         }
@@ -73,23 +68,14 @@ public class WalletService {
         String transactionId = recordTransaction(wallet.getWalletId(), TYPE_DEPOSIT, scaled, newBalance);
         log.info("Deposited {} to walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
 
-        publishAfterCommit(() -> {
-            if (firstName != null || lastName != null) {
-                notificationKafkaProducer.publishWalletDeposit(userId, firstName, lastName, transactionId, scaled, newBalance);
-            } else {
-                notificationKafkaProducer.publishWalletDeposit(userId, transactionId, scaled, newBalance);
-            }
-        });
+        publishAfterCommit(() ->
+            notificationKafkaProducer.publishWalletDeposit(userId, transactionId, scaled, newBalance)
+        );
         return wallet;
     }
 
     @Transactional
     public Wallet withdraw(Long userId, BigDecimal amount) {
-        return withdraw(userId, null, null, amount);
-    }
-
-    @Transactional
-    public Wallet withdraw(Long userId, String firstName, String lastName, BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Withdrawal amount must be greater than zero.");
         }
@@ -108,13 +94,9 @@ public class WalletService {
         String transactionId = recordTransaction(wallet.getWalletId(), TYPE_WITHDRAWAL, scaled, newBalance);
         log.info("Withdrew {} from walletId={}, newBalance={}", scaled, wallet.getWalletId(), newBalance);
 
-        publishAfterCommit(() -> {
-            if (firstName != null || lastName != null) {
-                notificationKafkaProducer.publishWalletWithdrawal(userId, firstName, lastName, transactionId, scaled, newBalance);
-            } else {
-                notificationKafkaProducer.publishWalletWithdrawal(userId, transactionId, scaled, newBalance);
-            }
-        });
+        publishAfterCommit(() ->
+            notificationKafkaProducer.publishWalletWithdrawal(userId, transactionId, scaled, newBalance)
+        );
         return wallet;
     }
 

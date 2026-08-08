@@ -256,7 +256,7 @@ public class CartService {
                 })
                 .toList();
 
-        BigDecimal recalculatedSubtotal = OrderItemMapper.scaleMoney(
+        BigDecimal recalculatedTotal = OrderItemMapper.scaleMoney(
                 lockedItems.stream()
                         .map(item -> item.getPrice().multiply(item.getQuantity()))
                         .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -264,7 +264,7 @@ public class CartService {
 
         CompleteOrderRequestDTO lockedRequest = new CompleteOrderRequestDTO();
         lockedRequest.setItems(lockedItems);
-        lockedRequest.setTotal(recalculatedSubtotal);
+        lockedRequest.setTotal(recalculatedTotal);
         return lockedRequest;
     }
 

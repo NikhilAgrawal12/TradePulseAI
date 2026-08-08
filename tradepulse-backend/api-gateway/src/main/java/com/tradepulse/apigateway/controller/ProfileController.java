@@ -96,7 +96,6 @@ public class ProfileController {
     private ProfileResponse mergeProfile(CustomerProfileResponse customerProfile, CredentialsResponse credentials) {
         return new ProfileResponse(
                 customerProfile.userId() != null ? customerProfile.userId() : credentials.userId(),
-                customerProfile.customerId(),
                 customerProfile.firstName(),
                 customerProfile.lastName(),
                 credentials.email(),
@@ -121,7 +120,6 @@ public class ProfileController {
 
     private record CustomerProfileResponse(
             Long userId,
-            Long customerId,
             String firstName,
             String lastName,
             String email,
@@ -141,7 +139,6 @@ public class ProfileController {
 
     private record ProfileResponse(
             Long userId,
-            Long customerId,
             String firstName,
             String lastName,
             String email,

@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS portfolio_holdings
     CONSTRAINT pk_portfolio_holdings PRIMARY KEY (user_id, stock_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_portfolio_holdings_user_id ON portfolio_holdings (user_id);
+-- Drop redundant index: pk_portfolio_holdings on (user_id, stock_id) — user_id is leading column — covers plain user_id lookups.
+DROP INDEX IF EXISTS idx_portfolio_holdings_user_id;
+
 
 CREATE TABLE IF NOT EXISTS portfolio_transactions
 (

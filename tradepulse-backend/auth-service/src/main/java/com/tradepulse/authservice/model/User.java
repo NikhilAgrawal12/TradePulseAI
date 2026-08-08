@@ -20,12 +20,6 @@ public class User {
     @Column(name = "role", length = 50, nullable = false)
     private String role;
 
-    @Column(name = "first_name", length = 100)
-    private String firstName;
-
-    @Column(name = "last_name", length = 100)
-    private String lastName;
-
     public Long getUserId() {
         return userId;
     }
@@ -58,19 +52,4 @@ public class User {
         this.role = role;
     }
 
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
 }

@@ -20,7 +20,6 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "stocks", indexes = {
     @Index(name = "idx_stock_active", columnList = "active"),
-    @Index(name = "idx_stock_featured_sort", columnList = "is_featured, sort_order"),
     @Index(name = "idx_stock_exchange_id", columnList = "exchange_id")
 })
 public class Stock {
@@ -70,12 +69,6 @@ public class Stock {
     @Column(name = "market_cap", precision = 22, scale = 2)
     private BigDecimal marketCap;
 
-    @Column(name = "is_featured", nullable = false, columnDefinition = "boolean not null default false")
-    private Boolean featured = false;
-
-    @Column(name = "sort_order")
-    private Integer sortOrder;
-
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
@@ -85,9 +78,6 @@ public class Stock {
         this.updatedAt = Instant.now();
         if (this.active == null) {
             this.active = true;
-        }
-        if (this.featured == null) {
-            this.featured = false;
         }
     }
 
@@ -205,21 +195,5 @@ public class Stock {
 
     public Instant getUpdatedAt() {
         return updatedAt;
-    }
-
-    public Boolean getFeatured() {
-        return featured;
-    }
-
-    public void setFeatured(Boolean featured) {
-        this.featured = featured;
-    }
-
-    public Integer getSortOrder() {
-        return sortOrder;
-    }
-
-    public void setSortOrder(Integer sortOrder) {
-        this.sortOrder = sortOrder;
     }
 }

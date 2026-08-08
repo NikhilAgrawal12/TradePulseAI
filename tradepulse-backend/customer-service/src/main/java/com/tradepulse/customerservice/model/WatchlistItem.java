@@ -3,16 +3,13 @@ package com.tradepulse.customerservice.model;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
 
 @Entity
-@Table(name = "watchlist_items", indexes = {
-    @Index(name = "idx_watchlist_items_user_id", columnList = "user_id")
-})
+@Table(name = "watchlist_items")
 public class WatchlistItem {
 
     @EmbeddedId

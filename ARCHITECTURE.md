@@ -174,7 +174,7 @@ Responsibilities:
 Responsibilities today:
 
 - owns analytics storage in `analytics-service-db`
-- syncs stock OHLC history and computes `stock_metrics`
+- syncs stock OHLC history and computes `stock_metrics` from OHLC-derived features
 - snapshots weekly ML features to `ml_weekly_features`
 - trains and serves ML prediction endpoints for stock-service/frontend
 - supports startup + scheduled sync/retraining

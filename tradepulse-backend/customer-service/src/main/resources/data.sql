@@ -11,11 +11,10 @@ CREATE TABLE IF NOT EXISTS watchlist_items
 ALTER TABLE IF EXISTS watchlist_items DROP COLUMN IF EXISTS quantity;
 ALTER TABLE IF EXISTS watchlist_items DROP COLUMN IF EXISTS updated_at;
 
--- Create customer table with customer_id as PK and user_id as UNIQUE reference to auth-service
+-- Create customer table with user_id as PK (same identity as auth-service users.user_id)
 CREATE TABLE IF NOT EXISTS customer
 (
-    customer_id       BIGSERIAL    PRIMARY KEY,
-    user_id           BIGINT       NOT NULL UNIQUE,
+    user_id           BIGINT       NOT NULL PRIMARY KEY,
     first_name        VARCHAR(100) NOT NULL,
     last_name         VARCHAR(100) NOT NULL,
     phone_number      VARCHAR(50)  NOT NULL,
@@ -29,19 +28,13 @@ CREATE TABLE IF NOT EXISTS customer
     registration_date TIMESTAMP    NOT NULL
 );
 
--- Migration for existing deployments: add customer_id PK, demote user_id to UNIQUE
-CREATE SEQUENCE IF NOT EXISTS customer_customer_id_seq;
+-- Drop redundant indexes: customer_pkey already indexes user_id; pk_watchlist_items leading column covers user_id lookups.
+DROP INDEX IF EXISTS idx_customer_user_id;
+DROP INDEX IF EXISTS idx_watchlist_items_user_id;
 
-ALTER TABLE IF EXISTS customer
-    ADD COLUMN IF NOT EXISTS customer_id BIGINT DEFAULT nextval('customer_customer_id_seq');
-
-UPDATE customer SET customer_id = nextval('customer_customer_id_seq') WHERE customer_id IS NULL;
-
+-- Migration: promote user_id to PK and remove legacy customer_id column
 ALTER TABLE IF EXISTS customer DROP CONSTRAINT IF EXISTS customer_pkey;
 ALTER TABLE IF EXISTS customer DROP CONSTRAINT IF EXISTS customer_user_id_key;
-
-ALTER TABLE IF EXISTS customer ALTER COLUMN customer_id SET NOT NULL;
-ALTER TABLE IF EXISTS customer ALTER COLUMN user_id SET NOT NULL;
-
-ALTER TABLE IF EXISTS customer ADD CONSTRAINT customer_pkey PRIMARY KEY (customer_id);
-ALTER TABLE IF EXISTS customer ADD CONSTRAINT customer_user_id_key UNIQUE (user_id);
+ALTER TABLE IF EXISTS customer ADD CONSTRAINT customer_pkey PRIMARY KEY (user_id);
+ALTER TABLE IF EXISTS customer DROP COLUMN IF EXISTS customer_id;
+DROP SEQUENCE IF EXISTS customer_customer_id_seq;

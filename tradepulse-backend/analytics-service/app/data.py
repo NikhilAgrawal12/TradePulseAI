@@ -74,10 +74,8 @@ class StockDataRepository:
             connection.execute(text("ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_60d NUMERIC(12,2)"))
             connection.execute(text("ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12,2)"))
             connection.execute(text("ALTER TABLE stock_daily_ohlc ADD COLUMN IF NOT EXISTS return_1d NUMERIC(12,2)"))
-            connection.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_ohlc_stock_date
-                    ON stock_daily_ohlc (stock_id, trading_date)
-            """))
+            # idx_ohlc_stock_date omitted: stock_daily_ohlc_stock_id_trading_date_key unique constraint already indexes (stock_id, trading_date).
+            connection.execute(text("DROP INDEX IF EXISTS idx_ohlc_stock_date"))
 
             # ── stock_metrics (migrated from stock-service-db) ──────────────────
             connection.execute(text("""
@@ -90,9 +88,6 @@ class StockDataRepository:
                     year_return               NUMERIC(12,2),
                     three_year_return         NUMERIC(12,2),
                     volatility_5d             NUMERIC(12,2),
-                    volatility_20d            NUMERIC(12,2),
-                    volatility_60d            NUMERIC(12,2),
-                    volatility_90d            NUMERIC(12,2),
                     volatility_120d           NUMERIC(12,2),
                     high_52w                  NUMERIC(12,2),
                     low_52w                   NUMERIC(12,2),
@@ -121,9 +116,6 @@ class StockDataRepository:
                 )
             """))
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_5d NUMERIC(12,2)"))
-            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_20d NUMERIC(12,2)"))
-            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_60d NUMERIC(12,2)"))
-            connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_90d NUMERIC(12,2)"))
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS volatility_120d NUMERIC(12,2)"))
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS latest_news TEXT"))
             connection.execute(text("ALTER TABLE stock_metrics ADD COLUMN IF NOT EXISTS rsi_14 NUMERIC(8,4)"))
@@ -154,6 +146,10 @@ class StockDataRepository:
             connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_20"))
             connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_50"))
             connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS sma_200"))
+            # Overlapping volatility columns are sourced from stock_daily_ohlc.
+            connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_20d"))
+            connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_60d"))
+            connection.execute(text("ALTER TABLE stock_metrics DROP COLUMN IF EXISTS volatility_90d"))
             connection.execute(text("DROP TABLE IF EXISTS stock_metrics_daily"))
 
             # ── ml_weekly_features (new) ─────────────────────────────────────────
@@ -331,13 +327,13 @@ class StockDataRepository:
                 m.stock_id,
                 s.ticker AS symbol,
                 COALESCE(s.market, 'UNKNOWN') AS market,
-                m.latest_trading_date AS trading_date,
+                COALESCE(o.trading_date, m.latest_trading_date) AS trading_date,
                 m.return_5d,
                 m.return_10d,
                 m.return_20d,
                 m.volatility_5d,
                 m.volatility_10d,
-                m.volatility_20d,
+                o.volatility_20d,
                 m.sma20_distance,
                 m.sma50_distance,
                 m.rsi_14 AS rsi,
@@ -346,6 +342,9 @@ class StockDataRepository:
                 m.label
             FROM stock_metrics m
             JOIN stocks s ON s.stock_id = m.stock_id
+            LEFT JOIN stock_daily_ohlc o
+              ON o.stock_id = m.stock_id
+             AND o.trading_date = m.latest_trading_date
             WHERE m.stock_id = :stock_id
               AND m.latest_trading_date IS NOT NULL
             ORDER BY m.latest_trading_date DESC
@@ -395,13 +394,13 @@ class StockDataRepository:
                 m.stock_id,
                 s.ticker AS symbol,
                 COALESCE(s.market, 'UNKNOWN') AS market,
-                m.latest_trading_date AS trading_date,
+                COALESCE(o.trading_date, m.latest_trading_date) AS trading_date,
                 m.return_5d,
                 m.return_10d,
                 m.return_20d,
                 m.volatility_5d,
                 m.volatility_10d,
-                m.volatility_20d,
+                o.volatility_20d,
                 m.sma20_distance,
                 m.sma50_distance,
                 m.rsi_14 AS rsi,
@@ -410,6 +409,9 @@ class StockDataRepository:
                 m.label
             FROM stock_metrics m
             JOIN stocks s ON s.stock_id = m.stock_id
+            LEFT JOIN stock_daily_ohlc o
+              ON o.stock_id = m.stock_id
+             AND o.trading_date = m.latest_trading_date
             WHERE m.latest_trading_date IS NOT NULL
             ORDER BY m.stock_id
             """
@@ -422,20 +424,23 @@ class StockDataRepository:
             SELECT
                 COUNT(*) AS total_rows,
                 COUNT(*) FILTER (
-                    WHERE latest_trading_date IS NULL
-                       OR return_5d IS NULL
-                       OR return_10d IS NULL
-                       OR return_20d IS NULL
-                       OR volatility_5d IS NULL
-                       OR volatility_10d IS NULL
-                       OR volatility_20d IS NULL
-                       OR sma20_distance IS NULL
-                       OR sma50_distance IS NULL
-                       OR rsi_14 IS NULL
-                       OR macd IS NULL
-                       OR volume_change IS NULL
+                    WHERE m.latest_trading_date IS NULL
+                       OR m.return_5d IS NULL
+                       OR m.return_10d IS NULL
+                       OR m.return_20d IS NULL
+                       OR m.volatility_5d IS NULL
+                       OR m.volatility_10d IS NULL
+                       OR o.volatility_20d IS NULL
+                       OR m.sma20_distance IS NULL
+                       OR m.sma50_distance IS NULL
+                       OR m.rsi_14 IS NULL
+                       OR m.macd IS NULL
+                       OR m.volume_change IS NULL
                 ) AS incomplete_rows
-            FROM stock_metrics
+            FROM stock_metrics m
+            LEFT JOIN stock_daily_ohlc o
+              ON o.stock_id = m.stock_id
+             AND o.trading_date = m.latest_trading_date
             """
         )
         with self._engine.begin() as connection:
@@ -607,9 +612,9 @@ class StockDataRepository:
             },
             "volatilityMetrics": {
                 "volatility5Day": _float_or_none(metrics_row.get("volatility_5d") if metrics_row else None),
-                "volatility20Day": _float_or_none(metrics_row.get("volatility_20d") if metrics_row else None),
-                "volatility60Day": _float_or_none(metrics_row.get("volatility_60d") if metrics_row else None),
-                "volatility90Day": _float_or_none(metrics_row.get("volatility_90d") if metrics_row else None),
+                "volatility20Day": latest.get("volatility20Day") if latest else None,
+                "volatility60Day": latest.get("volatility60Day") if latest else None,
+                "volatility90Day": latest.get("volatility90Day") if latest else None,
                 "volatility120Day": _float_or_none(metrics_row.get("volatility_120d") if metrics_row else None),
             },
             "trendMetrics": {

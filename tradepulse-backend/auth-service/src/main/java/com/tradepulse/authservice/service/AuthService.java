@@ -34,7 +34,7 @@ public class AuthService {
                 .findByEmail(loginRequestDTO.getEmail())
                 .filter(u -> passwordEncoder.matches(loginRequestDTO.getPassword(),
                         u.getPassword()))
-                .map(u -> jwtUtil.generateToken(u.getEmail(), u.getRole(), u.getUserId(), u.getFirstName(), u.getLastName()));
+                .map(u -> jwtUtil.generateToken(u.getEmail(), u.getRole(), u.getUserId()));
     }
 
     public boolean validateToken(String token){
@@ -119,21 +119,6 @@ public class AuthService {
         }
     }
 
-    public String extractFirstName(String token) {
-        try {
-            return jwtUtil.extractFirstName(token);
-        } catch (JwtException | IllegalArgumentException ex) {
-            return "";
-        }
-    }
-
-    public String extractLastName(String token) {
-        try {
-            return jwtUtil.extractLastName(token);
-        } catch (JwtException | IllegalArgumentException ex) {
-            return "";
-        }
-    }
 
     private String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {

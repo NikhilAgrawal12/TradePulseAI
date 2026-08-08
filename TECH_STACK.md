@@ -247,30 +247,40 @@ Auth Service DB:
 Customer Service DB:
 ├── customer (user profiles)
 │   ├── user_id (PK)
-│   ├── first_name, last_name
-│   └── address fields
+│   ├── first_name, last_name, phone_number
+│   └── address fields + DOB + registration date
 ├── watchlist_items (stock watchlists)
 │   └── embedded_id: user_id + stock_id
-└── portfolio_holdings (current positions)
+
+Portfolio Service DB:
+├── portfolio_holdings (current positions)
+│   ├── user_id, stock_id
+│   ├── total_quantity
+│   └── avg_buy_price
+└── portfolio_transactions (buy/sell ledger)
+    ├── transaction_id
     ├── user_id, stock_id
-    ├── total_quantity
-    └── avg_buy_price
+    └── transaction_type, price, quantity, executed_at
 
 Stock Service DB:
 ├── stocks (catalog)
 │   ├── stock_id (PK)
 │   ├── ticker, name, exchange
-│   └── featured, sort_order
+│   └── market_cap
+├── featured_stocks_cache
+├── all_stocks_last_value_cache
+└── exchanges
+
+Analytics Service DB:
+├── stocks (replica for analytics jobs)
 ├── stock_daily_ohlc (historical data)
 │   ├── stock_id, trading_date
 │   ├── open, high, low, close, volume
-│   └── technical indicators (SMA, volatility)
-├── stock_metrics (precomputed analytics)
-│   ├── 52-week high/low
-│   ├── Sharpe/Sortino ratios
-│   ├── RSI, MACD, technical indicators
-│   └── cached ML predictions (`prediction_*` fields)
-└── cache tables (featured_stock_cache)
+│   └── technical indicators (SMA, volatility, return_1d)
+├── stock_metrics (precomputed analytics + prediction snapshot fields)
+├── ml_weekly_features
+├── ml_model_registry
+└── ml_model_candidates
 
 Order Service DB:
 ├── cart_items (shopping cart)
@@ -300,8 +310,6 @@ Payment Service DB:
 ```
 User-Scoped Queries:
 - idx_cart_items_user_id
-- idx_watchlist_items_user_id
-- idx_portfolio_holdings_user_id
 - idx_order_user_id
 - idx_wallet_transaction_wallet_id
 
@@ -313,8 +321,8 @@ Operational Queries:
 
 Featured/Performance:
 - idx_stock_active
-- idx_stock_featured_sort
-- idx_stock_daily_ohlc_stock_date (unique)
+- idx_ohlc_stock_date
+- stock_daily_ohlc_stock_id_trading_date_key (unique)
 ```
 
 ---

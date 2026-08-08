@@ -116,12 +116,12 @@ Tier 2: Frontend Runtime Cache
 └── Local computation cache
 
 Tier 3: Backend In-Memory
-├── Spring Cache (featured_stock_cache)
+├── Spring Cache (featured stocks)
 ├── Market status cache (60-second freshness)
 └── Application-level caches
 
 Tier 4: Persistent Cache (Database)
-├── featured_stock_cache table
+├── featured_stocks_cache table
 ├── all_stocks_last_value_cache table
 └── Timestamp-based invalidation
 

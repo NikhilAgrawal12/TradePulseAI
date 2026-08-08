@@ -31,8 +31,8 @@ public class FeaturedStockCache {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "cache_id")
-    private Long cacheId;
+    @Column(name = "featured_cache_id")
+    private Long featuredCacheId;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "stock_id", nullable = false)
@@ -54,12 +54,12 @@ public class FeaturedStockCache {
         this.cachedAt = Instant.now();
     }
 
-    public Long getCacheId() {
-        return cacheId;
+    public Long getFeaturedCacheId() {
+        return featuredCacheId;
     }
 
-    public void setCacheId(Long cacheId) {
-        this.cacheId = cacheId;
+    public void setFeaturedCacheId(Long featuredCacheId) {
+        this.featuredCacheId = featuredCacheId;
     }
 
     public Stock getStock() {

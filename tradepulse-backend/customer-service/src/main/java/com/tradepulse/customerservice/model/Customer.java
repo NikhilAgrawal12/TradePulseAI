@@ -7,17 +7,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "customer", indexes = {
-    @Index(name = "idx_customer_user_id", columnList = "user_id")
-})
+@Table(name = "customer")
 public class Customer {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "customer_id")
-    private Long customerId;
-
-    @NotNull
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
@@ -153,13 +146,6 @@ public class Customer {
         this.registrationDate = registrationDate;
     }
 
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
 
     public Long getUserId() {
         return userId;

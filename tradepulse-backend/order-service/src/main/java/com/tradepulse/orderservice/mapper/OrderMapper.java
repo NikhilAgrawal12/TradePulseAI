@@ -21,11 +21,11 @@ public class OrderMapper {
         order.setUserId(userId);
         order.setStatus(status);
 
-        BigDecimal subtotal = cartItems.stream()
+        BigDecimal total = cartItems.stream()
                 .map(item -> resolveQuote(stockQuotes, item.getStockId()).unitPrice().multiply(item.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal scaledTotal = OrderItemMapper.scaleMoney(subtotal);
+        BigDecimal scaledTotal = OrderItemMapper.scaleMoney(total);
 
         order.setTotal(scaledTotal);
         order.setItems(

@@ -25,5 +25,4 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
             """)
     List<Stock> findTopByMarketCap(Pageable pageable);
 
-    List<Stock> findByFeaturedTrueOrderBySortOrderAsc();
 }

@@ -40,10 +40,8 @@ public class WalletController {
     @Operation(summary = "Deposit money into wallet")
     public ResponseEntity<WalletResponseDTO> deposit(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader(value = "X-First-Name", required = false) String firstName,
-            @RequestHeader(value = "X-Last-Name", required = false) String lastName,
             @RequestBody WalletAmountRequest request) {
-        Wallet wallet = walletService.deposit(userId, firstName, lastName, request.getAmount());
+        Wallet wallet = walletService.deposit(userId, request.getAmount());
         return ResponseEntity.ok(toDTO(wallet));
     }
 
@@ -51,10 +49,8 @@ public class WalletController {
     @Operation(summary = "Withdraw money from wallet")
     public ResponseEntity<WalletResponseDTO> withdraw(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader(value = "X-First-Name", required = false) String firstName,
-            @RequestHeader(value = "X-Last-Name", required = false) String lastName,
             @RequestBody WalletAmountRequest request) {
-        Wallet wallet = walletService.withdraw(userId, firstName, lastName, request.getAmount());
+        Wallet wallet = walletService.withdraw(userId, request.getAmount());
         return ResponseEntity.ok(toDTO(wallet));
     }
 

@@ -1,6 +1,9 @@
 -- Keep this script non-empty when spring.sql.init.mode=always.
 SELECT 1;
 
+-- Drop redundant index: idx_wallet_transaction_wallet_id_created_at (wallet_id, created_at) covers plain wallet_id lookups.
+DROP INDEX IF EXISTS idx_wallet_transaction_wallet_id;
+
 -- Convert payments.order_id from bigint to varchar so UUID order IDs from order-service are supported.
 ALTER TABLE IF EXISTS payments
     ALTER COLUMN order_id TYPE VARCHAR(64)

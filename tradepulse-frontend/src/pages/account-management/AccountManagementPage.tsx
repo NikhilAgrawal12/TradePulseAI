@@ -34,7 +34,6 @@ const VALIDATION_MESSAGES = {
 
 type CustomerProfile = {
   userId: number;
-  customerId?: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -70,7 +69,6 @@ type PasswordForm = {
 
 const emptyProfile: CustomerProfile = {
   userId: 0,
-  customerId: 0,
   firstName: "",
   lastName: "",
   email: "",
@@ -263,16 +261,13 @@ export function AccountManagementPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const loadedProfile = response.data;
-        // Backend returns userId as primary key for customers; keep customerId fallback for compatibility.
         setProfile({
           ...loadedProfile,
-          userId: loadedProfile.userId ?? loadedProfile.customerId ?? Number(userIdFromToken),
-          customerId: loadedProfile.customerId ?? loadedProfile.userId ?? Number(userIdFromToken),
+          userId: loadedProfile.userId ?? Number(userIdFromToken),
         });
         void syncLocationSelections({
           ...loadedProfile,
-          userId: loadedProfile.userId ?? loadedProfile.customerId ?? Number(userIdFromToken),
-          customerId: loadedProfile.customerId ?? loadedProfile.userId ?? Number(userIdFromToken),
+          userId: loadedProfile.userId ?? Number(userIdFromToken),
         });
         setCredentials({ email: (loadedProfile.email || "").trim().toLowerCase() });
         setInitialCredentialEmail((loadedProfile.email || "").trim().toLowerCase());

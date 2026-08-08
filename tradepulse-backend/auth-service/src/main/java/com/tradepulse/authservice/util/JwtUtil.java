@@ -36,19 +36,6 @@ public class JwtUtil {
                 .compact();
     }
 
-    public String generateToken(String email, String role, Long userId, String firstName, String lastName){
-        return Jwts.builder()
-                .subject(email)
-                .claim("role",role)
-                .claim("userId", userId)
-                .claim("firstName", firstName != null ? firstName : "")
-                .claim("lastName", lastName != null ? lastName : "")
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
-                .signWith(secretKey)
-                .compact();
-    }
-
     public void validateToken(String token){
         try{
             parseClaims(token);
@@ -82,13 +69,4 @@ public class JwtUtil {
         throw new JwtException("Invalid JWT userId claim");
     }
 
-    public String extractFirstName(String token) {
-        Object raw = parseClaims(token).get("firstName");
-        return raw != null ? raw.toString() : "";
-    }
-
-    public String extractLastName(String token) {
-        Object raw = parseClaims(token).get("lastName");
-        return raw != null ? raw.toString() : "";
-    }
 }
