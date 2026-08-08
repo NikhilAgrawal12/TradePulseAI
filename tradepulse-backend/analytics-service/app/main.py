@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from threading import Event, Lock, Thread
 from time import sleep
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import joblib
 from fastapi import FastAPI, HTTPException, Query
@@ -42,6 +43,13 @@ state: dict[str, Any] = {
     "last_sync_error": None,
     "last_sync_finished_at": None,
     "last_sync_stats": None,
+    "freshness_status": "unknown",
+    "last_successful_trading_date": None,
+    "expected_trading_date": None,
+    "last_provider_check_at": None,
+    "next_retry_at": None,
+    "next_morning_run_at": None,
+    "last_sync_trigger": None,
 }
 training_lock = Lock()
 sync_lock = Lock()
@@ -50,6 +58,8 @@ scheduler_thread: Thread | None = None
 startup_training_thread: Thread | None = None
 sync_scheduler_thread: Thread | None = None
 startup_sync_thread: Thread | None = None
+freshness_scheduler_thread: Thread | None = None
+freshness_startup_thread: Thread | None = None
 
 
 def _expected_feature_names() -> list[str]:
@@ -123,6 +133,17 @@ def _persist_trained_model(trained: Any) -> None:
 
 def _refresh_prediction_cache() -> int:
     if state["estimator"] is None or state.get("model_version") is None or state.get("horizon_days") is None:
+        return 0
+
+    completeness = repository.fetch_prediction_metrics_completeness()
+    if completeness["total_rows"] == 0:
+        logger.warning("Skipping prediction snapshot refresh because stock_metrics has no rows.")
+        return 0
+    if completeness["incomplete_rows"] > 0:
+        logger.warning(
+            "Skipping prediction snapshot refresh because stock_metrics has %d incomplete rows.",
+            completeness["incomplete_rows"],
+        )
         return 0
 
     feature_rows = repository.fetch_prediction_feature_rows()
@@ -207,37 +228,183 @@ def _run_scheduled_training() -> None:
             sleep(1)
 
 
+def _get_freshness_timezone() -> ZoneInfo:
+    timezone_name = str(getattr(settings, "freshness_timezone", "America/New_York") or "America/New_York")
+    try:
+        return ZoneInfo(timezone_name)
+    except Exception:
+        logger.warning("Invalid freshness timezone %r. Falling back to America/New_York.", timezone_name)
+        return ZoneInfo("America/New_York")
+
+
+def _next_morning_run_at_utc(now_utc: datetime | None = None) -> datetime:
+    now_utc = now_utc or datetime.now(timezone.utc)
+    tz = _get_freshness_timezone()
+    now_local = now_utc.astimezone(tz)
+    run_local = datetime.combine(
+        now_local.date(),
+        time(
+            hour=max(0, min(int(getattr(settings, "freshness_morning_hour_et", 5)), 23)),
+            minute=max(0, min(int(getattr(settings, "freshness_morning_minute_et", 0)), 59)),
+        ),
+        tzinfo=tz,
+    )
+    if now_local >= run_local:
+        run_local = run_local + timedelta(days=1)
+    return run_local.astimezone(timezone.utc)
+
+
+def _target_trading_date(now_utc: datetime | None = None) -> date:
+    now_utc = now_utc or datetime.now(timezone.utc)
+    local_day = now_utc.astimezone(_get_freshness_timezone()).date()
+    if local_day.weekday() < 5:
+        return local_day
+
+    cursor = local_day
+    while cursor.weekday() >= 5:
+        cursor -= timedelta(days=1)
+    return cursor
+
+
+def _schedule_next_retry(reference_utc: datetime | None = None) -> datetime:
+    reference_utc = reference_utc or datetime.now(timezone.utc)
+    poll_minutes = max(1, int(getattr(settings, "freshness_poll_interval_minutes", 30)))
+    return reference_utc + timedelta(minutes=poll_minutes)
+
+
 def _run_analytics_sync(trigger: str) -> dict[str, Any]:
     with sync_lock:
         try:
             state["last_sync_status"] = "running"
             state["last_sync_error"] = None
+            state["last_sync_trigger"] = trigger
             stats = analytics_sync_service.run_pipeline(trigger=trigger)
             payload = {
                 "trigger": stats.trigger,
                 "synced_stocks": stats.synced_stocks,
                 "inserted_or_updated_ohlc_rows": stats.inserted_or_updated_ohlc_rows,
+                "ohlc_dependency_updates": stats.ohlc_dependency_updates,
                 "ohlc_start_date": None if stats.ohlc_start_date is None else stats.ohlc_start_date.isoformat(),
                 "ohlc_end_date": None if stats.ohlc_end_date is None else stats.ohlc_end_date.isoformat(),
                 "metrics_rows": stats.metrics_rows,
                 "weekly_feature_rows": stats.weekly_feature_rows,
                 "finished_at": stats.finished_at,
+                "metrics_completeness": repository.fetch_prediction_metrics_completeness(),
             }
-            if state["estimator"] is not None:
+            payload["model_retrained"] = False
+            payload["prediction_rows"] = 0
+
+            if stats.weekly_feature_rows > 0:
+                try:
+                    trained = _train_model(
+                        days_back=settings.default_days_back,
+                        horizon_days=settings.default_horizon_days,
+                    )
+                    payload["model_retrained"] = True
+                    payload["model_version"] = trained.model_version
+                    payload["selected_model"] = trained.selected_model
+                except ValueError as error:
+                    logger.warning("Skipping post-sync retraining: %s", error)
+                except Exception:
+                    logger.exception("Post-sync retraining failed")
+            elif stats.metrics_rows > 0 and state["estimator"] is not None:
                 try:
                     payload["prediction_rows"] = _refresh_prediction_cache()
                 except Exception:
-                    logger.exception("Failed to refresh prediction cache after sync")
+                    logger.exception("Failed to refresh prediction cache after metrics refresh")
                     payload["prediction_rows"] = 0
             state["last_sync_status"] = "ok"
             state["last_sync_finished_at"] = stats.finished_at
             state["last_sync_stats"] = payload
+            state["freshness_status"] = "fresh"
+            latest = analytics_sync_service.get_latest_ohlc_trading_date()
+            state["last_successful_trading_date"] = latest.isoformat() if latest else None
+            state["next_retry_at"] = None
             return payload
         except Exception as error:  # pragma: no cover - external services/db dependency
             state["last_sync_status"] = "failed"
             state["last_sync_error"] = str(error)
             state["last_sync_finished_at"] = datetime.now(timezone.utc).isoformat()
+            state["freshness_status"] = "failed"
             raise
+
+
+def _check_freshness_and_sync(trigger: str) -> None:
+    now_utc = datetime.now(timezone.utc)
+    state["last_sync_trigger"] = trigger
+    expected_trading_date = _target_trading_date(now_utc)
+    state["expected_trading_date"] = expected_trading_date.isoformat()
+
+    latest_db_date = analytics_sync_service.get_latest_ohlc_trading_date()
+    state["last_successful_trading_date"] = latest_db_date.isoformat() if latest_db_date else None
+
+    if latest_db_date is not None and latest_db_date >= expected_trading_date:
+        state["freshness_status"] = "fresh"
+        state["next_retry_at"] = None
+        return
+
+    state["freshness_status"] = "stale"
+    state["last_provider_check_at"] = now_utc.isoformat()
+    provider_has_data = analytics_sync_service.is_provider_ohlc_available_for_date(expected_trading_date)
+
+    if not provider_has_data:
+        next_retry = _schedule_next_retry(now_utc)
+        state["freshness_status"] = "waiting_provider"
+        state["next_retry_at"] = next_retry.isoformat()
+        return
+
+    try:
+        _run_analytics_sync(trigger=trigger)
+    except Exception:
+        next_retry = _schedule_next_retry(datetime.now(timezone.utc))
+        state["next_retry_at"] = next_retry.isoformat()
+
+
+def _run_freshness_scheduler() -> None:
+    while not stop_event.is_set():
+        now_utc = datetime.now(timezone.utc)
+
+        next_retry_at_iso = state.get("next_retry_at")
+        next_retry_at: datetime | None = None
+        if isinstance(next_retry_at_iso, str):
+            try:
+                next_retry_at = datetime.fromisoformat(next_retry_at_iso)
+            except Exception:
+                next_retry_at = None
+
+        next_morning_run_at_iso = state.get("next_morning_run_at")
+        next_morning_run_at: datetime | None = None
+        if isinstance(next_morning_run_at_iso, str):
+            try:
+                next_morning_run_at = datetime.fromisoformat(next_morning_run_at_iso)
+            except Exception:
+                next_morning_run_at = None
+        if next_morning_run_at is None:
+            next_morning_run_at = _next_morning_run_at_utc(now_utc)
+            state["next_morning_run_at"] = next_morning_run_at.isoformat()
+
+        should_run_retry = next_retry_at is not None and now_utc >= next_retry_at
+        should_run_morning = next_morning_run_at is not None and now_utc >= next_morning_run_at
+        if should_run_retry:
+            try:
+                _check_freshness_and_sync(trigger="retry_30m")
+            except Exception:
+                logger.exception("Freshness retry loop failed")
+                state["next_retry_at"] = _schedule_next_retry(datetime.now(timezone.utc)).isoformat()
+            continue
+
+        if should_run_morning:
+            try:
+                _check_freshness_and_sync(trigger="scheduled_5am")
+            except Exception:
+                logger.exception("Scheduled 5 AM freshness sync failed")
+                state["next_retry_at"] = _schedule_next_retry(datetime.now(timezone.utc)).isoformat()
+            finally:
+                state["next_morning_run_at"] = _next_morning_run_at_utc(datetime.now(timezone.utc)).isoformat()
+            continue
+
+        # Wake up frequently enough to honor retry timers while staying lightweight.
+        stop_event.wait(30)
 
 
 def _run_scheduled_analytics_sync() -> None:
@@ -256,6 +423,13 @@ def _run_startup_analytics_sync() -> None:
     except Exception:
         # Keep service available even if one startup catch-up run fails.
         pass
+
+
+def _run_startup_freshness_check() -> None:
+    try:
+        _check_freshness_and_sync(trigger="startup_catchup")
+    except Exception:
+        logger.exception("Startup freshness catch-up check failed")
 
 
 def _load_model_from_disk() -> bool:
@@ -307,10 +481,21 @@ def _save_model_to_disk(payload: dict[str, Any]) -> None:
 def startup() -> None:
     repository.initialize_tables()
 
-    if bool(getattr(settings, "nightly_sync_enabled", False)) and bool(getattr(settings, "nightly_sync_on_startup", False)):
+    freshness_enabled = bool(getattr(settings, "freshness_check_enabled", False))
+
+    if (
+        not freshness_enabled
+        and bool(getattr(settings, "nightly_sync_enabled", False))
+        and bool(getattr(settings, "nightly_sync_on_startup", False))
+    ):
         global startup_sync_thread
         startup_sync_thread = Thread(target=_run_startup_analytics_sync, daemon=True, name="analytics-sync-startup")
         startup_sync_thread.start()
+
+    if freshness_enabled and bool(getattr(settings, "freshness_startup_catchup_enabled", False)):
+        global freshness_startup_thread
+        freshness_startup_thread = Thread(target=_run_startup_freshness_check, daemon=True, name="analytics-freshness-startup")
+        freshness_startup_thread.start()
 
     loaded = _load_model_from_disk()
 
@@ -351,6 +536,12 @@ def startup() -> None:
         sync_scheduler_thread = Thread(target=_run_scheduled_analytics_sync, daemon=True, name="analytics-sync-scheduler")
         sync_scheduler_thread.start()
 
+    global freshness_scheduler_thread
+    if freshness_enabled:
+        state["next_morning_run_at"] = _next_morning_run_at_utc(datetime.now(timezone.utc)).isoformat()
+        freshness_scheduler_thread = Thread(target=_run_freshness_scheduler, daemon=True, name="analytics-freshness-scheduler")
+        freshness_scheduler_thread.start()
+
 
 @app.on_event("shutdown")
 def shutdown() -> None:
@@ -371,6 +562,12 @@ def health() -> dict[str, Any]:
         "last_sync_status": state["last_sync_status"],
         "last_sync_error": state["last_sync_error"],
         "last_sync_finished_at": state["last_sync_finished_at"],
+        "freshness_status": state["freshness_status"],
+        "last_successful_trading_date": state["last_successful_trading_date"],
+        "expected_trading_date": state["expected_trading_date"],
+        "last_provider_check_at": state["last_provider_check_at"],
+        "next_retry_at": state["next_retry_at"],
+        "next_morning_run_at": state["next_morning_run_at"],
     }
 
 
@@ -387,8 +584,15 @@ def trigger_nightly_sync() -> dict[str, Any]:
 def get_sync_status() -> dict[str, Any]:
     return {
         "status": state["last_sync_status"],
+        "freshness_status": state["freshness_status"],
         "error": state["last_sync_error"],
         "finished_at": state["last_sync_finished_at"],
+        "last_successful_trading_date": state["last_successful_trading_date"],
+        "expected_trading_date": state["expected_trading_date"],
+        "last_provider_check_at": state["last_provider_check_at"],
+        "next_retry_at": state["next_retry_at"],
+        "next_morning_run_at": state["next_morning_run_at"],
+        "last_sync_trigger": state["last_sync_trigger"],
         "stats": state["last_sync_stats"],
     }
 

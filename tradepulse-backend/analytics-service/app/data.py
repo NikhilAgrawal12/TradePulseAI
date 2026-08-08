@@ -411,21 +411,40 @@ class StockDataRepository:
             FROM stock_metrics m
             JOIN stocks s ON s.stock_id = m.stock_id
             WHERE m.latest_trading_date IS NOT NULL
-              AND m.return_5d IS NOT NULL
-              AND m.return_10d IS NOT NULL
-              AND m.return_20d IS NOT NULL
-              AND m.volatility_5d IS NOT NULL
-              AND m.volatility_10d IS NOT NULL
-              AND m.volatility_20d IS NOT NULL
-              AND m.sma20_distance IS NOT NULL
-              AND m.sma50_distance IS NOT NULL
-              AND m.rsi_14 IS NOT NULL
-              AND m.macd IS NOT NULL
-              AND m.volume_change IS NOT NULL
             ORDER BY m.stock_id
             """
         )
         return pd.read_sql_query(query, self._engine)
+
+    def fetch_prediction_metrics_completeness(self) -> dict[str, int]:
+        query = text(
+            """
+            SELECT
+                COUNT(*) AS total_rows,
+                COUNT(*) FILTER (
+                    WHERE latest_trading_date IS NULL
+                       OR return_5d IS NULL
+                       OR return_10d IS NULL
+                       OR return_20d IS NULL
+                       OR volatility_5d IS NULL
+                       OR volatility_10d IS NULL
+                       OR volatility_20d IS NULL
+                       OR sma20_distance IS NULL
+                       OR sma50_distance IS NULL
+                       OR rsi_14 IS NULL
+                       OR macd IS NULL
+                       OR volume_change IS NULL
+                ) AS incomplete_rows
+            FROM stock_metrics
+            """
+        )
+        with self._engine.begin() as connection:
+            row = connection.execute(query).mappings().first()
+
+        return {
+            "total_rows": int(row["total_rows"] if row and row["total_rows"] is not None else 0),
+            "incomplete_rows": int(row["incomplete_rows"] if row and row["incomplete_rows"] is not None else 0),
+        }
 
     def store_prediction_snapshots(self, rows: list[dict[str, Any]]) -> int:
         if not rows:

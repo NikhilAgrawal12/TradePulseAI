@@ -12,6 +12,10 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - Trains and serves a buy/sell signal model (logistic regression, random forest, gradient boosting, xgboost, knn, svm)
 - Precomputes and stores per-stock prediction snapshots in `stock_metrics` (`prediction_action`, probabilities, `prediction_confidence_edge`, `prediction_probability_gap`, `prediction_decision_threshold`, reasoning/version metadata), then serves them directly via API
 - Retrains model on startup/schedule (configurable)
+- Runs freshness-driven OHLC catch-up checks at `05:00` ET, retries every 30 minutes when provider data is not available yet, and performs startup catch-up if the host was offline overnight
+- Enforces strict downstream updates: metrics/weekly refresh runs only when OHLC rows changed, and model retraining triggers immediately when weekly features are refreshed
+- Backfills `stock_daily_ohlc.return_1d` before metrics refresh so dependent volatility/features are computed from complete OHLC dependency data
+- Refreshes prediction snapshot columns only when required `stock_metrics` feature columns are fully populated
 
 ## Tables owned in analytics-service-db
 - `stocks` (replica)
@@ -50,6 +54,12 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - `NIGHTLY_SYNC_ENABLED` (default: `true`)
 - `NIGHTLY_SYNC_ON_STARTUP` (default: `true`)
 - `NIGHTLY_SYNC_INTERVAL_HOURS` (default: `24`)
+- `FRESHNESS_CHECK_ENABLED` (default: `true`)
+- `FRESHNESS_STARTUP_CATCHUP_ENABLED` (default: `true`)
+- `FRESHNESS_POLL_INTERVAL_MINUTES` (default: `30`)
+- `FRESHNESS_MORNING_HOUR_ET` (default: `5`)
+- `FRESHNESS_MORNING_MINUTE_ET` (default: `0`)
+- `FRESHNESS_TIMEZONE` (default: `America/New_York`)
 
 ## Java requirement for PySpark
 - Metrics refresh uses PySpark, so a JDK (11+) must be available.

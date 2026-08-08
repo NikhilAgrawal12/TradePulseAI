@@ -110,6 +110,12 @@ public class LocalStack extends Stack {
                         Map.entry("ML_DEFAULT_DAYS_BACK",                   "365"),
                         Map.entry("ML_DEFAULT_HORIZON_DAYS",                "5"),
                         Map.entry("ML_MAX_TRAINING_STOCKS",                 "100"),
+                        Map.entry("FRESHNESS_CHECK_ENABLED",                "true"),
+                        Map.entry("FRESHNESS_STARTUP_CATCHUP_ENABLED",      "true"),
+                        Map.entry("FRESHNESS_POLL_INTERVAL_MINUTES",        "30"),
+                        Map.entry("FRESHNESS_MORNING_HOUR_ET",              "5"),
+                        Map.entry("FRESHNESS_MORNING_MINUTE_ET",            "0"),
+                        Map.entry("FRESHNESS_TIMEZONE",                     "America/New_York"),
                         Map.entry("ML_TRAIN_ON_STARTUP",                    "true"),
                         Map.entry("ML_RETRAIN_INTERVAL_HOURS",              "168")
                 ));

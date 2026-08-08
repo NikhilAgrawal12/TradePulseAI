@@ -36,6 +36,12 @@ class Settings:
     nightly_sync_enabled: bool = _to_bool(os.getenv("NIGHTLY_SYNC_ENABLED"), True)
     nightly_sync_on_startup: bool = _to_bool(os.getenv("NIGHTLY_SYNC_ON_STARTUP"), True)
     nightly_sync_interval_hours: int = int(os.getenv("NIGHTLY_SYNC_INTERVAL_HOURS", "24"))
+    freshness_check_enabled: bool = _to_bool(os.getenv("FRESHNESS_CHECK_ENABLED"), True)
+    freshness_startup_catchup_enabled: bool = _to_bool(os.getenv("FRESHNESS_STARTUP_CATCHUP_ENABLED"), True)
+    freshness_poll_interval_minutes: int = int(os.getenv("FRESHNESS_POLL_INTERVAL_MINUTES", "30"))
+    freshness_morning_hour_et: int = int(os.getenv("FRESHNESS_MORNING_HOUR_ET", "5"))
+    freshness_morning_minute_et: int = int(os.getenv("FRESHNESS_MORNING_MINUTE_ET", "0"))
+    freshness_timezone: str = os.getenv("FRESHNESS_TIMEZONE", "America/New_York")
 
 
 settings = Settings()

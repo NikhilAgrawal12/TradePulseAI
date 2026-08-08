@@ -19,6 +19,13 @@ def _reset_state() -> None:
             "training_status": "pending",
             "training_error": None,
             "last_trained_at": None,
+            "freshness_status": "unknown",
+            "last_successful_trading_date": None,
+            "expected_trading_date": None,
+            "last_provider_check_at": None,
+            "next_retry_at": None,
+            "next_morning_run_at": None,
+            "last_sync_trigger": None,
         }
     )
 

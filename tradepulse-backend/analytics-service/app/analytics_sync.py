@@ -25,6 +25,7 @@ class PipelineStats:
     trigger: str
     synced_stocks: int
     inserted_or_updated_ohlc_rows: int
+    ohlc_dependency_updates: int
     ohlc_start_date: date | None
     ohlc_end_date: date | None
     metrics_rows: int
@@ -39,21 +40,128 @@ class AnalyticsSyncService:
         self._repository = repository
         self._settings = settings
 
+    def get_latest_ohlc_trading_date(self) -> date | None:
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            latest = connection.execute(text("SELECT MAX(trading_date) FROM stock_daily_ohlc")).scalar_one_or_none()
+        return latest if isinstance(latest, date) else None
+
+    def is_provider_ohlc_available_for_date(self, trading_date: date) -> bool:
+        api_key = getattr(self._settings, "massive_api_key", "")
+        if not api_key:
+            logger.warning("Skipping provider availability probe because MASSIVE_API_KEY is not configured.")
+            return False
+
+        adjusted = bool(getattr(self._settings, "ohlc_adjusted", True))
+        include_otc = bool(getattr(self._settings, "ohlc_include_otc", False))
+        base_url = getattr(self._settings, "massive_api_base_url", "https://api.massive.com")
+
+        params = {
+            "adjusted": str(adjusted).lower(),
+            "include_otc": str(include_otc).lower(),
+            "apiKey": api_key,
+        }
+        path = f"/v2/aggs/grouped/locale/us/market/stocks/{trading_date.isoformat()}"
+
+        try:
+            with httpx.Client(base_url=base_url, timeout=20.0) as client:
+                response = client.get(path, params=params)
+            if response.status_code == 404:
+                return False
+            response.raise_for_status()
+        except Exception as exc:  # pragma: no cover - external dependency
+            logger.warning("Provider availability probe failed for %s: %s", trading_date, exc)
+            return False
+
+        payload = response.json()
+        results = payload.get("results") if isinstance(payload, dict) else None
+        return isinstance(results, list) and len(results) > 0
+
     def run_pipeline(self, trigger: str) -> PipelineStats:
         synced_stocks = self.sync_stocks_replica() if bool(getattr(self._settings, "stock_replica_sync_enabled", False)) else 0
         ohlc_rows, start_date, end_date = self.sync_missing_ohlc()
-        metrics_rows, weekly_rows = self.refresh_metrics_with_pyspark()
+        ohlc_dependency_updates = self._backfill_return_1d()
+        metrics_rows = 0
+        weekly_rows = 0
+        if (ohlc_rows + ohlc_dependency_updates) > 0:
+            if self._is_ohlc_ready_for_metrics():
+                metrics_rows, weekly_rows = self.refresh_metrics_with_pyspark()
+            else:
+                logger.warning("Skipping metrics/weekly refresh because OHLC dependency columns are incomplete.")
+        else:
+            logger.info("Skipping metrics and weekly feature refresh because OHLC had no fresh rows or dependency updates.")
 
         return PipelineStats(
             trigger=trigger,
             synced_stocks=synced_stocks,
             inserted_or_updated_ohlc_rows=ohlc_rows,
+            ohlc_dependency_updates=ohlc_dependency_updates,
             ohlc_start_date=start_date,
             ohlc_end_date=end_date,
             metrics_rows=metrics_rows,
             weekly_feature_rows=weekly_rows,
             finished_at=datetime.now(timezone.utc).isoformat(),
         )
+
+    def _backfill_return_1d(self) -> int:
+        sql = text(
+            """
+            WITH computed AS (
+                SELECT
+                    t.id,
+                    CASE
+                        WHEN t.prev_close IS NULL OR t.prev_close = 0 THEN NULL
+                        ELSE ROUND(((t.close_price - t.prev_close) / t.prev_close) * 100.0, 2)
+                    END AS computed_return_1d
+                FROM (
+                    SELECT
+                        id,
+                        close_price,
+                        LAG(close_price) OVER (PARTITION BY stock_id ORDER BY trading_date) AS prev_close
+                    FROM stock_daily_ohlc
+                ) t
+            )
+            UPDATE stock_daily_ohlc o
+            SET
+                return_1d = c.computed_return_1d,
+                updated_at = NOW()
+            FROM computed c
+            WHERE o.id = c.id
+              AND o.return_1d IS DISTINCT FROM c.computed_return_1d
+            """
+        )
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            result = connection.execute(sql)
+        return int(result.rowcount or 0)
+
+    def _is_ohlc_ready_for_metrics(self) -> bool:
+        sql = text(
+            """
+            WITH latest_rows AS (
+                SELECT
+                    o.stock_id,
+                    o.return_1d,
+                    cnt.row_count
+                FROM stock_daily_ohlc o
+                JOIN (
+                    SELECT stock_id, MAX(trading_date) AS latest_trading_date
+                    FROM stock_daily_ohlc
+                    GROUP BY stock_id
+                ) mx
+                  ON mx.stock_id = o.stock_id
+                 AND mx.latest_trading_date = o.trading_date
+                JOIN (
+                    SELECT stock_id, COUNT(*) AS row_count
+                    FROM stock_daily_ohlc
+                    GROUP BY stock_id
+                ) cnt ON cnt.stock_id = o.stock_id
+            )
+            SELECT COUNT(*) FILTER (WHERE row_count > 1 AND return_1d IS NULL) AS missing_count
+            FROM latest_rows
+            """
+        )
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            missing_count = int(connection.execute(sql).scalar_one() or 0)
+        return missing_count == 0
 
     def sync_stocks_replica(self) -> int:
         if not bool(getattr(self._settings, "stock_replica_sync_enabled", False)):
