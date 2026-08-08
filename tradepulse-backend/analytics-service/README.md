@@ -4,7 +4,7 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 
 ## What it does
 - Stores analytics data in `analytics-service-db` only
-- Keeps a `stocks` replica synced from stock-service (`GET /stocks`)
+- Keeps a `stocks` replica synced from stock-service (`GET /stocks`) on every analytics sync run
 - Fetches grouped daily OHLC from Massive API
 - Computes `stock_metrics` + `ml_weekly_features` via PySpark
 - Trains using `ml_weekly_features` (technical feature set + `label`)
@@ -43,7 +43,6 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - `ML_RETRAIN_INTERVAL_HOURS`
 - `STOCK_SERVICE_BASE_URL` (default: `http://stock-service:4003`)
 - `STOCK_SERVICE_TIMEOUT_SECONDS` (default: `30`)
-- `STOCK_REPLICA_SYNC_ENABLED` (default: `false`; keep `false` if analytics-service must not call stock-service)
 - `MASSIVE_API_BASE_URL` (default: `https://api.massive.com`)
 - `MASSIVE_API_KEY` (required for OHLC ingestion)
 - `MASSIVE_NEWS_LIMIT` (default: `5`)
@@ -51,9 +50,6 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - `OHLC_RETENTION_BUFFER_DAYS` (default: `90`)
 - `OHLC_ADJUSTED` (default: `true`)
 - `OHLC_INCLUDE_OTC` (default: `false`)
-- `NIGHTLY_SYNC_ENABLED` (default: `true`)
-- `NIGHTLY_SYNC_ON_STARTUP` (default: `true`)
-- `NIGHTLY_SYNC_INTERVAL_HOURS` (default: `24`)
 - `FRESHNESS_CHECK_ENABLED` (default: `true`)
 - `FRESHNESS_STARTUP_CATCHUP_ENABLED` (default: `true`)
 - `FRESHNESS_POLL_INTERVAL_MINUTES` (default: `30`)

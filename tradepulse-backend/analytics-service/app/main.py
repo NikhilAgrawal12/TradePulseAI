@@ -56,8 +56,6 @@ sync_lock = Lock()
 stop_event = Event()
 scheduler_thread: Thread | None = None
 startup_training_thread: Thread | None = None
-sync_scheduler_thread: Thread | None = None
-startup_sync_thread: Thread | None = None
 freshness_scheduler_thread: Thread | None = None
 freshness_startup_thread: Thread | None = None
 
@@ -407,24 +405,6 @@ def _run_freshness_scheduler() -> None:
         stop_event.wait(30)
 
 
-def _run_scheduled_analytics_sync() -> None:
-    interval_hours = int(getattr(settings, "nightly_sync_interval_hours", 24))
-    interval_seconds = max(interval_hours, 1) * 3600
-    while not stop_event.wait(interval_seconds):
-        try:
-            _run_analytics_sync(trigger="scheduled")
-        except Exception:
-            sleep(1)
-
-
-def _run_startup_analytics_sync() -> None:
-    try:
-        _run_analytics_sync(trigger="startup")
-    except Exception:
-        # Keep service available even if one startup catch-up run fails.
-        pass
-
-
 def _run_startup_freshness_check() -> None:
     try:
         _check_freshness_and_sync(trigger="startup_catchup")
@@ -483,15 +463,6 @@ def startup() -> None:
 
     freshness_enabled = bool(getattr(settings, "freshness_check_enabled", False))
 
-    if (
-        not freshness_enabled
-        and bool(getattr(settings, "nightly_sync_enabled", False))
-        and bool(getattr(settings, "nightly_sync_on_startup", False))
-    ):
-        global startup_sync_thread
-        startup_sync_thread = Thread(target=_run_startup_analytics_sync, daemon=True, name="analytics-sync-startup")
-        startup_sync_thread.start()
-
     if freshness_enabled and bool(getattr(settings, "freshness_startup_catchup_enabled", False)):
         global freshness_startup_thread
         freshness_startup_thread = Thread(target=_run_startup_freshness_check, daemon=True, name="analytics-freshness-startup")
@@ -531,10 +502,6 @@ def startup() -> None:
         scheduler_thread = Thread(target=_run_scheduled_training, daemon=True, name="ml-retrain-scheduler")
         scheduler_thread.start()
 
-    global sync_scheduler_thread
-    if bool(getattr(settings, "nightly_sync_enabled", False)):
-        sync_scheduler_thread = Thread(target=_run_scheduled_analytics_sync, daemon=True, name="analytics-sync-scheduler")
-        sync_scheduler_thread.start()
 
     global freshness_scheduler_thread
     if freshness_enabled:

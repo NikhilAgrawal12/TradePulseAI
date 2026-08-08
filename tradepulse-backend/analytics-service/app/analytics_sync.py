@@ -77,7 +77,7 @@ class AnalyticsSyncService:
         return isinstance(results, list) and len(results) > 0
 
     def run_pipeline(self, trigger: str) -> PipelineStats:
-        synced_stocks = self.sync_stocks_replica() if bool(getattr(self._settings, "stock_replica_sync_enabled", False)) else 0
+        synced_stocks = self.sync_stocks_replica()
         ohlc_rows, start_date, end_date = self.sync_missing_ohlc()
         ohlc_dependency_updates = self._backfill_return_1d()
         metrics_rows = 0
@@ -164,8 +164,6 @@ class AnalyticsSyncService:
         return missing_count == 0
 
     def sync_stocks_replica(self) -> int:
-        if not bool(getattr(self._settings, "stock_replica_sync_enabled", False)):
-            return 0
 
         base_url = getattr(self._settings, "stock_service_base_url", "http://stock-service:4003")
         timeout_seconds = float(getattr(self._settings, "stock_service_timeout_seconds", 30))
