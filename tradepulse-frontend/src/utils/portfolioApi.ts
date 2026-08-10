@@ -43,10 +43,11 @@ function normalizePortfolio(data: PortfolioResponse): PortfolioResponse {
   };
 }
 
-export async function fetchPortfolio(): Promise<PortfolioResponse> {
+export async function fetchPortfolio(page = 0, size = 10): Promise<PortfolioResponse> {
   try {
     const response = await axios.get<PortfolioResponse>("/api/portfolio", {
       headers: buildAuthHeaders(),
+      params: { page, size },
     });
     return normalizePortfolio(response.data);
   } catch (error) {

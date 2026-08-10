@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tradepulse.customerservice.model.Customer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,18 +16,21 @@ import java.util.Map;
 public class kafkaProducer {
 
     private static final Logger log = LoggerFactory.getLogger(kafkaProducer.class);
-    private static final String TOPIC = "tradepulse.notifications";
-
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final String notificationsTopic;
 
-    public kafkaProducer(KafkaTemplate<String, String> kafkaTemplate) {
+    public kafkaProducer(
+            KafkaTemplate<String, String> kafkaTemplate,
+            @Value("${tradepulse.kafka.topics.notifications:tradepulse.notifications.events}") String notificationsTopic
+    ) {
         this.kafkaTemplate = kafkaTemplate;
+        this.notificationsTopic = notificationsTopic;
     }
 
     public void sendEvent(Customer customer, String email) {
         try {
-            kafkaTemplate.send(TOPIC, buildEventJson(customer));
+            kafkaTemplate.send(notificationsTopic, buildEventJson(customer));
         } catch (Exception e) {
             log.error("Error sending ACCOUNT_CREATED notification event for userId={}", customer.getUserId(), e);
         }
@@ -34,7 +38,7 @@ public class kafkaProducer {
 
     public void sendEventOrThrow(Customer customer, String email) {
         try {
-            kafkaTemplate.send(TOPIC, buildEventJson(customer)).join();
+            kafkaTemplate.send(notificationsTopic, buildEventJson(customer)).join();
         } catch (Exception exception) {
             throw new IllegalStateException("Error sending ACCOUNT_CREATED notification event", exception);
         }

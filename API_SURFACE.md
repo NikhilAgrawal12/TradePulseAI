@@ -1,226 +1,397 @@
 # API Surface
 
-This document summarizes the main externally used REST routes, the auth model, the SSE endpoints, and the internal gRPC contracts.
+This document is the authoritative reference for all active REST endpoints, SSE streams, gRPC contracts, and internal-only routes in TradePulse. Only endpoints that are actively called — from the frontend or from another backend service — are listed here. Unused endpoints have been removed from the codebase.
+
+---
 
 ## 1. Authentication model
 
-### Frontend-visible auth behavior
+### Client-side headers sent by the frontend
 
-Protected frontend calls send:
+Protected requests include:
 
 - `Authorization: Bearer <jwt>`
 - `X-User-Id: <decoded user id>`
 
-### Actual trust model
+### Actual trust model (server-side)
 
-The backend no longer trusts the client-provided `X-User-Id`.
+Downstream services do **not** trust the client-supplied `X-User-Id`. The API Gateway owns the authorization boundary:
 
-Runtime flow:
-
-1. API Gateway validates the bearer token by calling `auth-service`
+1. Gateway validates the bearer token by calling `auth-service GET /validate`
 2. Auth service returns the authenticated user id
-3. Gateway strips any incoming `X-User-Id`
+3. Gateway strips any incoming `X-User-Id` header
 4. Gateway injects the validated `X-User-Id` before forwarding the request
 
-This is the real authorization boundary for user-owned data.
+---
 
-## 2. Public frontend-facing REST routes
+## 2. Auth routes
 
-### Auth routes
+Routed through the gateway directly to `auth-service`. These bypass the `/api` prefix.
 
-Routed through gateway to auth-service.
+| Method | Path | Description | Auth required |
+|--------|------|-------------|---------------|
+| `POST` | `/auth/login` | Authenticate with email + password, returns JWT | No |
+| `POST` | `/auth/register` | Internal — used by customer-service registration saga | No |
+| `POST` | `/auth/forgot-password/request-code` | Send reset code to email | No |
+| `POST` | `/auth/forgot-password/verify-code` | Validate the reset code | No |
+| `POST` | `/auth/forgot-password/reset` | Set new password after code verification | No |
+| `GET` | `/auth/validate` | Validate JWT token — used by the gateway filter | Internal |
+| `GET` | `/auth/users/{userId}` | Fetch user record by ID — used by notification-service and API gateway | Internal |
+| `GET` | `/auth/me/credentials` | Get authenticated user's login credentials (email, username) | Yes |
+| `PUT` | `/auth/me/credentials` | Update email or username | Yes |
+| `PUT` | `/auth/me/password` | Change password | Yes |
+| `DELETE` | `/auth/users/{userId}` | Delete user account — called internally by customer-service during customer deletion saga | Internal |
 
-- `POST /auth/login`
-- `GET /auth/validate`
-- `POST /auth/register`
-- `POST /auth/forgot-password/request-code`
-- `POST /auth/forgot-password/verify-code`
-- `POST /auth/forgot-password/reset`
-- `GET /auth/me/credentials`
-- `PUT /auth/me/credentials`
-- `PUT /auth/me/password`
+### Request bodies
 
-Notes:
-- prefer `/auth/me/...` for frontend self-service account reads and updates
+**POST /auth/login**
+```json
+{ "email": "string", "password": "string" }
+```
 
-#### Auth internal/compatibility routes (not frontend self-service)
+**POST /auth/forgot-password/request-code**
+```json
+{ "email": "string" }
+```
 
-- `GET /auth/users/{userId}`
-- `DELETE /auth/users/{userId}`
+**POST /auth/forgot-password/verify-code**
+```json
+{ "email": "string", "code": "string" }
+```
 
-### Customer routes
+**POST /auth/forgot-password/reset**
+```json
+{ "email": "string", "code": "string", "newPassword": "string" }
+```
 
-- `POST /api/customers/register`
-- `GET /api/customers/me`
-- `PUT /api/customers/me`
+**PUT /auth/me/credentials**
+```json
+{ "email": "string", "username": "string" }
+```
 
-Notes:
-- prefer `/api/customers/me` for frontend self-service profile reads and updates
+**PUT /auth/me/password**
+```json
+{ "currentPassword": "string", "newPassword": "string" }
+```
 
-#### Customer internal/compatibility routes (not frontend self-service)
+---
 
-- `GET /api/customers/user/{userId}`
-- `PUT /api/customers/{userId}`
-- `DELETE /api/customers/{userId}`
+## 3. Customer routes
 
+Routed through the gateway under `/api/customers` → `customer-service`.
 
-### Watchlist routes
+| Method | Path | Description | Caller |
+|--------|------|-------------|--------|
+| `POST` | `/api/customers/register` | Register new user + customer profile in a single saga (creates auth user and customer record) | Frontend |
+| `GET` | `/api/customers/me` | Get authenticated user's customer profile | Frontend, API Gateway |
+| `PUT` | `/api/customers/me` | Update authenticated user's customer profile | Frontend |
+| `GET` | `/api/customers/user/{userId}` | Get customer by userId — internal service-to-service only | notification-service, order-service, portfolio-service |
 
-- `GET /api/watchlist`
-- `POST /api/watchlist/items`
-- `DELETE /api/watchlist/items/{stockId}`
-- `DELETE /api/watchlist`
+### Request body — POST /api/customers/register
+```json
+{
+  "email": "string",
+  "username": "string",
+  "password": "string",
+  "firstName": "string",
+  "lastName": "string",
+  "phone": "string"
+}
+```
 
-### Portfolio routes
+### Request body — PUT /api/customers/me
+```json
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phone": "string"
+}
+```
 
-- `GET /api/portfolio`
-- `POST /api/portfolio/sell/{stockId}`
+---
 
-### Stock routes
+## 4. Profile aggregation route
 
-- `GET /api/stocks`
-- `GET /api/stocks/featured`
-- `POST /api/stocks/featured/refresh-once`
-- `GET /api/stocks/featured/health`
-- `GET /api/stocks/{id}`
-- `GET /api/stocks/symbol/{symbol}`
-- `GET /api/stocks/search`
-- `GET /api/stocks/market-status`
+Exposed directly by the API Gateway (not forwarded to a downstream service).
 
-### Analytics routes
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/profile` | Aggregates data from `auth-service` (credentials) and `customer-service` (profile) into a single response |
 
-- `GET /api/analytics/stocks/{id}/insights`
-- `GET /api/analytics/news`
+This endpoint requires a valid bearer token. The gateway calls `GET /auth/me/credentials` and `GET /customers/me` in parallel and merges the results.
 
-### Cart and order routes
+---
 
-- `GET /api/cart`
-- `POST /api/cart/items`
-- `PUT /api/cart/items/{stockId}`
-- `DELETE /api/cart/items/{stockId}`
-- `DELETE /api/cart`
-- `POST /api/cart/lock-quote`
-- `POST /api/cart/complete-order`
-- `GET /api/orders`
-- `GET /api/orders/paged`
+## 5. Watchlist routes
 
-### Wallet routes
+Routed through the gateway under `/api/watchlist` → `customer-service`.
 
-- `GET /api/wallet/me`
-- `POST /api/wallet/deposit`
-- `POST /api/wallet/withdraw`
-- `GET /api/wallet/transactions`
-- `GET /api/wallet/transactions/paged`
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/watchlist` | Get all stocks on the authenticated user's watchlist |
+| `POST` | `/api/watchlist/items` | Add a stock to the watchlist |
+| `DELETE` | `/api/watchlist/items/{stockId}` | Remove a specific stock from the watchlist |
+| `DELETE` | `/api/watchlist` | Clear the entire watchlist |
 
-### ML routes (internal/service-to-service)
+### Request body — POST /api/watchlist/items
+```json
+{ "stockId": "number" }
+```
 
-- Served by `ml-service` (FastAPI)
-- `POST /v1/train`
-- `GET /v1/predictions/{stock_id}` (serves cached snapshot from `stock_metrics`; on-demand inference only if cache missing)
+---
 
-## 3. SSE endpoints
+## 6. Stock routes
+
+Routed through the gateway under `/api/stocks` → `stock-service`.
+
+| Method | Path | Description | Caller |
+|--------|------|-------------|--------|
+| `GET` | `/api/stocks/featured` | Get top 50 featured stocks ordered by sort_order | Frontend |
+| `GET` | `/api/stocks/search` | Search stocks by symbol or name (query param: `query`) | Frontend |
+| `GET` | `/api/stocks/{id}` | Get a single stock by ID | portfolio-service (internal, for sell notifications) |
+| `GET` | `/api/stocks/{id}/prediction` | Get ML buy/sell prediction for a stock | Frontend |
+| `GET` | `/api/stocks/market-status` | Get the current cached market session status (OPEN/CLOSED/PRE/AFTER) | Frontend, portfolio-service |
+
+### Query parameters
+
+**GET /api/stocks/search**
+- `query` (optional, string) — filters stocks by symbol or name prefix; returns all featured stocks if omitted
+
+---
+
+## 7. Analytics routes
+
+Routed through the gateway under `/api/analytics` → `analytics-service` (Python FastAPI).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/analytics/stocks/{stockId}/insights` | Get analytics insights for a specific stock (sentiment, volume trends, news) |
+| `GET` | `/api/analytics/news` | Get latest analytics news items |
+
+### Query parameters
+
+**GET /api/analytics/news**
+- `limit` (optional, integer, default `10`, range `1–100`) — number of news items to return
+
+### ML health endpoint (internal/ops)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Analytics service health — model load status, training state, sync freshness |
+
+---
+
+## 8. Cart and order routes
+
+Routed through the gateway under `/api/cart` and `/api/orders` → `order-service`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/cart` | Get the authenticated user's current cart |
+| `POST` | `/api/cart/items` | Add a stock item to the cart |
+| `PUT` | `/api/cart/items/{stockId}` | Update quantity of a stock in the cart |
+| `DELETE` | `/api/cart/items/{stockId}` | Remove a specific stock from the cart |
+| `DELETE` | `/api/cart` | Clear the entire cart |
+| `POST` | `/api/cart/lock-quote` | Lock in live price quotes for all cart items before checkout |
+| `POST` | `/api/cart/complete-order` | Complete the checkout: debit wallet, update portfolio, record order |
+| `GET` | `/api/orders` | Get all orders for the authenticated user (full list, no pagination) |
+| `GET` | `/api/orders/paged` | Get paginated orders for the authenticated user |
+
+### Request body — POST /api/cart/items
+```json
+{ "stockId": "number", "quantity": "number" }
+```
+
+### Request body — PUT /api/cart/items/{stockId}
+```json
+{ "quantity": "number" }
+```
+
+### Pagination — GET /api/orders/paged
+
+| Query param | Type | Default | Max | Description |
+|-------------|------|---------|-----|-------------|
+| `page` | integer | `0` | — | Zero-based page index |
+| `size` | integer | `10` | `50` | Number of orders per page |
+
+---
+
+## 9. Wallet routes
+
+Routed through the gateway under `/api/wallet` → `payment-service`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/wallet/me` | Get the authenticated user's wallet balance and details |
+| `POST` | `/api/wallet/deposit` | Deposit funds into the wallet |
+| `POST` | `/api/wallet/withdraw` | Withdraw funds from the wallet |
+| `GET` | `/api/wallet/transactions` | Get all wallet transactions (full list, no pagination) |
+| `GET` | `/api/wallet/transactions/paged` | Get paginated wallet transactions |
+
+### Request body — POST /api/wallet/deposit
+```json
+{ "amount": "number" }
+```
+
+### Request body — POST /api/wallet/withdraw
+```json
+{ "amount": "number" }
+```
+
+### Pagination — GET /api/wallet/transactions/paged
+
+| Query param | Type | Default | Max | Description |
+|-------------|------|---------|-----|-------------|
+| `page` | integer | `0` | — | Zero-based page index |
+| `size` | integer | `10` | `50` | Number of transactions per page |
+
+---
+
+## 10. Portfolio routes
+
+Routed through the gateway under `/api/portfolio` → `portfolio-service`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/portfolio` | Get the authenticated user's portfolio holdings |
+| `POST` | `/api/portfolio/sell/{stockId}` | Sell shares of a stock from the portfolio |
+
+### Pagination — GET /api/portfolio
+
+| Query param | Type | Default | Max | Description |
+|-------------|------|---------|-----|-------------|
+| `page` | integer | `0` | — | Zero-based page index |
+| `size` | integer | `10` | `50` | Number of holdings per page |
+
+### Request body — POST /api/portfolio/sell/{stockId}
+```json
+{ "quantity": "number" }
+```
+
+---
+
+## 11. SSE endpoints
 
 ### Featured stocks stream
 
-- `GET /api/stocks/stream/featured`
-- optional query parameter: `query`
+```
+GET /api/stocks/stream/featured
+```
 
-Behavior:
-- used by the frontend for the live featured stock list and search overlay behavior
+| Query param | Description |
+|-------------|-------------|
+| `query` (optional) | Filter the live featured stock list by symbol or name |
+
+**Behavior:**
+- Pushes live stock price updates from the Massive WebSocket feed
+- Frontend uses this for the live market ticker and the search overlay
+- When `query` is set, the stream filters results to matching stocks; omit to receive all featured stocks
 
 ### Market status stream
 
-- `GET /api/stocks/stream/market-status`
+```
+GET /api/stocks/stream/market-status
+```
 
-Behavior:
-- used by the global market-status provider
-- frontend keeps a REST bootstrap and SSE subscription together
+**Behavior:**
+- Pushes market session state changes (`OPEN`, `CLOSED`, `PRE_MARKET`, `AFTER_HOURS`)
+- Frontend bootstraps with `GET /api/stocks/market-status` then subscribes to this SSE stream to receive live changes
+- Also consumed by portfolio-service via REST (non-stream) to gate sell eligibility
 
-## 4. gRPC contracts in use
+---
 
-The codebase currently uses three real gRPC APIs.
+## 12. ML model training (operational scripts only)
 
-### `OrderPaymentService`
+The analytics service exposes one HTTP endpoint used by operational scripts for manual model training triggers. It is **not** called from the frontend or from any other backend service.
 
-Caller:
-- order-service
+| Method | Path | Caller |
+|--------|------|--------|
+| `POST` | `/v1/train` | `run_train.py`, `_train_trigger.py` scripts |
 
-Server:
-- payment-service
+**POST /v1/train — Request body**
+```json
+{ "days_back": 365, "horizon_days": 5 }
+```
 
-Purpose:
-- complete wallet-backed payment for an order
+**Response** includes: `selected_model`, `trained_rows`, `horizon_days`, `metrics[]` (cv_f1, test_f1, balanced_accuracy, precision, recall per model).
+
+> Routine retraining is handled automatically by the internal scheduler thread — this endpoint is for manual/dev triggers only.
+
+---
+
+## 13. gRPC contracts
+
+The codebase uses three gRPC APIs for synchronous inter-service calls during checkout and sell flows.
 
 ### `StockQuoteService`
 
-Caller:
-- order-service
+| | |
+|--|--|
+| **Caller** | order-service |
+| **Server** | stock-service (port 9003) |
+| **Purpose** | Resolve fresh live quote data and validate stock eligibility at checkout time |
 
-Server:
-- stock-service
+### `OrderPaymentService`
 
-Purpose:
-- resolve fresh quote data and validate stock at checkout time
+| | |
+|--|--|
+| **Caller** | order-service (checkout), portfolio-service (sell settlement) |
+| **Server** | payment-service (port 9002) |
+| **Purpose** | Debit wallet for buy orders (`completePayment`); credit wallet after sell (`settleSell`) |
 
 ### `PortfolioSyncService`
 
-Caller:
-- order-service
+| | |
+|--|--|
+| **Caller** | order-service |
+| **Server** | portfolio-service (port 9005) |
+| **Purpose** | Record completed buy orders into portfolio holdings and transaction history |
 
-Server:
-- portfolio-service
+---
 
-Purpose:
-- sync successful completed orders into portfolio holdings and transactions
+## 14. Kafka event contract
 
-## 5. Kafka event contract
+Async notifications are delivered through a Kafka topic rather than direct REST calls.
 
-There is also protobuf/JSON event usage outside gRPC:
+- **Topic**: `tradepulse.notifications`
+- **Producers**: customer-service, order-service, payment-service, portfolio-service
+- **Consumer**: notification-service (sends email)
+- **Format**: JSON with `eventType`, `userId`, `timestamp`, `data`
 
-- customer-service, order-service, payment-service, and portfolio-service publish notification events to Kafka topic `tradepulse.notifications`
-- `notification-service` consumes `tradepulse.notifications` and sends email notifications
-- `notification-service` does not expose frontend-facing REST routes in the current design
+The notification-service does **not** expose any frontend-facing REST routes.
 
-Important note:
-- `customer_event.proto` is protobuf-based messaging, not a gRPC API
+---
 
-## 6. OpenAPI aggregation routes
+## 15. OpenAPI aggregation routes (gateway-exposed)
 
-Gateway-exposed docs routes in current config:
+| Path | Upstream |
+|------|----------|
+| `/api-docs/customers` | customer-service `/v3/api-docs` |
+| `/api-docs/stocks` | stock-service `/v3/api-docs` |
+| `/api-docs/orders` | order-service `/v3/api-docs` |
 
-- `/api-docs/customers`
-- `/api-docs/stocks`
-- `/api-docs/orders`
+---
 
-These are rewrites to the downstream service `/v3/api-docs` endpoints.
+## 16. Error codes
 
-## 7. Pagination behavior
+| Code | Meaning |
+|------|---------|
+| `400` | Malformed or invalid request data |
+| `401` | Missing or expired bearer token — frontend clears local auth state automatically |
+| `403` | Authenticated but not authorized (e.g. accessing another user's resource) |
+| `404` | Requested resource not found |
+| `409` | Business conflict — e.g. sell attempt when market is closed, insufficient wallet balance |
+| `503` | ML model not yet trained / prediction snapshot unavailable |
+| `500` | Unexpected server error |
 
-Current paginated endpoints in code include:
+---
 
-- `GET /api/orders/paged`
-- `GET /api/wallet/transactions/paged`
+## 17. Usage rules for contributors
 
-Both normalize page and size values on the backend and cap page size at 50.
-
-## 8. Error behavior
-
-Patterns currently present:
-
-- `400` for malformed request data
-- `401` for invalid or missing auth on protected routes
-- `404` for missing resources such as users/customers
-- `409` for business conflicts such as closed-market sell attempts or wallet insufficiency semantics
-- `500` for unexpected failures
-
-Frontend note:
-- a `401` now clears local auth state automatically so the app does not keep a broken stale session
-
-## 9. Recommended usage rules for future contributors
-
-- do not bypass the API gateway for frontend traffic
-- do not trust client-supplied ownership headers in downstream services
-- keep user-scoped operations tied to the validated `X-User-Id`
-- use SSE only for truly live user-facing feeds
-- keep synchronous checkout orchestration inside order-service
-
+- Do not bypass the API gateway for frontend traffic
+- Do not trust client-supplied `X-User-Id` headers in downstream services — rely only on the gateway-injected value
+- Keep user-scoped operations tied to the validated `X-User-Id`
+- Use SSE only for truly live user-facing feeds
+- Keep synchronous checkout orchestration inside order-service
+- All new public endpoints must go through the API gateway
+- Do not add endpoints that aren't called by a known consumer (frontend, another service, or an operational script)

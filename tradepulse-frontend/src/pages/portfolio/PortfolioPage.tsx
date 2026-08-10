@@ -10,6 +10,8 @@ import { sellPortfolioItem, fetchPortfolio } from "../../utils/portfolioApi";
 import { useStocks } from "../../utils/useStocks";
 import "./PortfolioPage.css";
 
+const PORTFOLIO_TX_PAGE_SIZE = 10;
+
 const EMPTY_PORTFOLIO: PortfolioResponse = {
     summary: {
         totalPositions: 0,
@@ -22,6 +24,12 @@ const EMPTY_PORTFOLIO: PortfolioResponse = {
     },
     holdings: [],
     transactions: [],
+    transactionPage: 0,
+    transactionPageSize: PORTFOLIO_TX_PAGE_SIZE,
+    transactionTotalElements: 0,
+    transactionTotalPages: 0,
+    transactionFirst: true,
+    transactionLast: true,
 };
 
 function formatCurrency(value: number) {
@@ -38,6 +46,7 @@ export function PortfolioPage() {
     const [sellingStockId, setSellingStockId] = useState<string | null>(null);
     const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
     const [portfolioNotice, setPortfolioNotice] = useState<string | null>(null);
+    const [transactionPage, setTransactionPage] = useState(0);
 
     const closedMarketMessage =
         "Markets are currently closed. Trading is available Monday through Friday, excluding market holidays, during the following hours (ET): Pre-Market: 4:00 AM – 9:30 AM, Regular Market: 9:30 AM – 4:00 PM, and After-Hours: 4:00 PM – 8:00 PM. Please try again when trading resumes at 4:00 AM ET on the next trading day.";
@@ -49,27 +58,30 @@ export function PortfolioPage() {
     const isMarketClosed = sessionMeta.session === "closed";
     const visibleNotice = portfolioNotice ?? (isMarketClosed ? closedMarketMessage : null);
 
+    const loadPortfolio = async (targetPage: number) => {
+        try {
+            setLoading(true);
+            const data = await fetchPortfolio(targetPage, PORTFOLIO_TX_PAGE_SIZE);
+            setPortfolio(data);
+            if (data.transactionTotalPages > 0 && targetPage >= data.transactionTotalPages && data.transactions.length === 0) {
+                setTransactionPage(Math.max(data.transactionTotalPages - 1, 0));
+            }
+        } catch (loadError) {
+            const message = loadError instanceof Error ? loadError.message : "Failed to load portfolio.";
+            setError(message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isUserAuthenticated()) {
             navigate("/login");
             return;
         }
 
-        const loadPortfolio = async () => {
-            try {
-                setLoading(true);
-                const data = await fetchPortfolio();
-                setPortfolio(data);
-            } catch (loadError) {
-                const message = loadError instanceof Error ? loadError.message : "Failed to load portfolio.";
-                setError(message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        void loadPortfolio();
-    }, [navigate]);
+        void loadPortfolio(transactionPage);
+    }, [navigate, transactionPage]);
 
     const stockPriceMap = useMemo(
         () => new Map(stocks.map((stock) => [stock.id, stock.price])),
@@ -90,6 +102,36 @@ export function PortfolioPage() {
         () => new Map(stocks.map((stock) => [stock.id, stock.exchange ?? null])),
         [stocks],
     );
+
+    const transactionPageSize = portfolio.transactionPageSize > 0 ? portfolio.transactionPageSize : PORTFOLIO_TX_PAGE_SIZE;
+    const transactionCount = portfolio.transactions.length;
+    const hasRenderablePortfolioData =
+        portfolio.summary.totalPositions > 0 || portfolio.holdings.length > 0 || portfolio.transactionTotalElements > 0;
+    const serverReportedTotalPages = portfolio.transactionTotalPages;
+    // Some responses include all transactions despite page/size params. If payload exceeds page size,
+    // enforce client slicing so the UI remains paginated.
+    const shouldFallbackToClientPagination = transactionCount > transactionPageSize;
+
+    const visibleTransactions = useMemo(() => {
+        if (!shouldFallbackToClientPagination) {
+            return portfolio.transactions;
+        }
+
+        const start = transactionPage * transactionPageSize;
+        return portfolio.transactions.slice(start, start + transactionPageSize);
+    }, [portfolio.transactions, shouldFallbackToClientPagination, transactionPage, transactionPageSize]);
+
+    const transactionTotalElements = shouldFallbackToClientPagination
+        ? transactionCount
+        : Math.max(portfolio.transactionTotalElements, transactionCount);
+    const transactionTotalPages = shouldFallbackToClientPagination
+        ? Math.max(1, Math.ceil(transactionCount / transactionPageSize))
+        : Math.max(serverReportedTotalPages, transactionCount > 0 ? 1 : 0);
+    const transactionFirst = shouldFallbackToClientPagination ? transactionPage <= 0 : portfolio.transactionFirst;
+    const transactionLast = shouldFallbackToClientPagination
+        ? transactionPage + 1 >= transactionTotalPages
+        : portfolio.transactionLast;
+    const transactionPageLabel = Math.max(transactionTotalPages, 1);
 
     const holdingsWithLivePrice = useMemo(() => {
         return portfolio.holdings.map((holding) => {
@@ -127,13 +169,13 @@ export function PortfolioPage() {
     }, [holdingsWithLivePrice]);
 
     const transactionsWithSymbols = useMemo(
-        () => portfolio.transactions.map((transaction) => ({
+        () => visibleTransactions.map((transaction) => ({
             ...transaction,
             symbol: stockSymbolMap.get(transaction.stockId) ?? transaction.symbol ?? transaction.stockId,
             companyName: stockNameMap.get(transaction.stockId) ?? null,
             exchange: stockExchangeMap.get(transaction.stockId) ?? null,
         })),
-        [portfolio.transactions, stockSymbolMap, stockNameMap, stockExchangeMap],
+        [visibleTransactions, stockSymbolMap, stockNameMap, stockExchangeMap],
     );
 
     const handleSell = async (holding: PortfolioHolding) => {
@@ -154,11 +196,11 @@ export function PortfolioPage() {
             setSellingStockId(holding.stockId);
             setError(null);
             setPortfolioNotice(null);
-            const updated = await sellPortfolioItem(holding.stockId, {
+            await sellPortfolioItem(holding.stockId, {
                 quantity,
                 price: toMoney(currentPrice),
             });
-            setPortfolio(updated);
+            await loadPortfolio(transactionPage);
         } catch (sellError) {
             const message = sellError instanceof Error ? sellError.message : "Failed to sell stock.";
             setError(message);
@@ -184,7 +226,7 @@ export function PortfolioPage() {
                     {loading && <p>Loading portfolio...</p>}
                     {error && <p className="portfolio-error">{error}</p>}
 
-                    {!loading && (
+                    {(!loading || hasRenderablePortfolioData) && (
                         <>
                             <section className="portfolio-stats">
                                 <article className="portfolio-stat-card">
@@ -286,7 +328,7 @@ export function PortfolioPage() {
 
                             <section className="portfolio-panel">
                                 <h2>Transactions</h2>
-                                {portfolio.transactions.length === 0 ? (
+                                {transactionCount === 0 ? (
                                     <p>No transactions yet.</p>
                                 ) : (
                                     <>
@@ -351,6 +393,30 @@ export function PortfolioPage() {
                                             Stock sold
                                         </span>
                                     </div>
+
+                                    {transactionTotalPages > 0 && (
+                                        <div className="portfolio-pagination pagination-controls">
+                                            <button
+                                                className="pagination-button"
+                                                type="button"
+                                                onClick={() => setTransactionPage((current) => Math.max(current - 1, 0))}
+                                                disabled={transactionFirst || loading}
+                                            >
+                                                Previous
+                                            </button>
+                                            <span className="pagination-label">
+                                                Page {transactionPage + 1} of {transactionPageLabel} ({transactionTotalElements} transactions)
+                                            </span>
+                                            <button
+                                                className="pagination-button"
+                                                type="button"
+                                                onClick={() => setTransactionPage((current) => (current + 1 < transactionTotalPages ? current + 1 : current))}
+                                                disabled={transactionLast || loading}
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    )}
                                     </>
                                 )}
                             </section>

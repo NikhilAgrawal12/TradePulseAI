@@ -17,6 +17,8 @@ import com.tradepulse.portfolioservice.model.PortfolioTransaction;
 import com.tradepulse.portfolioservice.repository.PortfolioHoldingRepository;
 import com.tradepulse.portfolioservice.repository.PortfolioTransactionRepository;
 import io.grpc.StatusRuntimeException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +38,10 @@ import java.util.concurrent.ConcurrentMap;
 @Service
 public class PortfolioService {
 
-    private static final long PORTFOLIO_CACHE_TTL_MS = 30_000;
+    private static final long PORTFOLIO_CACHE_TTL_MS = 15_000; // Aligned with order-service PRICE_LOCK_SECONDS to prevent stale portfolio data
     private static final int PORTFOLIO_CACHE_MAX_ENTRIES = 2_000;
+    private static final int DEFAULT_TRANSACTION_PAGE_SIZE = 10;
+    private static final int MAX_TRANSACTION_PAGE_SIZE = 50;
 
     private final PortfolioHoldingRepository portfolioHoldingRepository;
     private final PortfolioTransactionRepository portfolioTransactionRepository;
@@ -45,7 +49,7 @@ public class PortfolioService {
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
     private final NotificationKafkaProducer notificationKafkaProducer;
     private final CustomerClient customerClient;
-    private final ConcurrentMap<Long, CachedValue<PortfolioResponseDTO>> portfolioCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, CachedValue<PortfolioSnapshot>> portfolioCache = new ConcurrentHashMap<>();
 
     public PortfolioService(
             PortfolioHoldingRepository portfolioHoldingRepository,
@@ -65,43 +69,54 @@ public class PortfolioService {
 
     @Transactional(readOnly = true)
     public PortfolioResponseDTO getPortfolio(Long userId) {
-        PortfolioResponseDTO cached = getFromCache(userId);
-        if (cached != null) {
-            return cached;
+        return getPortfolio(userId, 0, DEFAULT_TRANSACTION_PAGE_SIZE);
+    }
+
+    @Transactional(readOnly = true)
+    public PortfolioResponseDTO getPortfolio(Long userId, int page, int size) {
+        PortfolioSnapshot snapshot = getFromCache(userId);
+        if (snapshot == null) {
+            snapshot = loadSnapshot(userId);
+            putIntoCache(userId, snapshot);
         }
+        PortfolioSnapshot finalSnapshot = snapshot;
 
-        List<PortfolioHolding> holdings = portfolioHoldingRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
-        List<PortfolioTransaction> transactions = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(userId);
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_TRANSACTION_PAGE_SIZE);
+        Page<PortfolioTransaction> transactionsPage = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(
+                userId,
+                PageRequest.of(normalizedPage, normalizedSize)
+        );
 
-        PortfolioAnalytics analytics = calculateAnalytics(transactions);
-
-        List<PortfolioHoldingResponseDTO> holdingResponses = holdings.stream()
-                .map(holding -> {
-                    Long stockId = holding.getId().getStockId();
-                    BigDecimal averageBuyPrice = analytics.averageBuyByStock().getOrDefault(stockId, BigDecimal.ZERO);
-                    BigDecimal realizedPnl = analytics.realizedByStock().getOrDefault(stockId, BigDecimal.ZERO);
-                    return PortfolioMapper.toHoldingResponse(holding, averageBuyPrice, realizedPnl);
-                })
-                .toList();
-
-        List<PortfolioTransactionResponseDTO> transactionResponses = transactions.stream()
+        List<PortfolioTransactionResponseDTO> transactionResponses = transactionsPage.getContent().stream()
                 .map(transaction -> {
-                    BigDecimal realizedPnl = analytics.realizedByTransactionId()
+                    BigDecimal realizedPnl = finalSnapshot.analytics().realizedByTransactionId()
                             .getOrDefault(transaction.getTransactionId(), BigDecimal.ZERO);
                     return PortfolioMapper.toTransactionResponse(transaction, realizedPnl);
                 })
                 .toList();
 
         PortfolioResponseDTO response = new PortfolioResponseDTO();
-        response.setSummary(toSummary(holdingResponses, analytics));
-        response.setHoldings(holdingResponses);
+        response.setSummary(finalSnapshot.summary());
+        response.setHoldings(finalSnapshot.holdings());
         response.setTransactions(transactionResponses);
-        putIntoCache(userId, response);
+        response.setTransactionPage(transactionsPage.getNumber());
+        response.setTransactionPageSize(transactionsPage.getSize());
+        response.setTransactionTotalElements(transactionsPage.getTotalElements());
+        response.setTransactionTotalPages(transactionsPage.getTotalPages());
+        response.setTransactionFirst(transactionsPage.isFirst());
+        response.setTransactionLast(transactionsPage.isLast());
         return response;
     }
 
     @Transactional
     public PortfolioResponseDTO recordCompletedOrder(Long userId, RecordPortfolioOrderRequestDTO request) {
+        applyCompletedOrder(userId, request);
+        return getPortfolio(userId);
+    }
+
+    @Transactional
+    public void applyCompletedOrder(Long userId, RecordPortfolioOrderRequestDTO request) {
         validateRecordCompletedOrderRequest(userId, request);
 
         for (PortfolioFillItemRequestDTO item : request.getItems()) {
@@ -121,7 +136,6 @@ public class PortfolioService {
         }
 
         evictPortfolioCache(userId);
-        return getPortfolio(userId);
     }
 
     @Transactional
@@ -196,8 +210,8 @@ public class PortfolioService {
         return getPortfolio(userId);
     }
 
-    private PortfolioResponseDTO getFromCache(Long userId) {
-        CachedValue<PortfolioResponseDTO> cached = portfolioCache.get(userId);
+    private PortfolioSnapshot getFromCache(Long userId) {
+        CachedValue<PortfolioSnapshot> cached = portfolioCache.get(userId);
         if (cached == null) {
             return null;
         }
@@ -208,7 +222,7 @@ public class PortfolioService {
         return cached.value();
     }
 
-    private void putIntoCache(Long userId, PortfolioResponseDTO value) {
+    private void putIntoCache(Long userId, PortfolioSnapshot value) {
         evictExpiredEntries();
         if (portfolioCache.size() >= PORTFOLIO_CACHE_MAX_ENTRIES) {
             evictOldestEntry();
@@ -220,6 +234,28 @@ public class PortfolioService {
         portfolioCache.remove(userId);
     }
 
+    private PortfolioSnapshot loadSnapshot(Long userId) {
+        List<PortfolioHolding> holdings = portfolioHoldingRepository.findByIdUserIdOrderByUpdatedAtDesc(userId);
+        List<PortfolioTransaction> allTransactions = portfolioTransactionRepository.findByUserIdOrderByExecutedAtDesc(userId);
+
+        PortfolioAnalytics analytics = calculateAnalytics(allTransactions);
+
+        List<PortfolioHoldingResponseDTO> holdingResponses = holdings.stream()
+                .map(holding -> {
+                    Long stockId = holding.getId().getStockId();
+                    BigDecimal averageBuyPrice = analytics.averageBuyByStock().getOrDefault(stockId, BigDecimal.ZERO);
+                    BigDecimal realizedPnl = analytics.realizedByStock().getOrDefault(stockId, BigDecimal.ZERO);
+                    return PortfolioMapper.toHoldingResponse(holding, averageBuyPrice, realizedPnl);
+                })
+                .toList();
+
+        return new PortfolioSnapshot(
+                toSummary(holdingResponses, analytics),
+                holdingResponses,
+                analytics
+        );
+    }
+
     private void evictExpiredEntries() {
         long now = System.currentTimeMillis();
         portfolioCache.entrySet().removeIf(entry -> entry.getValue().expiresAtEpochMs() < now);
@@ -228,7 +264,7 @@ public class PortfolioService {
     private void evictOldestEntry() {
         Long oldestKey = null;
         long oldestTimestamp = Long.MAX_VALUE;
-        for (Map.Entry<Long, CachedValue<PortfolioResponseDTO>> entry : portfolioCache.entrySet()) {
+        for (Map.Entry<Long, CachedValue<PortfolioSnapshot>> entry : portfolioCache.entrySet()) {
             long createdAt = entry.getValue().createdAtEpochMs();
             if (createdAt < oldestTimestamp) {
                 oldestTimestamp = createdAt;
@@ -322,6 +358,12 @@ public class PortfolioService {
             Map<Long, BigDecimal> averageBuyByStock,
             Map<Long, BigDecimal> realizedByStock,
             Map<String, BigDecimal> realizedByTransactionId
+    ) {}
+
+    private record PortfolioSnapshot(
+            PortfolioSummaryResponseDTO summary,
+            List<PortfolioHoldingResponseDTO> holdings,
+            PortfolioAnalytics analytics
     ) {}
 
     private PortfolioSummaryResponseDTO toSummary(List<PortfolioHoldingResponseDTO> holdings, PortfolioAnalytics analytics) {

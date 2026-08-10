@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class OrderPaymentGrpcClient {
@@ -18,10 +19,14 @@ public class OrderPaymentGrpcClient {
     private static final Logger log = LoggerFactory.getLogger(OrderPaymentGrpcClient.class);
 
     private final OrderPaymentServiceGrpc.OrderPaymentServiceBlockingStub blockingStub;
+    private final long paymentDeadlineMs;
+    private final long refundDeadlineMs;
 
     public OrderPaymentGrpcClient(
             @Value("${order.payment.service.address:payment-service}") String serverAddress,
-            @Value("${order.payment.service.grpc.port:9002}") int serverPort
+            @Value("${order.payment.service.grpc.port:9002}") int serverPort,
+            @Value("${order.payment.service.grpc.deadline-ms:8000}") long paymentDeadlineMs,
+            @Value("${order.payment.service.grpc.refund-deadline-ms:8000}") long refundDeadlineMs
     ) {
         log.info("Connecting to OrderPayment gRPC at {}:{}", serverAddress, serverPort);
 
@@ -30,11 +35,11 @@ public class OrderPaymentGrpcClient {
                 .build();
 
         this.blockingStub = OrderPaymentServiceGrpc.newBlockingStub(channel);
+        this.paymentDeadlineMs = paymentDeadlineMs;
+        this.refundDeadlineMs = refundDeadlineMs;
     }
 
     /**
-     * Sends a single payment request for an entire order.
-     *
      * @param orderId    the persisted order id
      * @param totalAmount the complete order total
      * @param userId  the buyer's user id
@@ -46,8 +51,10 @@ public class OrderPaymentGrpcClient {
                 .setTotalAmount(totalAmount.doubleValue())
                 .build();
 
-        log.info("Sending completeOrderPayment gRPC for orderId={}, totalAmount={}", orderId, totalAmount);
-        OrderPaymentResponse response = blockingStub.completePayment(request);
+        log.info("Sending completeOrderPayment gRPC for orderId={}, totalAmount={}, deadlineMs={}", orderId, totalAmount, paymentDeadlineMs);
+        OrderPaymentResponse response = blockingStub
+                .withDeadlineAfter(paymentDeadlineMs, TimeUnit.MILLISECONDS)
+                .completePayment(request);
         log.info("OrderPayment gRPC response: {}", response);
         return response;
     }
@@ -59,9 +66,11 @@ public class OrderPaymentGrpcClient {
                 .setTotalAmount(totalAmount.negate().doubleValue())
                 .build();
 
-        log.warn("Sending refundOrderPayment gRPC for orderId={}, userId={}, amount={}",
-                orderId, userId, totalAmount);
-        OrderPaymentResponse response = blockingStub.completePayment(request);
+        log.warn("Sending refundOrderPayment gRPC for orderId={}, userId={}, amount={}, deadlineMs={}",
+                orderId, userId, totalAmount, refundDeadlineMs);
+        OrderPaymentResponse response = blockingStub
+                .withDeadlineAfter(refundDeadlineMs, TimeUnit.MILLISECONDS)
+                .completePayment(request);
         log.warn("Refund gRPC response for orderId={}: status={}", orderId, response.getStatus());
         return response;
     }

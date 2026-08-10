@@ -35,7 +35,10 @@ public class NotificationEventConsumer {
         this.emailNotificationService = emailNotificationService;
     }
 
-    @KafkaListener(topics = "tradepulse.notifications", groupId = "notification-service")
+    @KafkaListener(
+            topics = "${tradepulse.kafka.topics.notifications:tradepulse.notifications.events}",
+            groupId = "${spring.kafka.consumer.group-id:notification-service}"
+    )
     public void consume(String message) {
         log.debug("Received notification event: {}", message);
         try {

@@ -18,16 +18,17 @@ import java.util.Map;
 public class NotificationKafkaProducer {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationKafkaProducer.class);
-    private static final String TOPIC = "tradepulse.notifications";
-
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestClient restClient;
+    private final String notificationsTopic;
 
     public NotificationKafkaProducer(KafkaTemplate<String, String> kafkaTemplate,
-                                     @Value("${stock.service.base-url:http://stock-service:4003}") String stockServiceBaseUrl) {
+                                     @Value("${stock.service.base-url:http://stock-service:4003}") String stockServiceBaseUrl,
+                                     @Value("${tradepulse.kafka.topics.notifications:tradepulse.notifications.events}") String notificationsTopic) {
         this.kafkaTemplate = kafkaTemplate;
         this.restClient = RestClient.builder().baseUrl(stockServiceBaseUrl).build();
+        this.notificationsTopic = notificationsTopic;
     }
 
     public void publishStockSold(Long userId, Long stockId, int quantity, BigDecimal price, BigDecimal total) {
@@ -56,7 +57,7 @@ public class NotificationKafkaProducer {
             event.put("timestamp", Instant.now().toString());
             event.put("data", data);
 
-            kafkaTemplate.send(TOPIC, objectMapper.writeValueAsString(event));
+            kafkaTemplate.send(notificationsTopic, objectMapper.writeValueAsString(event));
             log.info("Published STOCK_SOLD notification for userId={}, symbol={}", userId, symbol);
         } catch (Exception ex) {
             log.error("Failed to publish STOCK_SOLD notification for userId={}: {}", userId, ex.getMessage(), ex);

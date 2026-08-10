@@ -22,7 +22,7 @@ public class OrderHistoryService {
     private static final int ORDER_NUMBER_MIN = 1_000_000;
     private static final int ORDER_NUMBER_MAX = 9_999_999;
     private static final int ORDER_NUMBER_GENERATION_ATTEMPTS = 200;
-    private static final long ORDER_CACHE_TTL_MS = 30_000;
+    private static final long ORDER_CACHE_TTL_MS = 15_000; // Aligned with PRICE_LOCK_SECONDS to prevent stale data beyond lock window
     private static final int ORDER_CACHE_MAX_ENTRIES = 2_000;
     private static final int ORDER_PAGE_CACHE_MAX_ENTRIES = 4_000;
 

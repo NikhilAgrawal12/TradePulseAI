@@ -12,6 +12,7 @@ import stock_quote.StockQuoteServiceGrpc;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class StockCatalogClient {
@@ -19,15 +20,18 @@ public class StockCatalogClient {
     private static final Logger log = LoggerFactory.getLogger(StockCatalogClient.class);
 
     private final StockQuoteServiceGrpc.StockQuoteServiceBlockingStub blockingStub;
+    private final long deadlineMs;
 
     public StockCatalogClient(
             @Value("${stock.service.grpc.address:stock-service}") String serverAddress,
-            @Value("${stock.service.grpc.port:9003}") int serverPort
+            @Value("${stock.service.grpc.port:9003}") int serverPort,
+            @Value("${stock.service.grpc.deadline-ms:5000}") long deadlineMs
     ) {
         ManagedChannel channel = ManagedChannelBuilder.forAddress(serverAddress, serverPort)
                 .usePlaintext()
                 .build();
         this.blockingStub = StockQuoteServiceGrpc.newBlockingStub(channel);
+        this.deadlineMs = deadlineMs;
     }
 
     public StockQuote getStockQuote(Long stockId) {
@@ -56,11 +60,13 @@ public class StockCatalogClient {
     }
 
     private StockQuote fetchQuote(Long stockId) {
-        StockQuoteResponse response = blockingStub.getStockQuote(
-                StockQuoteRequest.newBuilder()
-                        .setStockId(String.valueOf(stockId))
-                        .build()
-        );
+        StockQuoteResponse response = blockingStub
+                .withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
+                .getStockQuote(
+                        StockQuoteRequest.newBuilder()
+                                .setStockId(String.valueOf(stockId))
+                                .build()
+                );
 
         if (response == null || response.getSymbol().isBlank()) {
             throw new IllegalArgumentException("Stock not found for stockId: " + stockId);

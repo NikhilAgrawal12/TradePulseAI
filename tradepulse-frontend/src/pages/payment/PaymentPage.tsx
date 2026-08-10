@@ -280,9 +280,12 @@ export function PaymentPage() {
               ))}
             </div>
             <div className="payment-summary-row total"><span>Total</span><strong>${formatMoney(total)}</strong></div>
+            <p className="payment-price-lock-status" role="status" aria-live="polite">
+              ✓ <strong>Locked prices</strong> — Fetched fresh from latest stock quotes. Valid for {secondsLeft}s more.
+            </p>
             {priceUpdated && (
-              <p className="payment-price-refresh-msg" role="status" aria-live="polite">
-                Prices were refreshed using the latest stock quote values.
+              <p className="payment-price-change-msg" role="status" aria-live="polite">
+                ℹ️ Prices changed from your cart. Please review before confirming payment.
               </p>
             )}
           </aside>

@@ -244,3 +244,35 @@
   gap: 6px;
 }
 
+.portfolio-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #d9f1e4;
+}
+
+.portfolio-pagination .pagination-button {
+  border: 1px solid #9ed8b5;
+  background: #ffffff;
+  color: #14532d;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.portfolio-pagination .pagination-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.portfolio-pagination .pagination-label {
+  color: #4d735f;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+

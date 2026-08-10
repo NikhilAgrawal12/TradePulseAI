@@ -3,7 +3,6 @@ package com.tradepulse.customerservice.controller;
 import com.tradepulse.customerservice.dto.customer.CustomerRequestDTO;
 import com.tradepulse.customerservice.dto.customer.CustomerRegistrationRequestDTO;
 import com.tradepulse.customerservice.dto.customer.CustomerResponseDTO;
-import com.tradepulse.customerservice.dto.validators.CreateCustomerValidationGroup;
 import com.tradepulse.customerservice.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +26,7 @@ public class CustomerController {
 
 
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Get customer by user id")
+    @Operation(summary = "Get customer by user id (internal service-to-service use)")
     public ResponseEntity<CustomerResponseDTO> getCustomerByUserId(
             @RequestHeader(USER_ID_HEADER) String authenticatedUserId,
             @PathVariable Long userId
@@ -57,15 +56,6 @@ public class CustomerController {
         return ResponseEntity.ok().body(custResponseDTO);
     }
 
-    @PostMapping
-    @Operation(summary = "Create a new customer")
-    public ResponseEntity<CustomerResponseDTO> createUser(
-            @Validated({Default.class, CreateCustomerValidationGroup.class}) @RequestBody CustomerRequestDTO customerRequestDTO
-    ) {
-        CustomerResponseDTO custResponseDTO = customerService.createCustomer(customerRequestDTO);
-        return ResponseEntity.ok().body(custResponseDTO);
-    }
-
     @PostMapping("/register")
     @Operation(summary = "Register auth user and customer profile in one saga")
     public ResponseEntity<CustomerResponseDTO> registerCustomer(
@@ -74,30 +64,6 @@ public class CustomerController {
         CustomerResponseDTO responseDTO = customerService.registerCustomer(requestDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
     }
-
-    @PutMapping("/{userId}")
-    @Operation(summary = "Update customer")
-    public ResponseEntity<CustomerResponseDTO> updateUser(
-            @RequestHeader(USER_ID_HEADER) String authenticatedUserId,
-            @PathVariable Long userId,
-            @Validated({Default.class}) @RequestBody CustomerRequestDTO customerRequestDTO
-    ) {
-        authorizePathUserId(authenticatedUserId, userId);
-        CustomerResponseDTO custResponseDTO = customerService.updateCustomer(userId, customerRequestDTO);
-        return ResponseEntity.ok().body(custResponseDTO);
-    }
-
-    @DeleteMapping("/{userId}")
-    @Operation(summary = "Delete customer")
-    public ResponseEntity<Void> deleteUser(
-            @RequestHeader(USER_ID_HEADER) String authenticatedUserId,
-            @PathVariable Long userId
-    ) {
-        authorizePathUserId(authenticatedUserId, userId);
-        customerService.deleteCustomer(userId);
-        return ResponseEntity.noContent().build();
-    }
-
 
     private void authorizePathUserId(String authenticatedUserId, Long pathUserId) {
         Long normalizedAuthenticatedUserId = normalizeUserId(authenticatedUserId);

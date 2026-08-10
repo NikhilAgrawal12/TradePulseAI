@@ -7,23 +7,19 @@ import com.tradepulse.orderservice.dto.order.CompleteOrderItemRequestDTO;
 import com.tradepulse.orderservice.dto.order.CompleteOrderRequestDTO;
 import com.tradepulse.orderservice.dto.order.LockedOrderQuoteResponseDTO;
 import com.tradepulse.orderservice.grpc.OrderPaymentGrpcClient;
-import com.tradepulse.orderservice.grpc.PortfolioSyncGrpcClient;
-import com.tradepulse.orderservice.kafka.NotificationKafkaProducer;
 import com.tradepulse.orderservice.mapper.OrderItemMapper;
 import com.tradepulse.orderservice.mapper.OrderMapper;
-import com.tradepulse.orderservice.mapper.PortfolioOrderMapper;
 import com.tradepulse.orderservice.model.CartItem;
 import com.tradepulse.orderservice.model.CartItemId;
 import com.tradepulse.orderservice.model.TradeOrder;
 import com.tradepulse.orderservice.repository.CartItemRepository;
+import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import order_payment.OrderPaymentResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -31,38 +27,34 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class CartService {
 
     private static final Logger log = LoggerFactory.getLogger(CartService.class);
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
+    private static final String PAYMENT_REFERENCE_PREFIX = "checkout-";
     private static final int PRICE_LOCK_SECONDS = 15;
 
     private final CartItemRepository cartItemRepository;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
-    private final PortfolioSyncGrpcClient portfolioSyncGrpcClient;
     private final OrderHistoryService orderHistoryService;
     private final StockCatalogClient stockCatalogClient;
-    private final NotificationKafkaProducer notificationKafkaProducer;
-    private final CustomerClient customerClient;
+    private final OutboxEventEnqueuer outboxEventEnqueuer;
 
     public CartService(
             CartItemRepository cartItemRepository,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
-            PortfolioSyncGrpcClient portfolioSyncGrpcClient,
             OrderHistoryService orderHistoryService,
             StockCatalogClient stockCatalogClient,
-            NotificationKafkaProducer notificationKafkaProducer,
-            CustomerClient customerClient
+            OutboxEventEnqueuer outboxEventEnqueuer
     ) {
         this.cartItemRepository = cartItemRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
-        this.portfolioSyncGrpcClient = portfolioSyncGrpcClient;
         this.orderHistoryService = orderHistoryService;
         this.stockCatalogClient = stockCatalogClient;
-        this.notificationKafkaProducer = notificationKafkaProducer;
-        this.customerClient = customerClient;
+        this.outboxEventEnqueuer = outboxEventEnqueuer;
     }
 
     @Transactional(readOnly = true)
@@ -120,50 +112,35 @@ public class CartService {
         }
 
         CompleteOrderRequestDTO lockedRequest = buildLockedPriceRequest(request);
+        String paymentReference = PAYMENT_REFERENCE_PREFIX + UUID.randomUUID();
 
-        TradeOrder savedOrder = orderHistoryService.saveCompletedOrder(
-                OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, lockedRequest)
-        );
-
-        // Send payment record for the entire order total
         OrderPaymentResponse response;
         try {
             response = orderPaymentGrpcClient.completeOrderPayment(
-                    savedOrder.getId(),
-                    savedOrder.getTotal(),
+                    paymentReference,
+                    lockedRequest.getTotal(),
                     userId
             );
         } catch (StatusRuntimeException exception) {
-            throw new IllegalStateException("Payment failed for orderId: " + savedOrder.getId(), exception);
+            throw translatePaymentException(paymentReference, exception);
         }
 
-        validateCompletedPaymentResponse(response, savedOrder.getId());
+        validateCompletedPaymentResponse(response, paymentReference);
 
-        var syncRequest = PortfolioOrderMapper.toSyncRequestFromOrder(savedOrder);
-        if (syncRequest.getItems() == null || syncRequest.getItems().isEmpty()) {
-            throw new IllegalStateException("Payment completed, but portfolio sync payload is empty for orderId: " + savedOrder.getId());
-        }
-
-        log.info("Dispatching portfolio sync for orderId={}, userId={}, items={}",
-                savedOrder.getId(),
-                userId,
-                syncRequest.getItems().size());
+        TradeOrder savedOrder;
         try {
-            portfolioSyncGrpcClient.syncCompletedOrder(userId, syncRequest);
-        } catch (Exception syncException) {
-            compensatePaymentOnPortfolioSyncFailure(savedOrder.getId(), savedOrder.getTotal(), userId, syncException);
+            savedOrder = orderHistoryService.saveCompletedOrder(
+                    OrderMapper.toModel(userId, PAYMENT_STATUS_COMPLETED, lockedRequest)
+            );
+        } catch (Exception persistException) {
+            compensatePaymentOnOrderPersistFailure(paymentReference, lockedRequest.getTotal(), userId, persistException);
+            throw new IllegalStateException("Order persistence failed after successful payment.", persistException);
         }
 
         cartItemRepository.deleteByIdUserId(userId);
 
-        // Fetch customer data for email personalization.
-        CustomerClient.CustomerInfo customerInfo = customerClient.getCustomer(userId);
-        publishAfterCommit(() -> notificationKafkaProducer.publishStockPurchased(
-                userId,
-                customerInfo.firstName(),
-                customerInfo.lastName(),
-                savedOrder
-        ));
+        // Write both outbox entries inside this transaction – the relay will publish them after commit.
+        outboxEventEnqueuer.enqueue(savedOrder, lockedRequest);
 
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
@@ -240,17 +217,12 @@ public class CartService {
                         throw new IllegalArgumentException("Quantity must be greater than 0 for stockId: " + item.getStockId());
                     }
 
-                    BigDecimal lockedPrice = OrderItemMapper.scaleMoney(item.getPrice());
-                    if (lockedPrice.compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new IllegalArgumentException("Locked price must be greater than 0 for stockId: " + item.getStockId());
-                    }
-
-                    // Resolve canonical symbol and verify stock exists via gRPC at submit time.
+                    // Use server-authoritative live quote at submit time; never trust client price.
                     StockQuote quote = quotes.computeIfAbsent(stockId, stockCatalogClient::getRequiredStockQuote);
                     CompleteOrderItemRequestDTO locked = new CompleteOrderItemRequestDTO();
                     locked.setStockId(String.valueOf(stockId));
                     locked.setSymbol(quote.symbol());
-                    locked.setPrice(lockedPrice);
+                    locked.setPrice(OrderItemMapper.scaleMoney(quote.unitPrice()));
                     locked.setQuantity(quantity);
                     return locked;
                 })
@@ -301,44 +273,42 @@ public class CartService {
         return quotedRequest;
     }
 
-    private void validateCompletedPaymentResponse(OrderPaymentResponse response, String orderId) {
+    private void validateCompletedPaymentResponse(OrderPaymentResponse response, String paymentReference) {
         if (response == null) {
-            throw new IllegalStateException("Payment failed for orderId: " + orderId);
+            throw new IllegalStateException("Payment failed for payment reference: " + paymentReference);
         }
 
         if (!PAYMENT_STATUS_COMPLETED.equalsIgnoreCase(response.getStatus())) {
-            throw new IllegalStateException("Payment failed for orderId: " + orderId);
+            throw new IllegalStateException("Payment failed for payment reference: " + paymentReference);
         }
     }
 
-    private void compensatePaymentOnPortfolioSyncFailure(String orderId, BigDecimal totalAmount, Long userId, Exception syncException) {
-        log.error("Portfolio sync failed for orderId={}, userId={}. Triggering payment compensation.",
-                orderId, userId, syncException);
+    private void compensatePaymentOnOrderPersistFailure(String paymentReference, BigDecimal totalAmount, Long userId, Exception persistException) {
+        log.error("Order persistence failed after payment for paymentReference={}, userId={}. Triggering refund.",
+                paymentReference, userId, persistException);
 
         try {
-            var refundResponse = orderPaymentGrpcClient.refundOrderPayment(orderId, totalAmount, userId);
-            throw new IllegalStateException("Portfolio sync failed after payment. Compensation applied with status: "
-                    + refundResponse.getStatus(), syncException);
+            var refundResponse = orderPaymentGrpcClient.refundOrderPayment(paymentReference, totalAmount, userId);
+            throw new IllegalStateException("Order persistence failed after payment. Compensation applied with status: "
+                    + refundResponse.getStatus(), persistException);
         } catch (StatusRuntimeException refundGrpcException) {
             throw new IllegalStateException(
-                    "Portfolio sync failed after payment, and refund gRPC call failed for orderId: " + orderId,
+                    "Order persistence failed after payment, and refund gRPC call failed for payment reference: " + paymentReference,
                     refundGrpcException
             );
         }
     }
 
-    private void publishAfterCommit(Runnable action) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            action.run();
-            return;
+    private IllegalStateException translatePaymentException(String paymentReference, StatusRuntimeException exception) {
+        Status.Code statusCode = exception.getStatus().getCode();
+        if (statusCode == Status.Code.DEADLINE_EXCEEDED) {
+            return new IllegalStateException("Payment service timed out while completing your order. Please try again.", exception);
         }
-
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                action.run();
-            }
-        });
+        if (statusCode == Status.Code.UNAVAILABLE) {
+            return new IllegalStateException("Payment service is currently unavailable. Please try again in a moment.", exception);
+        }
+        return new IllegalStateException("Payment failed for payment reference: " + paymentReference, exception);
     }
+
 
 }

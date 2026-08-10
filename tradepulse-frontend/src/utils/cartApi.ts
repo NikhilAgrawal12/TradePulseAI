@@ -3,6 +3,8 @@ import type { AddCartItemRequest, CartItem, CompleteOrderResponse, LockQuoteRequ
 import { getEmailFromToken, getStoredToken, getUserIdFromToken } from "./auth";
 import { toMoney } from "./money";
 
+const COMPLETE_ORDER_TIMEOUT_MS = 30_000;
+
 function buildAuthHeaders() {
   const token = getStoredToken();
   const userId = getUserIdFromToken(token);
@@ -74,11 +76,15 @@ export async function completeOrder(payload: { items: CartItem[]; total: number 
       normalizedPayload,
       {
         headers: buildAuthHeaders(),
+        timeout: COMPLETE_ORDER_TIMEOUT_MS,
       }
     );
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("Completing your order is taking longer than expected. Please try again.");
+      }
       const message =
         error.response?.data?.message ||
         error.message ||

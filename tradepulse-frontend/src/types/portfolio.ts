@@ -24,7 +24,7 @@ export type PortfolioHolding = {
 };
 
 export type PortfolioTransaction = {
-  transactionId: number;
+  transactionId: string;
   stockId: string;
   symbol?: string | null;
   companyName?: string | null;
@@ -41,6 +41,12 @@ export type PortfolioResponse = {
   summary: PortfolioSummary;
   holdings: PortfolioHolding[];
   transactions: PortfolioTransaction[];
+  transactionPage: number;
+  transactionPageSize: number;
+  transactionTotalElements: number;
+  transactionTotalPages: number;
+  transactionFirst: boolean;
+  transactionLast: boolean;
 };
 
 export type SellPortfolioItemRequest = {

@@ -862,10 +862,14 @@ export function StockAnalyticsPage() {
                   </div>
                   <div className="analytics-hero-price">
                     <strong>{formatMaybeMoney(analytics.currentPerformance.currentPrice)}</strong>
-                    <span className={changeClass}>
-                      {formatMaybeSignedMoney(analytics.currentPerformance.dailyChange)}
-                      <em>{formatMaybePercent(displayDailyChangePercent)}</em>
-                    </span>
+                    <div className="hero-change-row">
+                      <span className={changeClass}>
+                        {formatMaybeSignedMoney(analytics.currentPerformance.dailyChange)}
+                      </span>
+                      <span className={changeClass}>
+                        {formatMaybePercent(displayDailyChangePercent)}
+                      </span>
+                    </div>
                     <small className="hero-prev-close">Prev close {formatMaybeMoney(analytics.currentPerformance.previousClose)}</small>
                   </div>
                 </>

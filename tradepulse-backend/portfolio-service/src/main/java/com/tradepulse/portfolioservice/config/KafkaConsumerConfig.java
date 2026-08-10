@@ -1,4 +1,4 @@
-package com.tradepulse.notificationservice.config;
+package com.tradepulse.portfolioservice.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -34,12 +34,14 @@ public class KafkaConsumerConfig {
 
     @Bean
     public ConsumerFactory<String, String> consumerFactory(
-            @Value("${spring.kafka.bootstrap-servers:kafka:9092}") String bootstrapServers
+            @Value("${spring.kafka.bootstrap-servers:kafka:9092}") String bootstrapServers,
+            @Value("${spring.kafka.consumer.group-id:portfolio-service}") String groupId,
+            @Value("${spring.kafka.consumer.auto-offset-reset:earliest}") String autoOffsetReset
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "notification-service");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         return new DefaultKafkaConsumerFactory<>(props);
@@ -47,7 +49,7 @@ public class KafkaConsumerConfig {
 
     /**
      * KafkaTemplate used only by the {@link DeadLetterPublishingRecoverer} to forward
-     * unrecoverable messages to the DLQ topic.
+     * failed messages to the DLQ topic.
      */
     @Bean
     public KafkaTemplate<String, String> dlqKafkaTemplate(
@@ -65,6 +67,7 @@ public class KafkaConsumerConfig {
             ConsumerFactory<String, String> consumerFactory,
             KafkaTemplate<String, String> dlqKafkaTemplate
     ) {
+        // Routes failed messages to "<original-topic>.DLQ" after retries are exhausted.
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(dlqKafkaTemplate);
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(

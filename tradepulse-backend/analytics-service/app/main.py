@@ -538,31 +538,6 @@ def health() -> dict[str, Any]:
     }
 
 
-@app.post("/v1/admin/sync-nightly")
-def trigger_nightly_sync() -> dict[str, Any]:
-    try:
-        payload = _run_analytics_sync(trigger="manual")
-        return {"accepted": True, "result": payload}
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=f"Nightly sync failed: {error}") from error
-
-
-@app.get("/v1/admin/sync-status")
-def get_sync_status() -> dict[str, Any]:
-    return {
-        "status": state["last_sync_status"],
-        "freshness_status": state["freshness_status"],
-        "error": state["last_sync_error"],
-        "finished_at": state["last_sync_finished_at"],
-        "last_successful_trading_date": state["last_successful_trading_date"],
-        "expected_trading_date": state["expected_trading_date"],
-        "last_provider_check_at": state["last_provider_check_at"],
-        "next_retry_at": state["next_retry_at"],
-        "next_morning_run_at": state["next_morning_run_at"],
-        "last_sync_trigger": state["last_sync_trigger"],
-        "stats": state["last_sync_stats"],
-    }
-
 
 @app.get("/v1/analytics/stocks/{stock_id}/insights")
 def get_stock_insights(stock_id: int) -> dict[str, Any]:
