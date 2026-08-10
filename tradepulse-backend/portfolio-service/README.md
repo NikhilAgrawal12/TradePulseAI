@@ -1,12 +1,12 @@
 # portfolio-service
 
-Standalone microservice for portfolio holdings, portfolio transactions, sell operations, and order-completion portfolio synchronization.
+Standalone microservice for portfolio holdings, portfolio transactions, sell operations, and Kafka-driven completed-order ingestion.
 
 ## Responsibilities
 
 - REST portfolio read API
 - REST sell API
-- gRPC `PortfolioSyncService` for completed order ingestion from `order-service`
+- Kafka consumer for `ORDER_COMPLETED` events from `order-service`
 - Owns `portfolio_holdings` and `portfolio_transactions` tables in `portfolio-service-db`
 
 ## Local compile

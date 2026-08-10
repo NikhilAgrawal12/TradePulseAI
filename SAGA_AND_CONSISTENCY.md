@@ -30,7 +30,7 @@ Compensation logic:
 Client used for auth interactions:
 - `tradepulse-backend/customer-service/src/main/java/com/tradepulse/customerService/client/AuthServiceClient.java`
 
-## 3. Checkout orchestration (order + payment + portfolio sync)
+## 3. Checkout orchestration (payment + order + portfolio eventing)
 
 Primary orchestrator:
 - `tradepulse-backend/order-service/src/main/java/com/tradepulse/orderservice/service/CartService.java`
@@ -42,19 +42,22 @@ Entry endpoints:
 Runtime flow:
 1. frontend requests quote lock (fresh canonical prices).
 2. order-service validates stock and resolves quotes through stock gRPC.
-3. order-service saves order.
-4. order-service calls payment-service gRPC to complete payment.
-5. on payment success, order-service calls customer-service portfolio-sync gRPC.
-6. cart is cleared and success response returned.
+3. order-service calls payment-service gRPC to complete payment.
+4. if payment succeeds, order-service persists the order and outbox records in the same DB transaction.
+5. cart is cleared and success response returned.
+6. scheduled outbox relay publishes `ORDER_COMPLETED` to Kafka after commit.
+7. portfolio-service consumes the order event and updates holdings asynchronously.
 
 Design intent:
 - order-service is the single orchestration boundary for checkout.
-- frontend does not call payment or portfolio sync services directly.
+- frontend does not call payment or portfolio services directly.
 
 ## 4. Consistency boundaries by domain
 
 - auth-service: user credentials and identity
 - customer-service: customer profile, watchlist, portfolio state
+- customer-service: customer profile and watchlist
+- portfolio-service: portfolio holdings, transactions, and sell-side settlement orchestration
 - payment-service: wallet and payment ledger
 - order-service: cart/order lifecycle
 - stock-service: market data, quotes, insights
@@ -73,29 +76,29 @@ Logical keys across services:
 ### Payment failure during order completion
 - order-service throws payment failure
 - checkout response fails and cart/order progression stops
-- portfolio sync does not proceed when payment is not completed
+- no outbox order event is written when payment is not completed
 
-### Portfolio sync failure after payment
-- payment may already be completed
-- order-service logs and propagates error from sync path
-- this is the main candidate for future retry/outbox enhancement
+### Portfolio update failure after payment
+- payment and order may already be completed
+- `ORDER_COMPLETED` remains durable in Kafka / consumer retry flow
+- portfolio-service retries processing; on repeated failure, the record can be sent to DLQ depending on listener error handling
 
 ## 6. Current strengths
 
 - explicit orchestration boundaries are clear in code
 - registration compensation prevents common split-write inconsistency
-- checkout service order is deterministic (quote -> order -> payment -> portfolio sync)
+- checkout service order is deterministic (quote -> payment -> order + outbox -> Kafka consumer update)
 - gateway-enforced identity propagation supports correct ownership scoping
 
 ## 7. Current limitations and planned hardening
 
 Recommended next steps for stronger production guarantees:
 
-1. Introduce outbox/inbox pattern for critical cross-service events.
-2. Add idempotency keys for complete-order and payment completion.
-3. Add retry policies with dead-letter handling for portfolio-sync failures.
-4. Add saga status audit table for support/debug visibility.
-5. Expand integration tests for partial-failure scenarios.
+1. Add end-to-end idempotency keys for complete-order and payment completion.
+2. Add stronger saga status/audit visibility for support teams.
+3. Expand integration tests for partial-failure and replay scenarios.
+4. Monitor Kafka lag / DLQ volume as part of operational readiness.
+5. Add replay tooling for failed portfolio event recovery.
 
 ## 8. Design philosophy summary
 

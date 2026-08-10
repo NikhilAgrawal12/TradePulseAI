@@ -40,7 +40,7 @@ This document summarizes the live responsibilities of each backend service in th
 - portfolio holdings read model
 - portfolio transaction history
 - sell operations
-- portfolio sync gRPC server for completed orders
+- consumes `ORDER_COMPLETED` events from Kafka and applies completed buy orders
 - REST client to stock-service for quote/session reads in portfolio views
 
 ### External REST shape
@@ -51,7 +51,8 @@ This document summarizes the live responsibilities of each backend service in th
 ### Internal dependencies
 
 - REST client to stock-service
-- gRPC server for portfolio synchronization
+- gRPC client to payment-service for sell settlement
+- Kafka consumer for `tradepulse.orders.events`
 
 ## stock-service
 
@@ -71,8 +72,9 @@ This document summarizes the live responsibilities of each backend service in th
 - cart lifecycle
 - order completion orchestration
 - payment gRPC call
-- portfolio sync gRPC call
-- compensation flow on portfolio sync failure
+- fresh quote validation through stock-service gRPC
+- transactional outbox write for `ORDER_COMPLETED` and notification events
+- scheduled outbox relay publishing to Kafka
 
 ## payment-service
 
@@ -104,7 +106,7 @@ This document summarizes the live responsibilities of each backend service in th
 
 ### Main responsibilities
 
-- consumes Kafka topic `tradepulse.notifications`
+- consumes Kafka topic `tradepulse.notifications.events`
 - resolves user email via auth-service lookup
 - sends email notifications for account, order, and wallet lifecycle events
 - runs as an asynchronous background consumer (no frontend-facing REST routes)

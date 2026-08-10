@@ -24,10 +24,10 @@ API Gateway (4004)
 Order Service gRPC calls:
     -> Payment Service (9002)
     -> Stock Service (9003)
-    -> Portfolio Service / Portfolio Sync (9005)
 
 Eventing:
-Customer/Order/Payment/Portfolio Services -> Kafka topic `tradepulse.notifications` -> Notification Service (4008)
+Order Service -> Kafka topic `tradepulse.orders.events` -> Portfolio Service (4007)
+Customer/Order/Payment/Portfolio Services -> Kafka topic `tradepulse.notifications.events` -> Notification Service (4008)
 
 ML:
 Stock Service <-> ML Service (4010)
@@ -139,7 +139,7 @@ Responsibilities:
 - order completion orchestration
 - order history
 - payment invocation
-- portfolio sync invocation
+- transactional outbox write + relay for downstream events
 
 ### Payment Service
 
@@ -159,13 +159,14 @@ Responsibilities:
 - portfolio holdings read model
 - portfolio buy/sell transaction history
 - sell flow and PnL views
-- portfolio sync gRPC service for completed orders
+- Kafka consumer for completed order events
+- sell-settlement gRPC client to payment-service
 
 ### Notification Service
 
 Responsibilities:
 
-- consumes notification events from Kafka topic `tradepulse.notifications`
+- consumes notification events from Kafka topic `tradepulse.notifications.events`
 - fetches user email metadata from auth-service
 - sends email notifications asynchronously
 
@@ -225,10 +226,11 @@ Responsibilities today:
 
 1. Frontend locks quote through order-service
 2. Order-service resolves fresh quote data via stock-service gRPC
-3. Order-service persists the order
-4. Order-service triggers payment-service gRPC payment completion
-5. Order-service triggers customer-service gRPC portfolio sync
-6. Cart is cleared after successful completion
+3. Order-service triggers payment-service gRPC payment completion
+4. Order-service persists the order and writes outbox events in the same DB transaction
+5. Cart is cleared after successful completion
+6. Order-service outbox relay publishes `ORDER_COMPLETED` to Kafka after commit
+7. Portfolio-service consumes the event and applies holdings/transaction updates asynchronously
 
 ## 5. Runtime integration styles
 
@@ -242,11 +244,14 @@ Used for:
 
 - order payment completion
 - fresh stock quote lookup
-- completed-order portfolio synchronization
+- sell settlement from portfolio-service to payment-service
 
 ### Kafka for asynchronous events
 
-Used for domain notification events published by multiple services and consumed by notification-service.
+Used for:
+
+- `tradepulse.orders.events` for business events such as `ORDER_COMPLETED`
+- `tradepulse.notifications.events` for asynchronous user-facing notification events
 
 ### SSE for live UI data
 

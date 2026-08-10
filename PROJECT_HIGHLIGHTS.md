@@ -27,9 +27,9 @@
 
 ### 1. **Saga Pattern for Distributed Consistency**
 - **Registration Saga**: Coordinates auth-service + customer-service with automatic compensation
-- **Checkout Orchestration**: Multi-step transaction spanning order, payment, and portfolio services
+- **Checkout Orchestration**: Payment-first workflow with transactional outbox and Kafka-driven portfolio updates
 - **Compensating transactions** to roll back partial failures and maintain consistency
-- No distributed transactions—pure event-driven choreography
+- No distributed transactions—pragmatic orchestration plus asynchronous event propagation
 
 ### 2. **Gateway Pattern with Security Hardening**
 - **JWT validation at gateway entry point**
@@ -38,7 +38,8 @@
 - **Cross-tab auth synchronization** with custom browser events
 
 ### 3. **Event-Driven Architecture**
-- **Protobuf-based Kafka events** for customer lifecycle events
+- **Kafka event propagation** for order and notification domains
+- **Transactional outbox relay** in order-service for at-least-once downstream delivery
 - **Notification service** consuming domain events and dispatching email notifications
 - **Decoupled event producers and consumers** following publish-subscribe pattern
 
@@ -74,16 +75,15 @@
 - Connection pooling and resource management
 
 ✅ **gRPC Development**
-- Protocol Buffer definitions for OrderPayment, StockQuote, and PortfolioSync services
+- Protocol Buffer definitions for OrderPayment and StockQuote services
 - Synchronous inter-service communication
 - Error handling and retry patterns
 - Typed contracts ensuring service compatibility
 
 ✅ **Kafka / Event Streaming**
-- Protobuf message serialization
-- Topic publishing for customer events
-- Consumer groups for analytics processing
-- Event-driven compensation logic
+- JSON event publishing for `tradepulse.orders.events` and `tradepulse.notifications.events`
+- Consumer groups for portfolio and notification processing
+- Event-driven downstream updates with retry/DLQ patterns
 
 ### Frontend (React + TypeScript)
 ✅ **Modern SPA Architecture**
@@ -159,7 +159,7 @@
 - ✅ Portfolio transactions with buy/sell history
 - ✅ Realized/unrealized PnL calculations
 - ✅ Sell operations with market-session awareness
-- ✅ Portfolio holdings sync after successful orders
+- ✅ Portfolio updates from replayable `ORDER_COMPLETED` events
 
 ### Market Data Features
 - ✅ Real-time market status (market open/closed)
@@ -259,6 +259,7 @@
 - **Spring Data JPA/Hibernate** for ORM
 - **PostgreSQL** with database-per-service model
 - **Apache Kafka** with Protobuf serialization
+- **Apache Kafka** with JSON event payloads and outbox relay publishing
 - **gRPC** with Protocol Buffers for service-to-service communication
 - **Maven** for dependency management
 - **Docker** for containerization
@@ -295,7 +296,7 @@
 - Improved ML governance (versioned model registry and drift monitoring)
 - Advanced observability (Prometheus, Grafana, tracing)
 - Secrets management (HashiCorp Vault)
-- Event sourcing with outbox pattern
+- Expanded event replay and operational recovery tooling
 - End-to-end automated integration tests
 - GraphQL API layer
 - Mobile app expansion

@@ -193,7 +193,7 @@ Routed through the gateway under `/api/cart` and `/api/orders` → `order-servic
 | `DELETE` | `/api/cart/items/{stockId}` | Remove a specific stock from the cart |
 | `DELETE` | `/api/cart` | Clear the entire cart |
 | `POST` | `/api/cart/lock-quote` | Lock in live price quotes for all cart items before checkout |
-| `POST` | `/api/cart/complete-order` | Complete the checkout: debit wallet, update portfolio, record order |
+| `POST` | `/api/cart/complete-order` | Complete the checkout: debit wallet, record order, and emit downstream order events |
 | `GET` | `/api/orders` | Get all orders for the authenticated user (full list, no pagination) |
 | `GET` | `/api/orders/paged` | Get paginated orders for the authenticated user |
 
@@ -321,7 +321,7 @@ The analytics service exposes one HTTP endpoint used by operational scripts for 
 
 ## 13. gRPC contracts
 
-The codebase uses three gRPC APIs for synchronous inter-service calls during checkout and sell flows.
+The codebase uses two active gRPC APIs for synchronous inter-service calls during checkout and sell flows.
 
 ### `StockQuoteService`
 
@@ -339,23 +339,20 @@ The codebase uses three gRPC APIs for synchronous inter-service calls during che
 | **Server** | payment-service (port 9002) |
 | **Purpose** | Debit wallet for buy orders (`completePayment`); credit wallet after sell (`settleSell`) |
 
-### `PortfolioSyncService`
-
-| | |
-|--|--|
-| **Caller** | order-service |
-| **Server** | portfolio-service (port 9005) |
-| **Purpose** | Record completed buy orders into portfolio holdings and transaction history |
-
 ---
 
 ## 14. Kafka event contract
 
-Async notifications are delivered through a Kafka topic rather than direct REST calls.
+Async domain events are delivered through Kafka rather than direct REST/gRPC fan-out after checkout.
 
-- **Topic**: `tradepulse.notifications`
+- **Topic**: `tradepulse.orders.events`
+- **Producer**: order-service outbox relay
+- **Consumer**: portfolio-service
+- **Format**: JSON with `eventType`, `eventId`, `orderId`, `userId`, `timestamp`, `data`
+
+- **Topic**: `tradepulse.notifications.events`
 - **Producers**: customer-service, order-service, payment-service, portfolio-service
-- **Consumer**: notification-service (sends email)
+- **Consumer**: notification-service
 - **Format**: JSON with `eventType`, `userId`, `timestamp`, `data`
 
 The notification-service does **not** expose any frontend-facing REST routes.

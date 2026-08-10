@@ -107,7 +107,7 @@ TradePulse includes **12 comprehensive documentation files** covering every aspe
 - Authentication model and trust boundary
 - 40+ Public REST routes (grouped by domain)
 - SSE endpoints (featured stocks, market status)
-- gRPC contracts (OrderPayment, StockQuote, PortfolioSync)
+- active gRPC contracts (OrderPayment, StockQuote)
 - Kafka event contracts
 - OpenAPI documentation routes
 - Pagination behavior
@@ -157,7 +157,7 @@ TradePulse includes **12 comprehensive documentation files** covering every aspe
 **`SAGA_AND_CONSISTENCY.md`**
 - Why saga pattern is needed
 - Registration saga with compensation
-- Checkout orchestration (order → payment → portfolio)
+- Checkout orchestration (quote → payment → order/outbox → Kafka consumer update)
 - Consistency boundaries by domain
 - Failure handling examples
 - Current strengths and limitations

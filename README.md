@@ -11,7 +11,7 @@ TradePulse is a production-grade stock trading simulation platform built with Sp
 - **Real-time market data** streamed from Massive WebSocket API → SSE → UI
 - **Distributed transaction orchestration** using the Saga pattern (no 2PC)
 - **API Gateway security** — JWT validated at the edge, trusted `X-User-Id` injected for all downstream services
-- **Kafka + Protobuf** for asynchronous customer lifecycle events
+- **Kafka + outbox relay** for reliable asynchronous domain events and notifications
 - **gRPC** for synchronous service-to-service calls during checkout
 
 ---
@@ -79,24 +79,24 @@ TradePulse/
 ### Cart & Orders
 - Cart management (add, update quantity, remove, clear)
 - Price locking before checkout with fresh quote validation via gRPC
-- Order completion orchestrated through payment and portfolio sync
+- Order completion orchestrated through payment-first checkout with Kafka-driven portfolio updates
 - Paginated order history
 
 ### Wallet & Payments
 - Wallet with deposit and withdrawal
 - Immutable transaction ledger (balance + balance_after per entry)
 - Purchase deduction on order completion via gRPC
-- Compensation/refund on portfolio sync failure
+- Compensation/refund when order persistence fails after successful payment
 
 ### Portfolio
 - Holdings per user/stock with average buy price
 - Buy/sell transaction history
 - Realized/unrealized PnL
 - Market-session-aware sell operations
-- Portfolio sync after successful checkout
+- Portfolio updated asynchronously from `ORDER_COMPLETED` Kafka events
 
 ### Events & ML
-- Domain notification events published to Kafka topic `tradepulse.notifications`
+- Domain notification events published to Kafka topic `tradepulse.notifications.events`
 - Notification service consuming events and sending email notifications
 - ML service (`tradepulse-backend/ml-service`) with:
   - `POST /v1/train` for model training
@@ -161,13 +161,13 @@ API Gateway (4004) - JWT validation, X-User-Id injection
 Order Service gRPC:
     -> Payment Service (9002)    <- complete payment
     -> Stock Service (9003)      <- fresh quote
-    -> Portfolio Service (9005)  <- sync holdings
 
 ML flow:
     Stock Service DB -> ML Service (4010) training data
     ML Service -> prediction endpoints for downstream consumers
 
-Customer / Order / Payment / Portfolio -> Kafka -> Notification Service
+Order Service -> Kafka (`tradepulse.orders.events`) -> Portfolio Service
+Customer / Order / Payment / Portfolio -> Kafka (`tradepulse.notifications.events`) -> Notification Service
 ```
 
 See `ARCHITECTURE.md` for full diagrams and flow descriptions.
@@ -231,8 +231,8 @@ gRPC provides typed contracts via Protocol Buffers, lower latency than REST for 
 | REST endpoints | 40+ |
 | Frontend routes | 12 |
 | Context providers | 5 |
-| gRPC services | 3 |
-| Kafka topics | 1+ |
+| gRPC services | 2 active |
+| Kafka topics | 2 |
 
 ---
 
@@ -242,7 +242,6 @@ gRPC provides typed contracts via Protocol Buffers, lower latency than REST for 
 - Add model monitoring (data drift, prediction drift, confidence distribution alerts)
 - Advanced observability: Prometheus, Grafana, distributed tracing
 - Secrets management: HashiCorp Vault
-- Outbox pattern for at-least-once event delivery guarantees
 - End-to-end integration tests
 - GraphQL API layer
 - Mobile app (React Native)

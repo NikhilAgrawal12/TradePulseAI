@@ -64,8 +64,9 @@ This runbook is for running, checking, and supporting TradePulse in local or ear
 - `ORDER_PAYMENT_SERVICE_GRPC_PORT`
 - `STOCK_SERVICE_GRPC_ADDRESS`
 - `STOCK_SERVICE_GRPC_PORT`
-- `PORTFOLIO_SYNC_SERVICE_ADDRESS`
-- `PORTFOLIO_SYNC_SERVICE_GRPC_PORT`
+- `ORDER_PAYMENT_SERVICE_GRPC_DEADLINE_MS`
+- `ORDER_PAYMENT_SERVICE_GRPC_REFUND_DEADLINE_MS`
+- `STOCK_SERVICE_GRPC_DEADLINE_MS`
 
 ## 3. Standard local operations
 
@@ -159,14 +160,17 @@ Check:
 - order-service logs first
 - payment-service gRPC availability
 - stock-service gRPC availability
-- portfolio-service gRPC availability
+- outbox relay publish logs in order-service
+- Kafka availability and topic health
 - wallet balance and quote-lock behavior
 
 ### Portfolio looks stale or incomplete
 
 Check:
 - whether order completion succeeded fully
-- portfolio-service sync logs
+- portfolio-service Kafka consumer logs
+- order-service outbox relay logs
+- Kafka consumer-group offsets / lag for `portfolio-service`
 - stock-service quote fetch behavior used in portfolio reads
 
 ### Home page shows no stocks

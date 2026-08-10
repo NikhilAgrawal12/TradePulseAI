@@ -28,11 +28,11 @@
     │  (Event Streaming & Persistence)        │
     └─────────────────────────────────────────┘
            ▲
-           │ Kafka Events (Protobuf)
+           │ Kafka Events (JSON payloads)
            ▼
     ┌─────────────────────────────────────────┐
-    │      Analytics Service (4002)           │
-    │   (Customer Events Consumer)            │
+    │ Portfolio + Notification Consumers      │
+    │ (orders + notifications event handling) │
     └─────────────────────────────────────────┘
 
 External Integrations:
@@ -87,8 +87,8 @@ External Integrations:
 ### Service-to-Service Communication
 - **gRPC** - High-performance RPC framework
   - Protocol Buffers for message serialization
-  - Services: `OrderPaymentService`, `StockQuoteService`, `PortfolioSyncService`
-  - Synchronous orchestration for checkout flow
+  - Active services: `OrderPaymentService`, `StockQuoteService`
+  - Synchronous orchestration for checkout and sell-settlement flows
 
 - **REST** - HTTP-based service calls
   - Customer service REST client to auth-service
@@ -96,9 +96,9 @@ External Integrations:
 
 ### Event Streaming & Messaging
 - **Apache Kafka 3.x** - Distributed event broker
-  - Protobuf message serialization
-  - Topic: `customer` for customer lifecycle events
-  - Consumer groups for analytics processing
+  - JSON event serialization in application payloads
+  - Topics: `tradepulse.orders.events`, `tradepulse.notifications.events`
+  - Consumer groups for portfolio and notification processing
   - Persistence with local Docker volume
 
 - **Protocol Buffers** - Data serialization format
@@ -477,7 +477,7 @@ POST /api/portfolio/sell/{stockId}
 - **gRPC Services** for service orchestration
   - OrderPaymentService - Payment processing
   - StockQuoteService - Fresh quote validation
-  - PortfolioSyncService - Holdings synchronization
+  - Portfolio updates now happen asynchronously through Kafka `ORDER_COMPLETED` events
 
 ---
 
