@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CartItem } from "../types/cart";
 import { isUserAuthenticated, requireSignIn, showSignInRequiredMessage, subscribeToAuthChanges } from "../utils/auth";
 import { addCartItem, clearCartItems, fetchCartItems, removeCartItem, updateCartItemQuantity } from "../utils/cartApi";
@@ -8,6 +8,7 @@ const CART_ERROR_MESSAGE = "Unable to update cart right now. Please try again.";
 type CartContextType = {
   cart: CartItem[];
   totalItems: number;
+  refreshCart: () => Promise<CartItem[]>;
   addToCart: (stockId: string, qty: number) => Promise<void>;
   removeFromCart: (stockId: string) => Promise<void>;
   updateQuantity: (stockId: string, qty: number) => Promise<void>;
@@ -19,6 +20,21 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [authVersion, setAuthVersion] = useState(0);
+
+  const refreshCart = useCallback(async () => {
+    if (!isUserAuthenticated()) {
+      setCart([]);
+      return [];
+    }
+
+    try {
+      const items = await fetchCartItems();
+      setCart(items);
+      return items;
+    } catch {
+      return [];
+    }
+  }, []);
 
   useEffect(() => {
     return subscribeToAuthChanges(() => {
@@ -43,9 +59,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setCart(items);
         }
       } catch {
-        if (!cancelled) {
-          setCart([]);
-        }
+        // Keep the last known cart if a refresh fails so the UI does not appear to "lose" data.
       }
     };
 
@@ -69,6 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
 
       setCart(updatedCart);
+      void refreshCart();
     } catch {
       showSignInRequiredMessage(CART_ERROR_MESSAGE);
     }
@@ -83,6 +98,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const updatedCart = await removeCartItem(stockId);
       setCart(updatedCart);
+      void refreshCart();
     } catch {
       showSignInRequiredMessage(CART_ERROR_MESSAGE);
     }
@@ -102,6 +118,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const updatedCart = await updateCartItemQuantity(stockId, { quantity: qty });
       setCart(updatedCart);
+      void refreshCart();
     } catch {
       showSignInRequiredMessage(CART_ERROR_MESSAGE);
     }
@@ -116,6 +133,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const updatedCart = await clearCartItems();
       setCart(updatedCart);
+      void refreshCart();
     } catch {
       showSignInRequiredMessage(CART_ERROR_MESSAGE);
     }
@@ -124,7 +142,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
   return (
-    <CartContext.Provider value={{ cart, totalItems, addToCart, removeFromCart, updateQuantity, clearCart }}>
+    <CartContext.Provider value={{ cart, totalItems, refreshCart, addToCart, removeFromCart, updateQuantity, clearCart }}>
       {children}
     </CartContext.Provider>
   );

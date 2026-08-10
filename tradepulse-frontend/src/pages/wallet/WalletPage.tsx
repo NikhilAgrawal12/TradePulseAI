@@ -41,9 +41,7 @@ export function WalletPage() {
       setTxTotalPages(data.totalPages);
       setTxTotalElements(data.totalElements);
     } catch {
-      setTransactions([]);
-      setTxTotalPages(0);
-      setTxTotalElements(0);
+      // Keep the last successful transaction page visible if the refresh fails.
     } finally {
       setTxLoading(false);
     }

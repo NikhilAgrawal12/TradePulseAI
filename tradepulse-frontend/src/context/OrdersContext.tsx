@@ -33,7 +33,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Failed to fetch order history.";
       setError(message);
-      setOrders([]);
       return [];
     } finally {
       setLoading(false);

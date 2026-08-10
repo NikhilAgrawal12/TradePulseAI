@@ -1,16 +1,8 @@
 import axios from "axios";
+import type { PaginatedResponse } from "../types/pagination";
 import { buildAuthHeaders } from "./auth";
 import { toMoney } from "./money";
 
-export interface PaginatedResponse<T> {
-  content: T[];
-  number: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  first: boolean;
-  last: boolean;
-}
 
 export interface WalletResponse {
   walletId: number;
@@ -82,12 +74,6 @@ export async function withdrawFromWallet(amount: number): Promise<WalletResponse
   }
 }
 
-export async function fetchWalletTransactions(): Promise<WalletTransactionItem[]> {
-  const response = await axios.get<WalletTransactionItem[]>("/api/wallet/transactions", {
-    headers: buildAuthHeaders(),
-  });
-  return normalizeWalletTransactions(response.data);
-}
 
 export async function fetchWalletTransactionsPage(page: number, size: number): Promise<PaginatedResponse<WalletTransactionItem>> {
   const response = await axios.get<PaginatedResponse<WalletTransactionItem>>("/api/wallet/transactions/paged", {

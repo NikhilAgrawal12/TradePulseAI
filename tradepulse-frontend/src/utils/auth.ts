@@ -148,18 +148,31 @@ export function getEmailFromToken(token: string | null): string | null {
   return typeof payload?.sub === "string" ? payload.sub : null;
 }
 
-export function buildAuthHeaders(): { Authorization: string; "X-User-Id": string } {
+type AuthHeaders = {
+  Authorization: string;
+  "X-User-Id": string;
+  "X-User-Email"?: string;
+};
+
+export function buildAuthHeaders(options?: { includeEmail?: boolean }): AuthHeaders {
   const token = getStoredToken();
   const userId = getUserIdFromToken(token);
+  const userEmail = options?.includeEmail ? getEmailFromToken(token) : null;
 
-  if (!token || !userId) {
+  if (!token || !userId || (options?.includeEmail && !userEmail)) {
     throw new Error("Missing valid authentication token.");
   }
 
-  return {
+  const headers: AuthHeaders = {
     Authorization: `Bearer ${token}`,
     "X-User-Id": userId,
   };
+
+  if (options?.includeEmail && userEmail) {
+    headers["X-User-Email"] = userEmail;
+  }
+
+  return headers;
 }
 
 export function getUserIdFromToken(token: string | null): string | null {

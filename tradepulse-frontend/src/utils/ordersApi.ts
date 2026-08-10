@@ -1,17 +1,9 @@
 import axios from "axios";
 import type { OrderHistoryEntry } from "../types/order";
+import type { PaginatedResponse } from "../types/pagination";
 import { buildAuthHeaders } from "./auth";
 import { toMoney } from "./money";
 
-export type PaginatedResponse<T> = {
-  content: T[];
-  number: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  first: boolean;
-  last: boolean;
-};
 
 function normalizeOrders(orders: OrderHistoryEntry[]): OrderHistoryEntry[] {
   return orders.map((order) => ({

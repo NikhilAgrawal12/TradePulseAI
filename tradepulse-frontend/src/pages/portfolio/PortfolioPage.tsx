@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Header } from "../../components/Header";
 import { useMarketStatus } from "../../context/MarketStatusContext";
+import { useOrders } from "../../context/OrdersContext";
+import { useWallet } from "../../context/WalletContext";
 import type { PortfolioHolding, PortfolioResponse } from "../../types/portfolio";
 import { isUserAuthenticated } from "../../utils/auth";
 import { formatEasternDateTime } from "../../utils/dateTime";
@@ -40,6 +42,8 @@ export function PortfolioPage() {
     const navigate = useNavigate();
     const { stocks } = useStocks();
     const { sessionMeta } = useMarketStatus();
+    const { refreshOrders } = useOrders();
+    const { refreshWallet } = useWallet();
     const [portfolio, setPortfolio] = useState<PortfolioResponse>(EMPTY_PORTFOLIO);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -200,6 +204,8 @@ export function PortfolioPage() {
                 quantity,
                 price: toMoney(currentPrice),
             });
+            await refreshWallet();
+            await refreshOrders();
             await loadPortfolio(transactionPage);
         } catch (sellError) {
             const message = sellError instanceof Error ? sellError.message : "Failed to sell stock.";

@@ -97,11 +97,11 @@ export function PaymentPage() {
     };
   }, [items, lockedQuote]);
 
-  const displayItems = lockedQuote?.items ?? [];
+  const displayItems = useMemo(() => lockedQuote?.items ?? [], [lockedQuote?.items]);
 
   const total = useMemo(
     () => lockedQuote?.total ?? roundMoney(displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0)),
-    [displayItems, lockedQuote],
+    [displayItems, lockedQuote?.total],
   );
   const priceUpdated = useMemo(() => {
     if (!lockedQuote || items.length === 0) {

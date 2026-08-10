@@ -56,9 +56,6 @@ export function OrdersPage() {
         }
         const message = loadError instanceof Error ? loadError.message : "Failed to fetch order history.";
         setError(message);
-        setOrders([]);
-        setTotalPages(0);
-        setTotalElements(0);
       } finally {
         if (!cancelled) {
           setLoading(false);

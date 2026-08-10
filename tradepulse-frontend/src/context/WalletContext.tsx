@@ -32,7 +32,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const wallet = await fetchWallet();
       setBalance(toMoney(wallet.balance));
     } catch {
-      setBalance(0);
+      // Keep the previous balance if a refresh fails so the wallet page does not flicker to zero.
     } finally {
       setIsLoading(false);
     }

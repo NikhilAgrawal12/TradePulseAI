@@ -28,7 +28,7 @@ public class kafkaProducer {
         this.notificationsTopic = notificationsTopic;
     }
 
-    public void sendEvent(Customer customer, String email) {
+    public void sendEvent(Customer customer) {
         try {
             kafkaTemplate.send(notificationsTopic, buildEventJson(customer));
         } catch (Exception e) {
@@ -36,7 +36,7 @@ public class kafkaProducer {
         }
     }
 
-    public void sendEventOrThrow(Customer customer, String email) {
+    public void sendEventOrThrow(Customer customer) {
         try {
             kafkaTemplate.send(notificationsTopic, buildEventJson(customer)).join();
         } catch (Exception exception) {

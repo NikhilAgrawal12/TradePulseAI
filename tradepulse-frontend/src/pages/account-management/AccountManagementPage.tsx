@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import axios from "axios";
 import { Header } from "../../components/Header.tsx";
@@ -22,7 +22,7 @@ const VALIDATION_PATTERNS = {
   phoneNumber: /^\+?[0-9\- ]{7,15}$/,
   name: /^[A-Za-z\s'-]{1,100}$/,
   postalCode: /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9\- ]{2,19}$/,
-  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?/`~]).{8,}$/,
+  password: /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>?/`~]).{8,}$/,
 };
 
 const VALIDATION_MESSAGES = {
@@ -171,7 +171,7 @@ export function AccountManagementPage() {
     };
   }, []);
 
-  const loadStatesForCountry = async (countryCode: string) => {
+  const loadStatesForCountry = useCallback(async (countryCode: string) => {
     if (!countryCode) {
       setStateOptions([]);
       setCityOptions([]);
@@ -191,9 +191,9 @@ export function AccountManagementPage() {
     } finally {
       setStatesLoading(false);
     }
-  };
+  }, []);
 
-  const loadCitiesForState = async (countryCode: string, stateCode: string) => {
+  const loadCitiesForState = useCallback(async (countryCode: string, stateCode: string) => {
     if (!countryCode || !stateCode) {
       setCityOptions([]);
       return [] as LocationCityOption[];
@@ -212,9 +212,9 @@ export function AccountManagementPage() {
     } finally {
       setCitiesLoading(false);
     }
-  };
+  }, []);
 
-  const syncLocationSelections = async (nextProfile: CustomerProfile) => {
+  const syncLocationSelections = useCallback(async (nextProfile: CustomerProfile) => {
     const matchedCountry = await findCountryByName(nextProfile.country);
     if (!matchedCountry) {
       setSelectedCountryCode("");
@@ -242,7 +242,7 @@ export function AccountManagementPage() {
 
     setSelectedStateCode(matchedState.isoCode);
     await loadCitiesForState(matchedCountry.isoCode, matchedState.isoCode);
-  };
+  }, [loadCitiesForState, loadStatesForCountry]);
 
   useEffect(() => {
     if (!token || !userIdFromToken) {
@@ -290,7 +290,7 @@ export function AccountManagementPage() {
     };
 
     loadProfile();
-  }, [navigate, token, userIdFromToken]);
+  }, [navigate, syncLocationSelections, token, userIdFromToken]);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;

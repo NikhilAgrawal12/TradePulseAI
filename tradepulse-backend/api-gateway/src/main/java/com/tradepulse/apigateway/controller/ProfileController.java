@@ -45,7 +45,7 @@ public class ProfileController {
         return validateAndExtractUserId(authHeader)
                 .flatMap(userId -> Mono.zip(
                         fetchCustomerProfile(userId),
-                        fetchCredentials(userId, authHeader)
+                        fetchCredentials(authHeader)
                 ).map(tuple -> ResponseEntity.ok((Object) mergeProfile(tuple.getT1(), tuple.getT2()))))
                 .onErrorResume(WebClientResponseException.class, ex -> Mono.just(
                         ResponseEntity.status(ex.getStatusCode())
@@ -85,7 +85,7 @@ public class ProfileController {
                 .bodyToMono(CustomerProfileResponse.class);
     }
 
-    private Mono<CredentialsResponse> fetchCredentials(Long userId, String authHeader) {
+    private Mono<CredentialsResponse> fetchCredentials(String authHeader) {
         return authServiceClient.get()
                 .uri("/me/credentials")
                 .header(HttpHeaders.AUTHORIZATION, authHeader)

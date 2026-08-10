@@ -18,18 +18,13 @@ export function WatchlistPage() {
   const { stocks: streamedStocks } = useStreamedStocks();
   const { sessionMeta } = useMarketStatus();
   const [search, setSearch] = useState("");
-  const [performanceByStockId, setPerformanceByStockId] = useState<Record<string, StockAnalytics["currentPerformance"]>>({});
+  const [basePerformanceByStockId, setBasePerformanceByStockId] = useState<Record<string, StockAnalytics["currentPerformance"]>>({});
 
 
    // Fetch initial analytics currentPerformance for all watchlist stocks
    const watchlistStockIds = useMemo(() => watchlist.map((entry) => entry.stockId), [watchlist]);
 
    useEffect(() => {
-     if (watchlistStockIds.length === 0) {
-       setPerformanceByStockId({});
-       return;
-     }
-
      let cancelled = false;
 
      const loadPerformanceData = async () => {
@@ -38,7 +33,7 @@ export function WatchlistPage() {
          return;
        }
 
-       setPerformanceByStockId(() => {
+        setBasePerformanceByStockId(() => {
          const next: Record<string, StockAnalytics["currentPerformance"]> = {};
          responses.forEach((result, index) => {
            if (result.status === "fulfilled") {
@@ -56,47 +51,42 @@ export function WatchlistPage() {
      };
    }, [watchlistStockIds]);
 
-   // Apply real-time updates from streamed stocks
-   useEffect(() => {
+   const streamedStockMap = useMemo(() => new Map(streamedStocks.map((stock) => [stock.id, stock])), [streamedStocks]);
+
+   const performanceByStockId = useMemo(() => {
      if (streamedStocks.length === 0) {
-       return;
+       return basePerformanceByStockId;
      }
 
-     const streamedStockMap = new Map(streamedStocks.map((stock) => [stock.id, stock]));
+     const next = { ...basePerformanceByStockId };
 
-     setPerformanceByStockId((prev) => {
-       const next = { ...prev };
+     Object.entries(basePerformanceByStockId).forEach(([stockId, performance]) => {
+       const streamedStock = streamedStockMap.get(stockId);
+       if (!streamedStock) {
+         return;
+       }
 
-       Object.entries(prev).forEach(([stockId, performance]) => {
-         const streamedStock = streamedStockMap.get(stockId);
-         if (!streamedStock) {
-           return;
-         }
+       const livePrice = typeof streamedStock.price === "number" ? streamedStock.price : null;
+       const liveChangePercent = typeof streamedStock.changePercent === "number" ? streamedStock.changePercent : null;
 
-         const livePrice = typeof streamedStock.price === "number" ? streamedStock.price : null;
-         const liveChangePercent = typeof streamedStock.changePercent === "number" ? streamedStock.changePercent : null;
+       const nextCurrentPrice = livePrice == null ? performance.currentPrice : livePrice;
+       const nextPreviousClose = performance.previousClose;
+       const nextDailyChange =
+         nextCurrentPrice != null && nextPreviousClose != null
+           ? nextCurrentPrice - nextPreviousClose
+           : performance.dailyChange;
 
-         const nextCurrentPrice = livePrice == null ? performance.currentPrice : livePrice;
-         const nextPreviousClose = performance.previousClose;
-         const nextDailyChange =
-           nextCurrentPrice != null && nextPreviousClose != null
-             ? nextCurrentPrice - nextPreviousClose
-             : performance.dailyChange;
-
-         next[stockId] = {
-           ...performance,
-           currentPrice: nextCurrentPrice,
-           previousClose: nextPreviousClose,
-           dailyChange: nextDailyChange,
-           dailyChangePercent: liveChangePercent == null ? performance.dailyChangePercent : liveChangePercent,
-         };
-       });
-
-       return next;
+       next[stockId] = {
+         ...performance,
+         currentPrice: nextCurrentPrice,
+         previousClose: nextPreviousClose,
+         dailyChange: nextDailyChange,
+         dailyChangePercent: liveChangePercent == null ? performance.dailyChangePercent : liveChangePercent,
+       };
      });
-   }, [streamedStocks]);
 
-   const streamedStockMap = useMemo(() => new Map(streamedStocks.map((stock) => [stock.id, stock])), [streamedStocks]);
+     return next;
+   }, [basePerformanceByStockId, streamedStockMap, streamedStocks.length]);
 
    const watchlistStocks = useMemo(
      () =>

@@ -56,7 +56,7 @@ public class CustomerService {
         Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
 
 
-        kafkaProducer.sendEvent(customer, normalizedEmail);
+        kafkaProducer.sendEvent(customer);
         return CustomerMapper.toDTO(customer, normalizedEmail);
     }
 
@@ -74,7 +74,7 @@ public class CustomerService {
 
             CustomerRequestDTO customerRequestDTO = mapToCustomerRequest(requestDTO, createdAuthUser.userId(), normalizedEmail);
             Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
-            kafkaProducer.sendEventOrThrow(customer, normalizedEmail);
+            kafkaProducer.sendEventOrThrow(customer);
             return CustomerMapper.toDTO(customer, normalizedEmail);
         } catch (Exception exception) {
             if (createdAuthUser != null && createdAuthUser.userId() != null) {
