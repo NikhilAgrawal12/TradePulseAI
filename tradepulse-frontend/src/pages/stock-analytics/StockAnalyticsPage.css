@@ -61,7 +61,7 @@
   justify-content: space-between;
   gap: 24px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   background: linear-gradient(135deg, #fde68a 0%, #fdba74 48%, #fb923c 100%);
   border: none;
   border-radius: 24px;
@@ -132,6 +132,7 @@
   text-align: right;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 
 .analytics-hero-price strong {
@@ -193,6 +194,16 @@
 .analytics-hero-left {
   position: relative;
   z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.analytics-hero-left h1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .analytics-section-card,
@@ -902,11 +913,22 @@
   stroke-width: 1;
 }
 
+.chart-grid-line-zero {
+  stroke: rgba(91, 75, 123, 0.5);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
 .chart-axis-label {
   fill: #7c6a96;
   font-size: 12px;
   user-select: none;
   pointer-events: none;
+}
+
+.chart-axis-label-zero {
+  fill: #5b4b7b;
+  font-weight: 700;
 }
 
 .chart-axis-label-x {

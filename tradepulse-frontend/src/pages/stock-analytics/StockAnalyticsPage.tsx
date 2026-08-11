@@ -139,11 +139,18 @@ function filterHistoryByRange(history: StockHistoryPoint[], range: RangeKey): St
   });
 }
 
+function formatXAxisTickLabel(date: Date): string {
+  // Always include day + year so long-range charts do not show ambiguous duplicate labels.
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
+}
+
 function buildXAxisTicks(data: StockHistoryPoint[], maxTicks = 6): AxisTick[] {
   if (data.length === 0) return [];
   if (data.length === 1) {
     const onlyDate = data[0]?.tradingDate;
-    return onlyDate ? [{ index: 0, label: parseDisplayDate(onlyDate).toLocaleDateString(undefined, { month: "short", year: "2-digit" }) }] : [];
+    if (!onlyDate) return [];
+    const parsedOnlyDate = parseDisplayDate(onlyDate);
+    return [{ index: 0, label: Number.isNaN(parsedOnlyDate.getTime()) ? onlyDate : formatXAxisTickLabel(parsedOnlyDate) }];
   }
   const requestedTicks = Math.max(2, Math.min(maxTicks, data.length));
   const step = (data.length - 1) / (requestedTicks - 1);
@@ -156,12 +163,12 @@ function buildXAxisTicks(data: StockHistoryPoint[], maxTicks = 6): AxisTick[] {
     const dateLabel = data[index]?.tradingDate;
     if (!dateLabel) continue;
     const parsed = parseDisplayDate(dateLabel);
-    ticks.push({ index, label: Number.isNaN(parsed.getTime()) ? dateLabel : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }) });
+    ticks.push({ index, label: Number.isNaN(parsed.getTime()) ? dateLabel : formatXAxisTickLabel(parsed) });
   }
   const lastDateLabel = data[data.length - 1]?.tradingDate;
   if (!used.has(data.length - 1) && lastDateLabel) {
     const parsed = parseDisplayDate(lastDateLabel);
-    ticks.push({ index: data.length - 1, label: Number.isNaN(parsed.getTime()) ? lastDateLabel : parsed.toLocaleDateString(undefined, { month: "short", year: "2-digit" }) });
+    ticks.push({ index: data.length - 1, label: Number.isNaN(parsed.getTime()) ? lastDateLabel : formatXAxisTickLabel(parsed) });
   }
   return ticks.sort((a, b) => a.index - b.index);
 }
@@ -176,6 +183,37 @@ function getSeriesBounds(data: StockHistoryPoint[], keys: Array<keyof StockHisto
   return { min: min - padding, max: max + padding };
 }
 
+function buildYAxisTicks(min: number, max: number, tickCount = 5, includeZero = false): number[] {
+  const baseTicks = Array.from({ length: tickCount }, (_, index) => {
+    const ratio = tickCount === 1 ? 0 : index / (tickCount - 1);
+    return max - (max - min) * ratio;
+  });
+
+  if (!includeZero) {
+    return baseTicks;
+  }
+
+  // Keep zero as a dedicated center tick and make steps symmetric around it.
+  const halfCount = Math.floor((tickCount - 1) / 2);
+  const maxAbs = Math.max(Math.abs(min), Math.abs(max), 1e-6);
+  const step = maxAbs / Math.max(halfCount, 1);
+  const ticks: number[] = [];
+
+  for (let i = halfCount; i >= 1; i -= 1) {
+    ticks.push(step * i);
+  }
+  ticks.push(0);
+  for (let i = 1; i <= halfCount; i += 1) {
+    ticks.push(-step * i);
+  }
+
+  if (tickCount % 2 === 0) {
+    ticks.push(-maxAbs);
+  }
+
+  return ticks;
+}
+
 function buildLinePath(data: StockHistoryPoint[], key: keyof StockHistoryPoint, left: number, top: number, innerWidth: number, innerHeight: number, min: number, max: number): string {
   if (data.length === 0) return "";
   return data.map((point, index) => {
@@ -185,6 +223,49 @@ function buildLinePath(data: StockHistoryPoint[], key: keyof StockHistoryPoint, 
     const y = top + innerHeight - ((rawValue - min) / Math.max(max - min, 1e-9)) * innerHeight;
     return `${index === 0 ? "M" : "L"}${x},${y}`;
   }).filter((v): v is string => v !== null).join(" ");
+}
+
+function buildSignedLineSegments(
+  data: StockHistoryPoint[],
+  key: keyof StockHistoryPoint,
+  left: number,
+  top: number,
+  innerWidth: number,
+  innerHeight: number,
+  min: number,
+  max: number,
+): Array<{ d: string; color: string }> {
+  const segments: Array<{ d: string; color: string }> = [];
+  if (data.length < 2) return segments;
+
+  const toY = (value: number) => top + innerHeight - ((value - min) / Math.max(max - min, 1e-9)) * innerHeight;
+
+  for (let index = 1; index < data.length; index += 1) {
+    const previous = data[index - 1]?.[key];
+    const current = data[index]?.[key];
+    if (typeof previous !== "number" || !Number.isFinite(previous) || typeof current !== "number" || !Number.isFinite(current)) {
+      continue;
+    }
+
+    const x1 = left + ((index - 1) / Math.max(data.length - 1, 1)) * innerWidth;
+    const x2 = left + (index / Math.max(data.length - 1, 1)) * innerWidth;
+    const y1 = toY(previous);
+    const y2 = toY(current);
+    const colorFor = (value: number) => (value >= 0 ? "#16a34a" : "#dc2626");
+
+    if ((previous >= 0 && current >= 0) || (previous < 0 && current < 0) || previous === current) {
+      segments.push({ d: `M${x1},${y1} L${x2},${y2}`, color: colorFor((previous + current) / 2) });
+      continue;
+    }
+
+    const ratio = (0 - previous) / (current - previous);
+    const crossX = x1 + (x2 - x1) * ratio;
+    const crossY = toY(0);
+    segments.push({ d: `M${x1},${y1} L${crossX},${crossY}`, color: colorFor(previous) });
+    segments.push({ d: `M${crossX},${crossY} L${x2},${y2}`, color: colorFor(current) });
+  }
+
+  return segments;
 }
 
 function ChartCard({ title, children, subtitle, icon }: { title: string; subtitle?: string; children: ReactNode; icon?: string }) {
@@ -381,7 +462,19 @@ function convictionTone(label: StockPrediction["convictionLabel"]): string {
 }
 
 
-function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoint[]; lines: LineDefinition[]; valueFormatter?: (value: number) => string }) {
+function MultiLineChart({
+  data,
+  lines,
+  valueFormatter,
+  colorBySignForKey,
+  includeZeroBaseline,
+}: {
+  data: StockHistoryPoint[];
+  lines: LineDefinition[];
+  valueFormatter?: (value: number) => string;
+  colorBySignForKey?: keyof StockHistoryPoint;
+  includeZeroBaseline?: boolean;
+}) {
    const width = 900;
    const height = 360;
    const left = 70;
@@ -390,24 +483,29 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
    const bottom = 60;
    const innerWidth = width - left - right;
    const innerHeight = height - top - bottom;
-   const bounds = useMemo(() => getSeriesBounds(data, lines.map((line) => line.key)), [data, lines]);
+   const bounds = useMemo(() => {
+     const next = getSeriesBounds(data, lines.map((line) => line.key));
+     if (!includeZeroBaseline) {
+       return next;
+     }
+     return {
+       min: Math.min(next.min, 0),
+       max: Math.max(next.max, 0),
+     };
+   }, [data, lines, includeZeroBaseline]);
    const xTicks = useMemo(() => buildXAxisTicks(data, 6), [data]);
-   const yTicks = useMemo(() => {
-     return Array.from({ length: 5 }, (_, index) => {
-       const ratio = index / 4;
-       return bounds.max - (bounds.max - bounds.min) * ratio;
-     });
-   }, [bounds]);
+   const yTicks = useMemo(() => buildYAxisTicks(bounds.min, bounds.max, 5, Boolean(includeZeroBaseline)), [bounds, includeZeroBaseline]);
 
    return (
      <div className="analytics-chart-shell">
        <svg viewBox={`0 0 ${width} ${height}`} className="analytics-svg-chart" role="img" aria-label="Stock line chart">
-         {yTicks.map((tick, index) => {
-           const y = top + (index / 4) * innerHeight;
+         {yTicks.map((tick) => {
+           const y = top + innerHeight - ((tick - bounds.min) / Math.max(bounds.max - bounds.min, 1e-9)) * innerHeight;
+           const isZeroTick = Math.abs(tick) < 1e-9;
            return (
              <g key={tick}>
-               <line x1={left} y1={y} x2={width - right} y2={y} className="chart-grid-line" />
-               <text x={left - 10} y={y - 4} className="chart-axis-label" textAnchor="end">
+                <line x1={left} y1={y} x2={width - right} y2={y} className={isZeroTick ? "chart-grid-line chart-grid-line-zero" : "chart-grid-line"} />
+                <text x={left - 10} y={y - 4} className={isZeroTick ? "chart-axis-label chart-axis-label-zero" : "chart-axis-label"} textAnchor="end">
                  {valueFormatter ? valueFormatter(tick) : formatMoney(tick)}
                </text>
              </g>
@@ -425,17 +523,33 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
              </g>
            );
          })}
-         {lines.map((line) => (
-           <path
-             key={line.label}
-             d={buildLinePath(data, line.key, left, top, innerWidth, innerHeight, bounds.min, bounds.max)}
-             fill="none"
-             stroke={line.color}
-             strokeWidth="3"
-             strokeLinejoin="round"
-             strokeLinecap="round"
-           />
-         ))}
+          {lines.map((line) => {
+            if (colorBySignForKey && line.key === colorBySignForKey) {
+              return buildSignedLineSegments(data, line.key, left, top, innerWidth, innerHeight, bounds.min, bounds.max).map((segment, idx) => (
+                <path
+                  key={`${line.label}-seg-${idx}`}
+                  d={segment.d}
+                  fill="none"
+                  stroke={segment.color}
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              ));
+            }
+
+            return (
+              <path
+                key={line.label}
+                d={buildLinePath(data, line.key, left, top, innerWidth, innerHeight, bounds.min, bounds.max)}
+                fill="none"
+                stroke={line.color}
+                strokeWidth="3"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            );
+          })}
         </svg>
         <div className="analytics-chart-legend">
           {lines.map((line) => (
@@ -448,7 +562,7 @@ function MultiLineChart({ data, lines, valueFormatter }: { data: StockHistoryPoi
 
   function CandlestickChart({ data }: { data: StockHistoryPoint[] }) {
    const width = 900;
-   const height = 360;
+   const height = 300;
    const left = 70;
    const right = 14;
    const top = 12;
@@ -663,6 +777,7 @@ export function StockAnalyticsPage() {
    const [error, setError] = useState<string | null>(null);
    const [selectedRange, setSelectedRange] = useState<RangeKey>("1M");
    const [candlestickRange, setCandlestickRange] = useState<RangeKey>("1M");
+   const [returnsRange, setReturnsRange] = useState<RangeKey>("1M");
    const [volumeRange, setVolumeRange] = useState<RangeKey>("1M");
    const [movingAverageRange, setMovingAverageRange] = useState<RangeKey>("1M");
    const [rollingVolatilityRange, setRollingVolatilityRange] = useState<RangeKey>("1M");
@@ -776,6 +891,7 @@ export function StockAnalyticsPage() {
 
    const rangeHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], selectedRange), [analytics?.history, selectedRange]);
    const candlestickHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], candlestickRange), [analytics?.history, candlestickRange]);
+   const returnsHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], returnsRange), [analytics?.history, returnsRange]);
    const volumeHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], volumeRange), [analytics?.history, volumeRange]);
    const movingAverageHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], movingAverageRange), [analytics?.history, movingAverageRange]);
    const rollingVolatilityHistory = useMemo(() => filterHistoryByRange(analytics?.history ?? [], rollingVolatilityRange), [analytics?.history, rollingVolatilityRange]);
@@ -905,12 +1021,12 @@ export function StockAnalyticsPage() {
                       <MlSignalBreakdown prediction={prediction} />
                       <div className="analytics-ml-meta-row">
                         <span className="analytics-ml-meta-pill">
-                          <small>Confidence</small>
-                          <strong>{formatMaybePercent(prediction.confidence * 100)}</strong>
-                        </span>
-                        <span className="analytics-ml-meta-pill">
                           <small>Model</small>
                           <strong>{prediction.modelName}</strong>
+                        </span>
+                        <span className="analytics-ml-meta-pill">
+                          <small>Action Threshold</small>
+                          <strong>{prediction.decisionThreshold == null ? "--" : `${formatPercent(prediction.decisionThreshold * 100, false)}%`}</strong>
                         </span>
                         <span className="analytics-ml-meta-pill subtle">
                           <small>Updated</small>
@@ -973,30 +1089,6 @@ export function StockAnalyticsPage() {
                 />
               </MetricSection>
 
-              <MetricSection title="Returns" icon="📈" accent="green">
-                <MetricGrid
-                  items={[
-                    { label: "1 Week", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
-                    { label: "1 Month", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
-                    { label: "3 Months", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
-                    { label: "6 Months", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
-                    { label: "1 Year", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
-                    { label: "3 Years", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
-                  ]}
-                />
-              </MetricSection>
-
-              <MetricSection title="Volume" icon="📦" accent="blue">
-                <MetricGrid
-                  items={[
-                    { label: "As Of Date", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
-                    { label: "Latest Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
-                    { label: "30-Day Avg Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
-                    { label: "Relative Volume", value: formatMaybeRatio(analytics.volumeMetrics.relativeVolume) },
-                  ]}
-                />
-              </MetricSection>
-
               <ChartCard title="Price History" subtitle="Closing price movement over selected period" icon="📈">
                 <section className="analytics-range-row" aria-label="Price history range selector">
                   {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
@@ -1019,6 +1111,51 @@ export function StockAnalyticsPage() {
                 <CandlestickChart data={candlestickHistory} />
                 <CandlestickLegend />
               </ChartCard>
+
+              <MetricSection title="Returns" icon="📈" accent="green">
+                <MetricGrid
+                  items={[
+                    { label: "1 Week", value: formatMaybePercent(analytics.returns.oneWeekReturn), tone: summaryTone(analytics.returns.oneWeekReturn) },
+                    { label: "1 Month", value: formatMaybePercent(analytics.returns.oneMonthReturn), tone: summaryTone(analytics.returns.oneMonthReturn) },
+                    { label: "3 Months", value: formatMaybePercent(analytics.returns.threeMonthReturn), tone: summaryTone(analytics.returns.threeMonthReturn) },
+                    { label: "6 Months", value: formatMaybePercent(analytics.returns.sixMonthReturn), tone: summaryTone(analytics.returns.sixMonthReturn) },
+                    { label: "1 Year", value: formatMaybePercent(analytics.returns.oneYearReturn), tone: summaryTone(analytics.returns.oneYearReturn) },
+                    { label: "3 Years", value: formatMaybePercent(analytics.returns.threeYearReturn), tone: summaryTone(analytics.returns.threeYearReturn) },
+                  ]}
+                />
+              </MetricSection>
+
+              <ChartCard title="Returns Chart" subtitle="Daily return movement over selected period" icon="📈">
+                <section className="analytics-range-row" aria-label="Returns range selector">
+                  {(["1M", "3M", "6M", "1Y", "3Y"] as RangeKey[]).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${returnsRange === range ? "active" : ""}`} onClick={() => setReturnsRange(range)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
+                <MultiLineChart
+                  data={returnsHistory}
+                  lines={[{ key: "return1d", label: "Daily Return (%)", color: "#16a34a" }]}
+                  valueFormatter={(value) => `${formatMoney(value)}%`}
+                  colorBySignForKey="return1d"
+                  includeZeroBaseline
+                />
+              </ChartCard>
+
+              <MetricSection title="Monthly Returns Heatmap" icon="🔥" subtitle="Month-by-month return percentage across all tracked years">
+                <MonthlyReturnsHeatmap cells={analytics.monthlyReturnsHeatmap} />
+              </MetricSection>
+
+              <MetricSection title="Volume" icon="📦" accent="blue">
+                <MetricGrid
+                  items={[
+                    { label: "As Of Date", value: formatDateLabel(analytics.volumeMetrics.latestTradingDate) },
+                    { label: "Latest Day Volume", value: formatVolume(analytics.volumeMetrics.latestTradingDayVolume) },
+                    { label: "30-Day Avg Volume", value: formatVolume(analytics.volumeMetrics.average30DayVolume) },
+                    { label: "Relative Volume", value: formatMaybeRatio(analytics.volumeMetrics.relativeVolume) },
+                  ]}
+                />
+              </MetricSection>
 
               <ChartCard title="Volume Chart" subtitle="Daily trading volume coloured by price direction" icon="📊">
                 <section className="analytics-range-row" aria-label="Volume range selector">
@@ -1044,6 +1181,37 @@ export function StockAnalyticsPage() {
                 />
               </MetricSection>
 
+              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 20, 60 and 90-day windows" icon="🌊">
+                <section className="analytics-range-row" aria-label="Rolling volatility range selector">
+                  {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
+                    <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
+                      {range}
+                    </button>
+                  ))}
+                </section>
+                <MultiLineChart
+                  data={rollingVolatilityHistory}
+                  lines={[
+                    { key: "volatility20Day", label: "20D Volatility", color: "#0f766e" },
+                    { key: "volatility60Day", label: "60D Volatility", color: "#2563eb" },
+                    { key: "volatility90Day", label: "90D Volatility", color: "#dc2626" },
+                  ]}
+                  valueFormatter={(value) => `${formatMoney(value)}%`}
+                />
+              </ChartCard>
+
+              <MetricSection title="Trend" icon="📐" accent="teal">
+                <MetricGrid
+                  items={[
+                    { label: "20-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma20) },
+                    { label: "50-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma50) },
+                    { label: "200-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma200) },
+                    { label: "Golden Cross", value: formatFlag(analytics.trendMetrics.goldenCross) },
+                    { label: "Death Cross", value: formatFlag(analytics.trendMetrics.deathCross) },
+                  ]}
+                />
+              </MetricSection>
+
               <ChartCard title="Moving Averages" subtitle="20, 50 and 200 day simple moving averages" icon="〰️">
                 <section className="analytics-range-row" aria-label="Moving averages range selector">
                   {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
@@ -1063,36 +1231,7 @@ export function StockAnalyticsPage() {
                 />
               </ChartCard>
 
-              <MetricSection title="Trend" icon="📐" accent="teal">
-                <MetricGrid
-                  items={[
-                    { label: "20-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma20) },
-                    { label: "50-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma50) },
-                    { label: "200-Day SMA", value: formatMaybeMoney(analytics.trendMetrics.sma200) },
-                    { label: "Golden Cross", value: formatFlag(analytics.trendMetrics.goldenCross) },
-                    { label: "Death Cross", value: formatFlag(analytics.trendMetrics.deathCross) },
-                  ]}
-                />
-              </MetricSection>
 
-              <ChartCard title="Rolling Volatility" subtitle="Risk trend across 20, 60 and 90-day windows" icon="🌊">
-                <section className="analytics-range-row" aria-label="Rolling volatility range selector">
-                  {(["1M", "3M", "6M", "1Y"] as RangeKey[]).map((range) => (
-                    <button key={range} type="button" className={`range-pill ${rollingVolatilityRange === range ? "active" : ""}`} onClick={() => setRollingVolatilityRange(range)}>
-                      {range}
-                    </button>
-                  ))}
-                </section>
-                <MultiLineChart
-                  data={rollingVolatilityHistory}
-                  lines={[
-                    { key: "volatility20Day", label: "20D Volatility", color: "#0f766e" },
-                    { key: "volatility60Day", label: "60D Volatility", color: "#2563eb" },
-                    { key: "volatility90Day", label: "90D Volatility", color: "#dc2626" },
-                  ]}
-                  valueFormatter={(value) => `${formatMoney(value)}%`}
-                />
-              </ChartCard>
 
               <MetricSection title="Momentum" icon="💹" accent="indigo">
                 <MetricGrid
@@ -1119,10 +1258,6 @@ export function StockAnalyticsPage() {
                 />
               </MetricSection>
 
-              <MetricSection title="Monthly Returns Heatmap" icon="🔥" subtitle="Month-by-month return percentage across all tracked years">
-                <MonthlyReturnsHeatmap cells={analytics.monthlyReturnsHeatmap} />
-              </MetricSection>
-
               <MetricSection title="Risk & Drawdown" icon="🛡️" accent="red">
                 <MetricGrid
                   items={[
@@ -1139,7 +1274,7 @@ export function StockAnalyticsPage() {
                 <div className="analytics-chart-head">
                   <div>
                     <h3>Recent Daily Data</h3>
-                    <p>Latest OHLC and volume observations in the selected range.</p>
+                    <p>Latest OHLC and volume observations.</p>
                   </div>
                 </div>
                 <div className="analytics-table-wrap">

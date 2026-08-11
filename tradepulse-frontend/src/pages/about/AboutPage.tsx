@@ -30,9 +30,9 @@ const features = [
 		desc: "Track your holdings, P&L, allocation breakdown, and performance history all in one dashboard.",
 	},
 	{
-		icon: "🔔",
-		title: "Smart Alerts",
-		desc: "Get timely updates for market moves, portfolio activity, and important account events.",
+		icon: "📰",
+		title: "Market News",
+		desc: "Stay informed with recent stock-related news and headlines surfaced alongside analytics and trading insights.",
 	},
 ];
 
@@ -120,8 +120,7 @@ export function AboutPage() {
 				<section className="about-cta">
 					<h2>Ready to trade smarter?</h2>
 					<p>
-						Join thousands of investors already using TradePulse to make better
-						decisions every day.
+						Trade with confidence. Move like a pro.
 					</p>
 					<Link to="/registration" className="about-btn-primary">
 						Create your free account

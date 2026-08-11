@@ -39,6 +39,12 @@ public class StockController {
         this.mlPredictionService = mlPredictionService;
     }
 
+    @GetMapping
+    @Operation(summary = "Get all stocks")
+    public ResponseEntity<List<StockResponseDTO>> getStocks() {
+        return ResponseEntity.ok(stockService.getStocks());
+    }
+
     @GetMapping("/featured")
     @Operation(summary = "Get top 50 featured stocks ordered by sort_order")
     public ResponseEntity<List<StockResponseDTO>> getFeaturedStocks() {

@@ -105,10 +105,10 @@ export type StockPrediction = {
   probabilityBuy: number;
   probabilitySell: number;
   horizonDays: number;
+  decisionThreshold: number | null;
   modelName: string;
   modelVersion: string;
   generatedAt: string;
   reasoning: string[];
   convictionLabel: "HIGH" | "MEDIUM" | "LOW" | "NEUTRAL";
 };
-

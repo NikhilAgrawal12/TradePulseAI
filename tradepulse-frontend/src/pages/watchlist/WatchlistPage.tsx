@@ -67,21 +67,23 @@ export function WatchlistPage() {
        }
 
        const livePrice = typeof streamedStock.price === "number" ? streamedStock.price : null;
-       const liveChangePercent = typeof streamedStock.changePercent === "number" ? streamedStock.changePercent : null;
-
        const nextCurrentPrice = livePrice == null ? performance.currentPrice : livePrice;
        const nextPreviousClose = performance.previousClose;
        const nextDailyChange =
          nextCurrentPrice != null && nextPreviousClose != null
            ? nextCurrentPrice - nextPreviousClose
            : performance.dailyChange;
+       const nextDailyChangePercent =
+         nextCurrentPrice != null && nextPreviousClose != null && nextPreviousClose !== 0
+           ? ((nextCurrentPrice - nextPreviousClose) / nextPreviousClose) * 100
+           : performance.dailyChangePercent;
 
        next[stockId] = {
          ...performance,
          currentPrice: nextCurrentPrice,
          previousClose: nextPreviousClose,
          dailyChange: nextDailyChange,
-         dailyChangePercent: liveChangePercent == null ? performance.dailyChangePercent : liveChangePercent,
+         dailyChangePercent: nextDailyChangePercent,
        };
      });
 

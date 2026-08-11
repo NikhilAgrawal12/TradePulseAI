@@ -111,7 +111,7 @@ export function HomePage() {
                         </div>
 
                         <div className="aggregate-block">
-                          <p className="block-title">Live Snapshot</p>
+                          <p className="block-title">Live Snapshot (Per Second)</p>
                           <div className="aggregate-grid">
                             <p className="metric-item"><span>Open</span><strong className="metric-value">{typeof stock.open === "number" ? `$${formatMoney(stock.open)}` : "--"}</strong></p>
                             <p className="metric-item"><span>High</span><strong className="metric-value">{typeof stock.high === "number" ? `$${formatMoney(stock.high)}` : "--"}</strong></p>
