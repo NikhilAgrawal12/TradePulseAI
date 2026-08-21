@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$projectName = "tradepulse-persistent"
+$projectName = if ($env:TRADEPULSE_COMPOSE_PROJECT) { $env:TRADEPULSE_COMPOSE_PROJECT } else { "tradepulse-backend" }
 $composeFile = Join-Path $PSScriptRoot "..\docker-compose.persistent.yml"
 $envFile = Join-Path $PSScriptRoot "..\.env"
 

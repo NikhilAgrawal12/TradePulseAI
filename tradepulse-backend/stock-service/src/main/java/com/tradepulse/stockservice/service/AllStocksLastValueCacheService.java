@@ -12,6 +12,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.jspecify.annotations.NonNull;
 import tools.jackson.databind.JsonNode;
@@ -47,6 +48,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     private final StockRepository stockRepository;
     private final AllStocksLastValueCacheRepository allStocksLastValueCacheRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final JdbcTemplate jdbcTemplate;
     private final String massiveApiKey;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -64,10 +66,12 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
             StockRepository stockRepository,
             AllStocksLastValueCacheRepository allStocksLastValueCacheRepository,
             ApplicationEventPublisher eventPublisher,
+            JdbcTemplate jdbcTemplate,
             @Value("${massive.api.key:}") String massiveApiKey) {
         this.stockRepository = stockRepository;
         this.allStocksLastValueCacheRepository = allStocksLastValueCacheRepository;
         this.eventPublisher = eventPublisher;
+        this.jdbcTemplate = jdbcTemplate;
         this.massiveApiKey = massiveApiKey;
     }
 
@@ -79,6 +83,7 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         }
 
         loadStocks();
+        ensureCacheTableExists();
         warmInMemoryCache();
         connect();
         log.info("All-stocks websocket cache started for {} symbols.", stockBySymbol.size());
@@ -97,10 +102,48 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     private void warmInMemoryCache() {
         cacheByStockId.clear();
-        for (AllStocksLastValueCache entry : allStocksLastValueCacheRepository.findAll()) {
-            if (entry.getStock() != null && entry.getStock().getStockId() != null) {
-                cacheByStockId.put(entry.getStock().getStockId(), entry);
+        try {
+            for (AllStocksLastValueCache entry : allStocksLastValueCacheRepository.findAll()) {
+                if (entry.getStock() != null && entry.getStock().getStockId() != null) {
+                    cacheByStockId.put(entry.getStock().getStockId(), entry);
+                }
             }
+        } catch (Exception ex) {
+            log.warn("Unable to warm all-stocks cache from database. Continuing with live websocket updates only: {}", ex.getMessage());
+        }
+    }
+
+    private void ensureCacheTableExists() {
+        try {
+            String tableName = jdbcTemplate.queryForObject(
+                    "SELECT to_regclass('public.all_stocks_last_value_cache')",
+                    String.class
+            );
+            if (tableName != null) {
+                return;
+            }
+
+            log.warn("Table public.all_stocks_last_value_cache is missing. Creating it now to prevent startup errors.");
+            jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS all_stocks_last_value_cache (
+                        all_stocks_cache_id BIGSERIAL PRIMARY KEY,
+                        stock_id BIGINT NOT NULL UNIQUE,
+                        cached_open NUMERIC(18, 6) NOT NULL,
+                        cached_close NUMERIC(18, 6) NOT NULL,
+                        cached_high NUMERIC(18, 6) NOT NULL,
+                        cached_low NUMERIC(18, 6) NOT NULL,
+                        cached_volume BIGINT NOT NULL,
+                        cached_vwap NUMERIC(18, 6) NOT NULL,
+                        cached_change_percent NUMERIC(12, 6),
+                        aggregate_updated_at TIMESTAMP,
+                        cached_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT fk_all_stocks_cache_stock_id FOREIGN KEY (stock_id) REFERENCES stocks(stock_id) ON DELETE CASCADE
+                    )
+                    """);
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_cached_at ON all_stocks_last_value_cache(cached_at DESC)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_all_stocks_cache_aggregate_ts ON all_stocks_last_value_cache(aggregate_updated_at DESC)");
+        } catch (Exception ex) {
+            log.error("Failed to ensure all_stocks_last_value_cache table exists.", ex);
         }
     }
 

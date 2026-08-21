@@ -1,11 +1,9 @@
 package com.tradepulse.stockservice.controller;
 
 import com.tradepulse.stockservice.dto.market.MarketStatusResponseDTO;
-import com.tradepulse.stockservice.dto.stock.StockPredictionResponseDTO;
 import com.tradepulse.stockservice.dto.stock.StockResponseDTO;
 import com.tradepulse.stockservice.service.FeaturedStockSSEService;
 import com.tradepulse.stockservice.service.MarketStatusCacheService;
-import com.tradepulse.stockservice.service.MlPredictionService;
 import com.tradepulse.stockservice.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,16 +25,13 @@ public class StockController {
     private final StockService stockService;
     private final FeaturedStockSSEService featuredStockSSEService;
     private final MarketStatusCacheService marketStatusCacheService;
-    private final MlPredictionService mlPredictionService;
 
     public StockController(StockService stockService,
                            FeaturedStockSSEService featuredStockSSEService,
-                           MarketStatusCacheService marketStatusCacheService,
-                           MlPredictionService mlPredictionService) {
+                           MarketStatusCacheService marketStatusCacheService) {
         this.stockService = stockService;
         this.featuredStockSSEService = featuredStockSSEService;
         this.marketStatusCacheService = marketStatusCacheService;
-        this.mlPredictionService = mlPredictionService;
     }
 
     @GetMapping
@@ -57,11 +52,6 @@ public class StockController {
         return ResponseEntity.ok(stockService.getStockById(id));
     }
 
-    @GetMapping("/{id}/prediction")
-    @Operation(summary = "Get ML buy/sell prediction for a stock")
-    public ResponseEntity<StockPredictionResponseDTO> getStockPrediction(@PathVariable Long id) {
-        return ResponseEntity.ok(mlPredictionService.getPredictionByStockId(id));
-    }
 
     @GetMapping("/stream/featured")
     @Operation(summary = "Server-Sent Events stream for featured stocks + search results")

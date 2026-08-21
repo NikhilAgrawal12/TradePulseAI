@@ -149,7 +149,6 @@ Routed through the gateway under `/api/stocks` → `stock-service`.
 | `GET` | `/api/stocks/featured` | Get top 50 featured stocks ordered by sort_order | Frontend |
 | `GET` | `/api/stocks/search` | Search stocks by symbol or name (query param: `query`) | Frontend |
 | `GET` | `/api/stocks/{id}` | Get a single stock by ID | portfolio-service (internal, for sell notifications) |
-| `GET` | `/api/stocks/{id}/prediction` | Get ML buy/sell prediction for a stock | Frontend |
 | `GET` | `/api/stocks/market-status` | Get the current cached market session status (OPEN/CLOSED/PRE/AFTER) | Frontend, portfolio-service |
 
 ### Query parameters
@@ -166,6 +165,7 @@ Routed through the gateway under `/api/analytics` → `analytics-service` (Pytho
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/analytics/stocks/{stockId}/insights` | Get analytics insights for a specific stock (sentiment, volume trends, news) |
+| `GET` | `/api/analytics/predictions/{stockId}` | Get ML prediction for a specific stock |
 | `GET` | `/api/analytics/news` | Get latest analytics news items |
 
 ### Query parameters

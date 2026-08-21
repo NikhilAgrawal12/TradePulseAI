@@ -95,7 +95,7 @@ export async function fetchStockAnalytics(stockId: string): Promise<StockAnalyti
 
 
 export async function fetchStockPrediction(stockId: string): Promise<StockPrediction> {
-  const response = await axios.get<StockPrediction>(`/api/stocks/${stockId}/prediction`);
+  const response = await axios.get<StockPrediction>(`/api/analytics/predictions/${stockId}`);
   return response.data;
 }
 

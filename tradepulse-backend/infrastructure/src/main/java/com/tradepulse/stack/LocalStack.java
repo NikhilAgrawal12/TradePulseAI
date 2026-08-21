@@ -9,6 +9,7 @@ import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.services.msk.CfnCluster;
 import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.route53.CfnHealthCheck;
+import org.jetbrains.annotations.NotNull;
 
 import software.amazon.awscdk.services.ecs.Protocol;
 import java.io.BufferedReader;
@@ -20,12 +21,14 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
 public class LocalStack extends Stack {
 
     private static final Map<String, String> DOT_ENV = loadDotEnv();
+    private static final String KAFKA_BOOTSTRAP_SERVERS = "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512";
 
     private final Vpc vpc;
     private final Cluster ecsCluster;
@@ -41,6 +44,7 @@ public class LocalStack extends Stack {
         DatabaseInstance orderServiceDb = createDatabaseInstance("OrderServiceDB", "order_service_db");
         DatabaseInstance paymentServiceDb = createDatabaseInstance("PaymentServiceDB", "payment_service_db");
         DatabaseInstance portfolioServiceDb = createDatabaseInstance("PortfolioServiceDB", "portfolio_service_db");
+        DatabaseInstance analyticsServiceDb = createDatabaseInstance("AnalyticsServiceDB", "analytics_service_db");
 
         CfnHealthCheck authDbHealthCheck = createDbHealthCheck(authServiceDb, "AuthServiceDBHealthCheck");
         CfnHealthCheck customerDbHealthCheck = createDbHealthCheck(customerServiceDb, "CustomerServiceDBHealthCheck");
@@ -48,6 +52,7 @@ public class LocalStack extends Stack {
         CfnHealthCheck orderDbHealthCheck = createDbHealthCheck(orderServiceDb, "OrderServiceDBHealthCheck");
         CfnHealthCheck paymentDbHealthCheck = createDbHealthCheck(paymentServiceDb, "PaymentServiceDBHealthCheck");
         CfnHealthCheck portfolioDbHealthCheck = createDbHealthCheck(portfolioServiceDb, "PortfolioServiceDBHealthCheck");
+        CfnHealthCheck analyticsDbHealthCheck = createDbHealthCheck(analyticsServiceDb, "AnalyticsServiceDBHealthCheck");
 
         CfnCluster mskCluster = createMskCluster();
 
@@ -58,6 +63,7 @@ public class LocalStack extends Stack {
                 "auth-service",
                 List.of(4005),
                 authServiceDb,
+                "auth_service_db",
                 Map.ofEntries(
                         Map.entry("JWT_SECRET",                    DOT_ENV.get("JWT_SECRET")),
                         Map.entry("AUTH_INTERNAL_API_KEY",         DOT_ENV.get("AUTH_INTERNAL_API_KEY")),
@@ -81,7 +87,9 @@ public class LocalStack extends Stack {
                 "customer-service",
                 List.of(4000),
                 customerServiceDb,
+                "customer_service_db",
                 Map.ofEntries(
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS),
                         Map.entry("AUTH_INTERNAL_API_KEY",         DOT_ENV.get("AUTH_INTERNAL_API_KEY")),
                         Map.entry("AUTH_SERVICE_BASE_URL",         "http://auth-service:4005")
                 ));
@@ -94,62 +102,72 @@ public class LocalStack extends Stack {
                 "payment-service",
                 List.of(4001, 9002),
                 paymentServiceDb,
-                Map.of());
+                "payment_service_db",
+                Map.ofEntries(
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS)
+                ));
         paymentService.getNode().addDependency(paymentDbHealthCheck);
         paymentService.getNode().addDependency(paymentServiceDb);
 
-        // ── ml-service ───────────────────────────────────────────────────────────
-        FargateService mlService = createFargateService("MlService",
-                "ml-service",
+        // ── analytics-service ─────────────────────────────────────────────────────
+        FargateService analyticsService = createFargateService("AnalyticsService",
+                "analytics-service",
                 List.of(4010),
-                null,
+                analyticsServiceDb,
+                "analytics_service_db",
                 Map.ofEntries(
-                        Map.entry("ML_DATABASE_URL",  "postgresql+psycopg2://" + DOT_ENV.get("POSTGRES_USER") + ":" + DOT_ENV.get("POSTGRES_PASSWORD") + "@stock-service-db:5432/" + DOT_ENV.get("POSTGRES_DB")),
+                        Map.entry("ML_DATABASE_URL",                        "postgresql+psycopg2://" + DOT_ENV.get("POSTGRES_USER") + ":" + DOT_ENV.get("POSTGRES_PASSWORD") + "@analytics-service-db:5432/" + DOT_ENV.get("POSTGRES_DB")),
                         Map.entry("ML_MODEL_PATH",                          "/ml-model/tradepulse_model.joblib"),
                         Map.entry("ML_SERVICE_PORT",                        "4010"),
+                        Map.entry("STOCK_SERVICE_BASE_URL",                 "http://stock-service:4003"),
+                        Map.entry("MASSIVE_API_BASE_URL",                   "https://api.massive.com"),
+                        Map.entry("MASSIVE_API_KEY",                        DOT_ENV.get("MASSIVE_API_KEY")),
+                        Map.entry("MASSIVE_NEWS_LIMIT",                     "5"),
+                        Map.entry("OHLC_YEARS_BACK",                        "3"),
                         Map.entry("ML_DEFAULT_DAYS_BACK",                   "365"),
                         Map.entry("ML_DEFAULT_HORIZON_DAYS",                "5"),
                         Map.entry("ML_MAX_TRAINING_STOCKS",                 "100"),
                         Map.entry("FRESHNESS_CHECK_ENABLED",                "true"),
                         Map.entry("FRESHNESS_STARTUP_CATCHUP_ENABLED",      "true"),
-                        Map.entry("FRESHNESS_POLL_INTERVAL_MINUTES",        "30"),
+                        Map.entry("FRESHNESS_POLL_INTERVAL_MINUTES",        "5"),
                         Map.entry("FRESHNESS_MORNING_HOUR_ET",              "5"),
                         Map.entry("FRESHNESS_MORNING_MINUTE_ET",            "0"),
                         Map.entry("FRESHNESS_TIMEZONE",                     "America/New_York"),
                         Map.entry("ML_TRAIN_ON_STARTUP",                    "true"),
                         Map.entry("ML_RETRAIN_INTERVAL_HOURS",              "168")
                 ));
-        mlService.getNode().addDependency(stockDbHealthCheck);
-        mlService.getNode().addDependency(stockServiceDb);
+        analyticsService.getNode().addDependency(analyticsDbHealthCheck);
+        analyticsService.getNode().addDependency(analyticsServiceDb);
 
         // ── stock-service ────────────────────────────────────────────────────────
         FargateService stockService = createFargateService("StockService",
                 "stock-service",
                 List.of(4003, 9003),
                 stockServiceDb,
+                "stock_service_db",
                 Map.ofEntries(
                         Map.entry("MASSIVE_API_KEY",                    DOT_ENV.get("MASSIVE_API_KEY")),
-                        Map.entry("MASSIVE_NEWS_INTEGRATION_ENABLED",   "true"),
-                        Map.entry("MASSIVE_NEWS_DAILY_SCHEDULER_ENABLED","false"),
-                        Map.entry("ML_SERVICE_BASE_URL",                "http://ml-service:4010/v1"),
                         Map.entry("GRPC_SERVER_PORT",                   "9003")
                 ));
         stockService.getNode().addDependency(stockDbHealthCheck);
         stockService.getNode().addDependency(stockServiceDb);
-        stockService.getNode().addDependency(mlService);
+
+        // analytics-service depends on stock-service being healthy (matches compose)
+        analyticsService.getNode().addDependency(stockService);
 
         // ── portfolio-service ────────────────────────────────────────────────────
         FargateService portfolioService = createFargateService("PortfolioService",
                 "portfolio-service",
-                List.of(4007, 9005),
+                List.of(4007),
                 portfolioServiceDb,
+                "portfolio_service_db",
                 Map.ofEntries(
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS),
                         Map.entry("AUTH_SERVICE_BASE_URL",            "http://auth-service:4005"),
                         Map.entry("STOCK_SERVICE_BASE_URL",           "http://stock-service:4003"),
                         Map.entry("PAYMENT_SERVICE_GRPC_ADDRESS",     "payment-service"),
                         Map.entry("PAYMENT_SERVICE_GRPC_PORT",        "9002"),
-                        Map.entry("CUSTOMER_SERVICE_BASE_URL",        "http://customer-service:4000"),
-                        Map.entry("GRPC_SERVER_PORT",                 "9005")
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL",        "http://customer-service:4000")
                 ));
         portfolioService.getNode().addDependency(portfolioDbHealthCheck);
         portfolioService.getNode().addDependency(portfolioServiceDb);
@@ -160,14 +178,13 @@ public class LocalStack extends Stack {
                 "order-service",
                 List.of(4006),
                 orderServiceDb,
+                "order_service_db",
                 Map.ofEntries(
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS),
                         Map.entry("ORDER_PAYMENT_SERVICE_ADDRESS",      "payment-service"),
                         Map.entry("ORDER_PAYMENT_SERVICE_GRPC_PORT",    "9002"),
                         Map.entry("STOCK_SERVICE_GRPC_ADDRESS",         "stock-service"),
-                        Map.entry("STOCK_SERVICE_GRPC_PORT",            "9003"),
-                        Map.entry("PORTFOLIO_SYNC_SERVICE_ADDRESS",     "portfolio-service"),
-                        Map.entry("PORTFOLIO_SYNC_SERVICE_GRPC_PORT",   "9005"),
-                        Map.entry("CUSTOMER_SERVICE_BASE_URL",          "http://customer-service:4000")
+                        Map.entry("STOCK_SERVICE_GRPC_PORT",            "9003")
                 ));
         orderService.getNode().addDependency(orderDbHealthCheck);
         orderService.getNode().addDependency(orderServiceDb);
@@ -181,6 +198,7 @@ public class LocalStack extends Stack {
                 "api-gateway",
                 List.of(4004),
                 null,
+                null,
                 Map.of(
                         "AUTH_SERVICE_URL",       "http://auth-service:4005",
                         "CUSTOMER_SERVICE_URL",   "http://customer-service:4000",
@@ -192,13 +210,16 @@ public class LocalStack extends Stack {
         apiGatewayService.getNode().addDependency(stockService);
         apiGatewayService.getNode().addDependency(orderService);
         apiGatewayService.getNode().addDependency(portfolioService);
+        apiGatewayService.getNode().addDependency(analyticsService);
 
         // ── notification-service ─────────────────────────────────────────────────
         FargateService notificationService = createFargateService("NotificationService",
                 "notification-service",
                 List.of(4008),
                 null,
+                null,
                 Map.ofEntries(
+                        Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS",     KAFKA_BOOTSTRAP_SERVERS),
                         Map.entry("AUTH_SERVICE_BASE_URL",             "http://auth-service:4005"),
                         Map.entry("CUSTOMER_SERVICE_BASE_URL",         "http://customer-service:4000"),
                         Map.entry("MAIL_HOST",                         DOT_ENV.get("MAIL_HOST")),
@@ -274,9 +295,7 @@ public class LocalStack extends Stack {
     }
 
 
-
-
-    private FargateService createFargateService(String id, String imageName, List<Integer> ports, DatabaseInstance db, Map<String, String> additionalEnvVars) {
+    private FargateService createFargateService(String id, String imageName, List<Integer> ports, DatabaseInstance db, String databaseName, Map<String, String> additionalEnvVars) {
         FargateTaskDefinition taskDefinition = FargateTaskDefinition.Builder.create(this, id + "Task")
                 .cpu(256)
                 .memoryLimitMiB(512)
@@ -306,16 +325,23 @@ public class LocalStack extends Stack {
             envVars.putAll(additionalEnvVars);
         }
 
-        envVars.putIfAbsent("SPRING_KAFKA_BOOTSTRAP_SERVERS", "localhost.localstack.cloud:4510,localhost.localstack.cloud:4511,localhost.localstack.cloud:4512");
 
         if(db != null) {
-            envVars.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://%s:%s/%s-db".formatted(
+            envVars.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://%s:%s/%s".formatted(
                     db.getDbInstanceEndpointAddress(),
                     db.getDbInstanceEndpointPort(),
-                    imageName
+                    databaseName
             ) );
             envVars.put("SPRING_DATASOURCE_USERNAME", "admin_user");
-            envVars.put("SPRING_DATASOURCE_PASSWORD", db.getSecret().secretValueFromJson("password").toString());
+            var secret = Objects.requireNonNull(
+                    db.getSecret(),
+                    "Database secret is required to set SPRING_DATASOURCE_PASSWORD"
+            );
+            var passwordSecret = Objects.requireNonNull(
+                    secret.secretValueFromJson("password"),
+                    "Database secret is missing password field"
+            );
+            envVars.put("SPRING_DATASOURCE_PASSWORD", passwordSecret.toString());
             envVars.put("SPRING_JPA_HIBERNATE_DDL_AUTO", "update");
             envVars.put("SPRING_SQL_INIT_MODE", "always");
             envVars.put("SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT", "60000");
@@ -332,6 +358,8 @@ public class LocalStack extends Stack {
                 .serviceName(imageName)
                 .build();
     }
+
+
 
     /** Loads key=value pairs from tradepulse-backend/.env (one level above infrastructure/). */
     private static Map<String, String> loadDotEnv() {
@@ -398,16 +426,16 @@ public class LocalStack extends Stack {
         if (!Files.exists(path)) return;
         Files.walkFileTree(path, new SimpleFileVisitor<>() {
             @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) throws IOException {
                 Files.deleteIfExists(file);
                 return FileVisitResult.CONTINUE;
             }
             @Override
-            public FileVisitResult visitFileFailed(Path file, IOException exc) {
+            public @NotNull FileVisitResult visitFileFailed(@NotNull Path file, @NotNull IOException exc) {
                 return FileVisitResult.CONTINUE; // Skip locked files
             }
             @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+            public @NotNull FileVisitResult postVisitDirectory(@NotNull Path dir, IOException exc) throws IOException {
                 Files.deleteIfExists(dir);
                 return FileVisitResult.CONTINUE;
             }

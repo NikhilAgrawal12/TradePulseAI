@@ -80,6 +80,15 @@ spring:
             - RewritePath=/api/analytics(?<segment>/?.*), /v1/analytics${segment}
             - RateLimit=120,60,ip
 
+        - id: analytics-predictions-route
+          order: -1
+          uri: http://analytics-service:4010
+          predicates:
+            - Path=/api/analytics/predictions/**
+          filters:
+            - RewritePath=/api/analytics/predictions(?<segment>/?.*), /v1/predictions${segment}
+            - RateLimit=120,60,ip
+
 
         - id: watchlist-service-route
           uri: http://customer-service:4000
