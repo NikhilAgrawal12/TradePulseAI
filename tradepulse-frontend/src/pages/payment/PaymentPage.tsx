@@ -12,6 +12,7 @@ import "./PaymentPage.css";
 const PRICE_LOCK_SECONDS = 15;
 
 type LockedQuoteState = {
+  quoteLockId: string;
   items: CartItem[];
   total: number;
   lockSeconds: number;
@@ -42,7 +43,6 @@ export function PaymentPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const state = location.state as {
-    total?: number;
     items?: CartItem[];
   } | null;
 
@@ -70,6 +70,7 @@ export function PaymentPage() {
         }
         const normalizedLockSeconds = response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS;
         setLockedQuote({
+          quoteLockId: response.quoteLockId,
           items: response.items,
           total: roundMoney(response.total),
           lockSeconds: normalizedLockSeconds,
@@ -147,13 +148,18 @@ export function PaymentPage() {
   }, [navigate, processing, secondsLeft, showSuccess]);
 
   const handlePayWithWallet = async () => {
+    if (!lockedQuote?.quoteLockId) {
+      setError("Unable to find your locked quote. Please review your cart and try again.");
+      return;
+    }
+
     setError(null);
     setProcessing(true);
 
     try {
+
       const response = await completeOrder({
-        items: displayItems,
-        total,
+        quoteLockId: lockedQuote.quoteLockId,
       });
       if (!response.status || response.status.toUpperCase() !== "COMPLETED") {
         setError("Payment was not completed. Please try again.");

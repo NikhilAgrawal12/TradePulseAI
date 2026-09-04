@@ -336,7 +336,7 @@ services:
 
   order-service:
     build: ./order-service
-    image: order-service-latest
+    image: order-service:latest
     restart: unless-stopped
     depends_on:
       order-service-db:

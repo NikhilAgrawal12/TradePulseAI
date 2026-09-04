@@ -45,6 +45,7 @@ state: dict[str, Any] = {
     "last_sync_stats": None,
     "freshness_status": "unknown",
     "last_successful_trading_date": None,
+    "last_metrics_trading_date": None,
     "expected_trading_date": None,
     "last_provider_check_at": None,
     "next_retry_at": None,
@@ -270,13 +271,16 @@ def _schedule_next_retry(reference_utc: datetime | None = None) -> datetime:
     return reference_utc + timedelta(minutes=poll_minutes)
 
 
-def _run_analytics_sync(trigger: str) -> dict[str, Any]:
+def _run_analytics_sync(trigger: str, force_metrics_refresh: bool = False) -> dict[str, Any]:
     with sync_lock:
         try:
             state["last_sync_status"] = "running"
             state["last_sync_error"] = None
             state["last_sync_trigger"] = trigger
-            stats = analytics_sync_service.run_pipeline(trigger=trigger)
+            stats = analytics_sync_service.run_pipeline(
+                trigger=trigger,
+                force_metrics_refresh=force_metrics_refresh,
+            )
             payload = {
                 "trigger": stats.trigger,
                 "synced_stocks": stats.synced_stocks,
@@ -317,6 +321,8 @@ def _run_analytics_sync(trigger: str) -> dict[str, Any]:
             state["freshness_status"] = "fresh"
             latest = analytics_sync_service.get_latest_ohlc_trading_date()
             state["last_successful_trading_date"] = latest.isoformat() if latest else None
+            metrics_latest = analytics_sync_service.get_latest_metrics_trading_date()
+            state["last_metrics_trading_date"] = metrics_latest.isoformat() if metrics_latest else None
             state["next_retry_at"] = None
             return payload
         except Exception as error:  # pragma: no cover - external services/db dependency
@@ -335,10 +341,27 @@ def _check_freshness_and_sync(trigger: str) -> None:
 
     latest_db_date = analytics_sync_service.get_latest_ohlc_trading_date()
     state["last_successful_trading_date"] = latest_db_date.isoformat() if latest_db_date else None
+    latest_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+    state["last_metrics_trading_date"] = latest_metrics_date.isoformat() if latest_metrics_date else None
 
-    if latest_db_date is not None and latest_db_date >= expected_trading_date:
+    ohlc_fresh = latest_db_date is not None and latest_db_date >= expected_trading_date
+    metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= expected_trading_date
+
+    if ohlc_fresh and metrics_fresh:
         state["freshness_status"] = "fresh"
         state["next_retry_at"] = None
+        if state.get("last_sync_status") == "never":
+            # Preserve startup visibility even when data is already up to date.
+            state["last_sync_status"] = "ok_cached"
+            state["last_sync_finished_at"] = now_utc.isoformat()
+        return
+
+    if ohlc_fresh and not metrics_fresh:
+        try:
+            _run_analytics_sync(trigger=f"{trigger}_metrics_refresh", force_metrics_refresh=True)
+        except Exception:
+            next_retry = _schedule_next_retry(datetime.now(timezone.utc))
+            state["next_retry_at"] = next_retry.isoformat()
         return
 
     state["freshness_status"] = "stale"
@@ -347,6 +370,7 @@ def _check_freshness_and_sync(trigger: str) -> None:
 
     if not provider_has_data:
         next_retry = _schedule_next_retry(now_utc)
+        state["last_sync_status"] = "waiting_provider"
         state["freshness_status"] = "waiting_provider"
         state["next_retry_at"] = next_retry.isoformat()
         return
@@ -531,6 +555,7 @@ def health() -> dict[str, Any]:
         "last_sync_finished_at": state["last_sync_finished_at"],
         "freshness_status": state["freshness_status"],
         "last_successful_trading_date": state["last_successful_trading_date"],
+        "last_metrics_trading_date": state["last_metrics_trading_date"],
         "expected_trading_date": state["expected_trading_date"],
         "last_provider_check_at": state["last_provider_check_at"],
         "next_retry_at": state["next_retry_at"],

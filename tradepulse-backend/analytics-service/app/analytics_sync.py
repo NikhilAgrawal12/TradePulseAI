@@ -45,6 +45,11 @@ class AnalyticsSyncService:
             latest = connection.execute(text("SELECT MAX(trading_date) FROM stock_daily_ohlc")).scalar_one_or_none()
         return latest if isinstance(latest, date) else None
 
+    def get_latest_metrics_trading_date(self) -> date | None:
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            latest = connection.execute(text("SELECT MAX(latest_trading_date) FROM stock_metrics")).scalar_one_or_none()
+        return latest if isinstance(latest, date) else None
+
     def is_provider_ohlc_available_for_date(self, trading_date: date) -> bool:
         api_key = getattr(self._settings, "massive_api_key", "")
         if not api_key:
@@ -76,13 +81,15 @@ class AnalyticsSyncService:
         results = payload.get("results") if isinstance(payload, dict) else None
         return isinstance(results, list) and len(results) > 0
 
-    def run_pipeline(self, trigger: str) -> PipelineStats:
+    def run_pipeline(self, trigger: str, force_metrics_refresh: bool = False) -> PipelineStats:
         synced_stocks = self.sync_stocks_replica()
         ohlc_rows, start_date, end_date = self.sync_missing_ohlc()
         ohlc_dependency_updates = self._backfill_return_1d()
         metrics_rows = 0
         weekly_rows = 0
-        if (ohlc_rows + ohlc_dependency_updates) > 0:
+
+        should_refresh_metrics = force_metrics_refresh or (ohlc_rows + ohlc_dependency_updates) > 0
+        if should_refresh_metrics:
             if self._is_ohlc_ready_for_metrics():
                 metrics_rows, weekly_rows = self.refresh_metrics_with_pyspark()
             else:

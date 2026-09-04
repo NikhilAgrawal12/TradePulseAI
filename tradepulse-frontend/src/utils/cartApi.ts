@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AddCartItemRequest, CartItem, CompleteOrderResponse, LockQuoteRequest, LockQuoteResponse, UpdateCartItemRequest } from "../types/cart";
+import type { AddCartItemRequest, CartItem, CompleteOrderRequest, CompleteOrderResponse, LockQuoteRequest, LockQuoteResponse, UpdateCartItemRequest } from "../types/cart";
 import { buildAuthHeaders } from "./auth";
 import { toMoney } from "./money";
 
@@ -48,16 +48,11 @@ export async function clearCartItems(): Promise<CartItem[]> {
   return normalizeCartItems(response.data);
 }
 
-export async function completeOrder(payload: { items: CartItem[]; total: number }): Promise<CompleteOrderResponse> {
+export async function completeOrder(payload: CompleteOrderRequest): Promise<CompleteOrderResponse> {
   try {
-    const normalizedPayload = {
-      ...payload,
-      items: normalizeCartItems(payload.items),
-      total: toMoney(payload.total),
-    };
     const response = await axios.post<CompleteOrderResponse>(
       "/api/cart/complete-order",
-      normalizedPayload,
+      payload,
       {
         headers: buildAuthHeaders({ includeEmail: true }),
         timeout: COMPLETE_ORDER_TIMEOUT_MS,
@@ -101,6 +96,7 @@ export async function lockOrderQuote(payload: LockQuoteRequest): Promise<LockQuo
 
   return {
     ...response.data,
+    quoteLockId: response.data.quoteLockId,
     items: normalizeCartItems(response.data.items ?? []),
     total: toMoney(response.data.total),
     lockSeconds: Number.isFinite(response.data.lockSeconds) ? response.data.lockSeconds : 15,

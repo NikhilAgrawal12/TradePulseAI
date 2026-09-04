@@ -4,20 +4,17 @@ import software.amazon.awscdk.*;
 import software.amazon.awscdk.services.ec2.*;
 import software.amazon.awscdk.services.ec2.InstanceType;
 import software.amazon.awscdk.services.ecs.*;
+import software.amazon.awscdk.services.ecs.patterns.ApplicationLoadBalancedFargateService;
 import software.amazon.awscdk.services.logs.LogGroup;
 import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.services.msk.CfnCluster;
 import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.route53.CfnHealthCheck;
-import org.jetbrains.annotations.NotNull;
-
 import software.amazon.awscdk.services.ecs.Protocol;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,11 +88,12 @@ public class LocalStack extends Stack {
                 Map.ofEntries(
                         Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS),
                         Map.entry("AUTH_INTERNAL_API_KEY",         DOT_ENV.get("AUTH_INTERNAL_API_KEY")),
-                        Map.entry("AUTH_SERVICE_BASE_URL",         "http://auth-service:4005")
+                        Map.entry("AUTH_SERVICE_BASE_URL",         "http://host.docker.internal:4005")
                 ));
         customerService.getNode().addDependency(customerDbHealthCheck);
         customerService.getNode().addDependency(customerServiceDb);
         customerService.getNode().addDependency(authService);
+        customerService.getNode().addDependency(mskCluster);
 
         // ── payment-service ──────────────────────────────────────────────────────
         FargateService paymentService = createFargateService("PaymentService",
@@ -108,6 +106,7 @@ public class LocalStack extends Stack {
                 ));
         paymentService.getNode().addDependency(paymentDbHealthCheck);
         paymentService.getNode().addDependency(paymentServiceDb);
+        paymentService.getNode().addDependency(mskCluster);
 
         // ── analytics-service ─────────────────────────────────────────────────────
         FargateService analyticsService = createFargateService("AnalyticsService",
@@ -119,7 +118,7 @@ public class LocalStack extends Stack {
                         Map.entry("ML_DATABASE_URL",                        "postgresql+psycopg2://" + DOT_ENV.get("POSTGRES_USER") + ":" + DOT_ENV.get("POSTGRES_PASSWORD") + "@analytics-service-db:5432/" + DOT_ENV.get("POSTGRES_DB")),
                         Map.entry("ML_MODEL_PATH",                          "/ml-model/tradepulse_model.joblib"),
                         Map.entry("ML_SERVICE_PORT",                        "4010"),
-                        Map.entry("STOCK_SERVICE_BASE_URL",                 "http://stock-service:4003"),
+                        Map.entry("STOCK_SERVICE_BASE_URL",                 "http://host.docker.internal:4003"),
                         Map.entry("MASSIVE_API_BASE_URL",                   "https://api.massive.com"),
                         Map.entry("MASSIVE_API_KEY",                        DOT_ENV.get("MASSIVE_API_KEY")),
                         Map.entry("MASSIVE_NEWS_LIMIT",                     "5"),
@@ -163,15 +162,19 @@ public class LocalStack extends Stack {
                 "portfolio_service_db",
                 Map.ofEntries(
                         Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS),
-                        Map.entry("AUTH_SERVICE_BASE_URL",            "http://auth-service:4005"),
-                        Map.entry("STOCK_SERVICE_BASE_URL",           "http://stock-service:4003"),
-                        Map.entry("PAYMENT_SERVICE_GRPC_ADDRESS",     "payment-service"),
+                        Map.entry("AUTH_SERVICE_BASE_URL",            "http://host.docker.internal:4005"),
+                        Map.entry("STOCK_SERVICE_BASE_URL",           "http://host.docker.internal:4003"),
+                        Map.entry("PAYMENT_SERVICE_GRPC_ADDRESS",     "host.docker.internal"),
                         Map.entry("PAYMENT_SERVICE_GRPC_PORT",        "9002"),
-                        Map.entry("CUSTOMER_SERVICE_BASE_URL",        "http://customer-service:4000")
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL",        "http://host.docker.internal:4000")
                 ));
         portfolioService.getNode().addDependency(portfolioDbHealthCheck);
         portfolioService.getNode().addDependency(portfolioServiceDb);
+        portfolioService.getNode().addDependency(authService);
+        portfolioService.getNode().addDependency(customerService);
+        portfolioService.getNode().addDependency(paymentService);
         portfolioService.getNode().addDependency(stockService);
+        portfolioService.getNode().addDependency(mskCluster);
 
         // ── order-service ────────────────────────────────────────────────────────
         FargateService orderService = createFargateService("OrderService",
@@ -181,9 +184,9 @@ public class LocalStack extends Stack {
                 "order_service_db",
                 Map.ofEntries(
                         Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA_BOOTSTRAP_SERVERS),
-                        Map.entry("ORDER_PAYMENT_SERVICE_ADDRESS",      "payment-service"),
+                        Map.entry("ORDER_PAYMENT_SERVICE_ADDRESS",      "host.docker.internal"),
                         Map.entry("ORDER_PAYMENT_SERVICE_GRPC_PORT",    "9002"),
-                        Map.entry("STOCK_SERVICE_GRPC_ADDRESS",         "stock-service"),
+                        Map.entry("STOCK_SERVICE_GRPC_ADDRESS",         "host.docker.internal"),
                         Map.entry("STOCK_SERVICE_GRPC_PORT",            "9003")
                 ));
         orderService.getNode().addDependency(orderDbHealthCheck);
@@ -192,25 +195,10 @@ public class LocalStack extends Stack {
         orderService.getNode().addDependency(customerService);
         orderService.getNode().addDependency(stockService);
         orderService.getNode().addDependency(portfolioService);
+        orderService.getNode().addDependency(mskCluster);
 
         // ── api-gateway ──────────────────────────────────────────────────────────
-        FargateService apiGatewayService = createFargateService("ApiGateway",
-                "api-gateway",
-                List.of(4004),
-                null,
-                null,
-                Map.of(
-                        "AUTH_SERVICE_URL",       "http://auth-service:4005",
-                        "CUSTOMER_SERVICE_URL",   "http://customer-service:4000",
-                        "PORTFOLIO_SERVICE_URL",  "http://portfolio-service:4007",
-                        "STOCK_SERVICE_URL",      "http://stock-service:4003"
-                ));
-        apiGatewayService.getNode().addDependency(authService);
-        apiGatewayService.getNode().addDependency(customerService);
-        apiGatewayService.getNode().addDependency(stockService);
-        apiGatewayService.getNode().addDependency(orderService);
-        apiGatewayService.getNode().addDependency(portfolioService);
-        apiGatewayService.getNode().addDependency(analyticsService);
+        createApiGatewayService(authService, customerService, stockService, orderService, portfolioService, analyticsService);
 
         // ── notification-service ─────────────────────────────────────────────────
         FargateService notificationService = createFargateService("NotificationService",
@@ -220,8 +208,8 @@ public class LocalStack extends Stack {
                 null,
                 Map.ofEntries(
                         Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS",     KAFKA_BOOTSTRAP_SERVERS),
-                        Map.entry("AUTH_SERVICE_BASE_URL",             "http://auth-service:4005"),
-                        Map.entry("CUSTOMER_SERVICE_BASE_URL",         "http://customer-service:4000"),
+                        Map.entry("AUTH_SERVICE_BASE_URL",             "http://host.docker.internal:4005"),
+                        Map.entry("CUSTOMER_SERVICE_BASE_URL",         "http://host.docker.internal:4000"),
                         Map.entry("MAIL_HOST",                         DOT_ENV.get("MAIL_HOST")),
                         Map.entry("MAIL_PORT",                         DOT_ENV.get("MAIL_PORT")),
                         Map.entry("MAIL_USERNAME",                     DOT_ENV.get("MAIL_USERNAME")),
@@ -238,7 +226,6 @@ public class LocalStack extends Stack {
         notificationService.getNode().addDependency(customerService);
         notificationService.getNode().addDependency(mskCluster);
     }
-
 
     private Vpc createVpc() {
         return Vpc.Builder.create(this, "TradePulseVPC")
@@ -333,6 +320,7 @@ public class LocalStack extends Stack {
                     databaseName
             ) );
             envVars.put("SPRING_DATASOURCE_USERNAME", "admin_user");
+
             var secret = Objects.requireNonNull(
                     db.getSecret(),
                     "Database secret is required to set SPRING_DATASOURCE_PASSWORD"
@@ -341,6 +329,7 @@ public class LocalStack extends Stack {
                     secret.secretValueFromJson("password"),
                     "Database secret is missing password field"
             );
+
             envVars.put("SPRING_DATASOURCE_PASSWORD", passwordSecret.toString());
             envVars.put("SPRING_JPA_HIBERNATE_DDL_AUTO", "update");
             envVars.put("SPRING_SQL_INIT_MODE", "always");
@@ -357,6 +346,61 @@ public class LocalStack extends Stack {
                 .assignPublicIp(false)
                 .serviceName(imageName)
                 .build();
+    }
+
+    private void createApiGatewayService(
+            FargateService authService,
+            FargateService customerService,
+            FargateService stockService,
+            FargateService orderService,
+            FargateService portfolioService,
+            FargateService analyticsService
+    ) {
+        FargateTaskDefinition taskDefinition = FargateTaskDefinition.Builder.create(this, "APIGatewayTaskDefination")
+                .cpu(256)
+                .memoryLimitMiB(512)
+                .build();
+
+        ContainerDefinitionOptions containerOptions = ContainerDefinitionOptions.builder()
+                .image(ContainerImage.fromRegistry("api-gateway"))
+                .environment(Map.of("SPRING_PROFILES_ACTIVE", "prod",
+                        "AUTH_SERVICE_URL", "http://host.docker.internal:4005",
+                        "CUSTOMER_SERVICE_URL", "http://host.docker.internal:4000",
+                        "PORTFOLIO_SERVICE_URL", "http://host.docker.internal:4007",
+                        "STOCK_SERVICE_URL", "http://host.docker.internal:4003"))
+                .portMappings(List.of(4004).stream()
+                        .map(port -> PortMapping.builder()
+                                .containerPort(port)
+                                .hostPort(port)
+                                .protocol(Protocol.TCP)
+                                .build())
+                        .toList())
+                .logging(LogDriver.awsLogs(AwsLogDriverProps.builder()
+                        .logGroup(LogGroup.Builder.create(this, "ApiGatewayLogGroup")
+                                .logGroupName("/ecs/api-gateway")
+                                .removalPolicy(RemovalPolicy.DESTROY)
+                                .retention(RetentionDays.ONE_DAY)
+                                .build())
+                        .streamPrefix("api-gateway")
+                        .build()))
+                .build();
+
+        taskDefinition.addContainer("ApiGatewayContainer", containerOptions);
+
+        ApplicationLoadBalancedFargateService apiGateway = ApplicationLoadBalancedFargateService.Builder.create(this, "ApiGatewayService")
+                .cluster(ecsCluster)
+                .serviceName("api-gateway")
+                .taskDefinition(taskDefinition)
+                .desiredCount(1)
+                .healthCheckGracePeriod(Duration.seconds(60))
+                .build();
+
+        apiGateway.getService().getNode().addDependency(authService);
+        apiGateway.getService().getNode().addDependency(customerService);
+        apiGateway.getService().getNode().addDependency(stockService);
+        apiGateway.getService().getNode().addDependency(orderService);
+        apiGateway.getService().getNode().addDependency(portfolioService);
+        apiGateway.getService().getNode().addDependency(analyticsService);
     }
 
 
@@ -401,44 +445,6 @@ public class LocalStack extends Stack {
         new LocalStack(app, "LocalStack", props);
         app.synth();
 
-        // Pre-clean jsii temp dirs so Node.js cleanup doesn't fail with ENOTEMPTY on Windows
-        cleanupJsiiTempDirs();
-
         System.out.println("Stack synthesized successfully! Output in cdk.out/");
-    }
-
-    private static void cleanupJsiiTempDirs() {
-        try {
-            File tempDir = new File(System.getProperty("java.io.tmpdir"));
-            File[] dirs = tempDir.listFiles(f -> f.isDirectory() &&
-                    (f.getName().startsWith("jsii-kernel-") || f.getName().startsWith("jsii-java-runtime")));
-            if (dirs != null) {
-                for (File dir : dirs) {
-                    deleteRecursively(dir.toPath());
-                }
-            }
-        } catch (Exception e) {
-            // Ignore — best-effort cleanup
-        }
-    }
-
-    private static void deleteRecursively(Path path) throws IOException {
-        if (!Files.exists(path)) return;
-        Files.walkFileTree(path, new SimpleFileVisitor<>() {
-            @Override
-            public @NotNull FileVisitResult visitFile(@NotNull Path file, @NotNull BasicFileAttributes attrs) throws IOException {
-                Files.deleteIfExists(file);
-                return FileVisitResult.CONTINUE;
-            }
-            @Override
-            public @NotNull FileVisitResult visitFileFailed(@NotNull Path file, @NotNull IOException exc) {
-                return FileVisitResult.CONTINUE; // Skip locked files
-            }
-            @Override
-            public @NotNull FileVisitResult postVisitDirectory(@NotNull Path dir, IOException exc) throws IOException {
-                Files.deleteIfExists(dir);
-                return FileVisitResult.CONTINUE;
-            }
-        });
     }
 }

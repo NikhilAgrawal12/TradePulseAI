@@ -11,8 +11,11 @@ import com.tradepulse.orderservice.mapper.OrderItemMapper;
 import com.tradepulse.orderservice.mapper.OrderMapper;
 import com.tradepulse.orderservice.model.CartItem;
 import com.tradepulse.orderservice.model.CartItemId;
+import com.tradepulse.orderservice.model.QuoteLock;
+import com.tradepulse.orderservice.model.QuoteLockItem;
 import com.tradepulse.orderservice.model.TradeOrder;
 import com.tradepulse.orderservice.repository.CartItemRepository;
+import com.tradepulse.orderservice.repository.QuoteLockRepository;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import order_payment.OrderPaymentResponse;
@@ -23,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,8 +40,12 @@ public class CartService {
     private static final String PAYMENT_STATUS_COMPLETED = "COMPLETED";
     private static final String PAYMENT_REFERENCE_PREFIX = "checkout-";
     private static final int PRICE_LOCK_SECONDS = 15;
+    private static final String QUOTE_LOCK_STATUS_LOCKED = "LOCKED";
+    private static final String QUOTE_LOCK_STATUS_USED = "USED";
+    private static final String QUOTE_LOCK_STATUS_EXPIRED = "EXPIRED";
 
     private final CartItemRepository cartItemRepository;
+    private final QuoteLockRepository quoteLockRepository;
     private final OrderPaymentGrpcClient orderPaymentGrpcClient;
     private final OrderHistoryService orderHistoryService;
     private final StockCatalogClient stockCatalogClient;
@@ -45,12 +53,14 @@ public class CartService {
 
     public CartService(
             CartItemRepository cartItemRepository,
+            QuoteLockRepository quoteLockRepository,
             OrderPaymentGrpcClient orderPaymentGrpcClient,
             OrderHistoryService orderHistoryService,
             StockCatalogClient stockCatalogClient,
             OutboxEventEnqueuer outboxEventEnqueuer
     ) {
         this.cartItemRepository = cartItemRepository;
+        this.quoteLockRepository = quoteLockRepository;
         this.orderPaymentGrpcClient = orderPaymentGrpcClient;
         this.orderHistoryService = orderHistoryService;
         this.stockCatalogClient = stockCatalogClient;
@@ -107,11 +117,19 @@ public class CartService {
 
     @Transactional
     public CompleteOrderResponseDTO completeOrder(Long userId, CompleteOrderRequestDTO request) {
-        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw new IllegalArgumentException("Cart is empty. Add items before completing order.");
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Valid userId is required.");
+        }
+        if (request == null || request.getQuoteLockId() == null || request.getQuoteLockId().isBlank()) {
+            throw new IllegalArgumentException("A valid locked quote is required before completing order.");
         }
 
-        CompleteOrderRequestDTO lockedRequest = buildLockedPriceRequest(request);
+        QuoteLock quoteLock = quoteLockRepository.findByIdAndUserId(request.getQuoteLockId().trim(), userId)
+                .orElseThrow(() -> new IllegalArgumentException("Locked quote not found. Please review your cart and try again."));
+
+        validateQuoteLockForPayment(quoteLock);
+
+        CompleteOrderRequestDTO lockedRequest = toLockedOrderRequest(quoteLock);
         String paymentReference = PAYMENT_REFERENCE_PREFIX + UUID.randomUUID();
 
         OrderPaymentResponse response;
@@ -137,6 +155,9 @@ public class CartService {
             throw new IllegalStateException("Order persistence failed after successful payment.", persistException);
         }
 
+        quoteLock.setStatus(QUOTE_LOCK_STATUS_USED);
+        quoteLockRepository.save(quoteLock);
+
         cartItemRepository.deleteByIdUserId(userId);
 
         // Write both outbox entries inside this transaction – the relay will publish them after commit.
@@ -155,9 +176,12 @@ public class CartService {
         }
 
         CompleteOrderRequestDTO quotedRequest = buildFreshQuotedRequest(request);
+        QuoteLock savedQuoteLock = quoteLockRepository.save(buildQuoteLock(userId, quotedRequest));
+
         LockedOrderQuoteResponseDTO response = new LockedOrderQuoteResponseDTO();
         response.setItems(quotedRequest.getItems());
         response.setTotal(quotedRequest.getTotal());
+        response.setQuoteLockId(savedQuoteLock.getId());
         response.setLockSeconds(PRICE_LOCK_SECONDS);
         return response;
     }
@@ -206,37 +230,61 @@ public class CartService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    private CompleteOrderRequestDTO buildLockedPriceRequest(CompleteOrderRequestDTO request) {
-        Map<Long, StockQuote> quotes = new LinkedHashMap<>();
 
-        List<CompleteOrderItemRequestDTO> lockedItems = request.getItems().stream()
-                .map(item -> {
-                    Long stockId = parseStockId(item.getStockId());
-                    BigDecimal quantity = scaleQuantity(item.getQuantity());
-                    if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new IllegalArgumentException("Quantity must be greater than 0 for stockId: " + item.getStockId());
-                    }
-
-                    // Use server-authoritative live quote at submit time; never trust client price.
-                    StockQuote quote = quotes.computeIfAbsent(stockId, stockCatalogClient::getRequiredStockQuote);
-                    CompleteOrderItemRequestDTO locked = new CompleteOrderItemRequestDTO();
-                    locked.setStockId(String.valueOf(stockId));
-                    locked.setSymbol(quote.symbol());
-                    locked.setPrice(OrderItemMapper.scaleMoney(quote.unitPrice()));
-                    locked.setQuantity(quantity);
-                    return locked;
-                })
-                .toList();
-
-        BigDecimal recalculatedTotal = OrderItemMapper.scaleMoney(
-                lockedItems.stream()
-                        .map(item -> item.getPrice().multiply(item.getQuantity()))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+    private QuoteLock buildQuoteLock(Long userId, CompleteOrderRequestDTO quotedRequest) {
+        QuoteLock quoteLock = new QuoteLock();
+        quoteLock.setUserId(userId);
+        quoteLock.setTotal(OrderItemMapper.scaleMoney(quotedRequest.getTotal()));
+        quoteLock.setStatus(QUOTE_LOCK_STATUS_LOCKED);
+        quoteLock.setExpiresAt(Instant.now().plusSeconds(PRICE_LOCK_SECONDS));
+        quoteLock.setItems(
+                quotedRequest.getItems().stream()
+                        .map(item -> toQuoteLockItem(quoteLock, item))
+                        .toList()
         );
+        return quoteLock;
+    }
 
+    private QuoteLockItem toQuoteLockItem(QuoteLock quoteLock, CompleteOrderItemRequestDTO itemRequest) {
+        QuoteLockItem item = new QuoteLockItem();
+        item.setQuoteLock(quoteLock);
+        item.setStockId(itemRequest.getStockId());
+        item.setSymbol(itemRequest.getSymbol());
+        item.setPrice(OrderItemMapper.scaleMoney(itemRequest.getPrice()));
+        item.setQuantity(scaleQuantity(itemRequest.getQuantity()));
+        return item;
+    }
+
+    private void validateQuoteLockForPayment(QuoteLock quoteLock) {
+        if (!QUOTE_LOCK_STATUS_LOCKED.equalsIgnoreCase(quoteLock.getStatus())) {
+            throw new IllegalStateException("This locked quote can no longer be used. Please review your cart and lock prices again.");
+        }
+        if (quoteLock.getExpiresAt() == null || !quoteLock.getExpiresAt().isAfter(Instant.now())) {
+            quoteLock.setStatus(QUOTE_LOCK_STATUS_EXPIRED);
+            quoteLockRepository.save(quoteLock);
+            throw new IllegalStateException("Price lock expired. Please review your cart and try again.");
+        }
+        if (quoteLock.getItems() == null || quoteLock.getItems().isEmpty()) {
+            throw new IllegalStateException("Locked quote is empty. Please review your cart and try again.");
+        }
+    }
+
+    private CompleteOrderRequestDTO toLockedOrderRequest(QuoteLock quoteLock) {
         CompleteOrderRequestDTO lockedRequest = new CompleteOrderRequestDTO();
-        lockedRequest.setItems(lockedItems);
-        lockedRequest.setTotal(recalculatedTotal);
+        lockedRequest.setQuoteLockId(quoteLock.getId());
+        lockedRequest.setItems(
+                quoteLock.getItems().stream()
+                        .map(item -> {
+                            CompleteOrderItemRequestDTO dto = new CompleteOrderItemRequestDTO();
+                            dto.setStockId(item.getStockId());
+                            dto.setSymbol(item.getSymbol());
+                            dto.setPrice(OrderItemMapper.scaleMoney(item.getPrice()));
+                            dto.setQuantity(scaleQuantity(item.getQuantity()));
+                            return dto;
+                        })
+                        .toList()
+        );
+        lockedRequest.setTotal(OrderItemMapper.scaleMoney(quoteLock.getTotal()));
         return lockedRequest;
     }
 

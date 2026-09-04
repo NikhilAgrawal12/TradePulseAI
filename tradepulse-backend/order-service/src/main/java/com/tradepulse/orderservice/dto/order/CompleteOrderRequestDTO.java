@@ -5,8 +5,17 @@ import java.util.List;
 
 public class CompleteOrderRequestDTO {
 
+    private String quoteLockId;
     private List<CompleteOrderItemRequestDTO> items;
     private BigDecimal total;
+
+    public String getQuoteLockId() {
+        return quoteLockId;
+    }
+
+    public void setQuoteLockId(String quoteLockId) {
+        this.quoteLockId = quoteLockId;
+    }
 
     public List<CompleteOrderItemRequestDTO> getItems() {
         return items;

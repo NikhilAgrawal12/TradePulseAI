@@ -5,9 +5,18 @@ import java.util.List;
 
 public class LockedOrderQuoteResponseDTO {
 
+    private String quoteLockId;
     private List<CompleteOrderItemRequestDTO> items;
     private BigDecimal total;
     private int lockSeconds;
+
+    public String getQuoteLockId() {
+        return quoteLockId;
+    }
+
+    public void setQuoteLockId(String quoteLockId) {
+        this.quoteLockId = quoteLockId;
+    }
 
     public List<CompleteOrderItemRequestDTO> getItems() {
         return items;

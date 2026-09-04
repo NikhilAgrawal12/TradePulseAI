@@ -22,12 +22,17 @@ export type CompleteOrderResponse = {
   status: string;
 };
 
+export type CompleteOrderRequest = {
+  quoteLockId: string;
+};
+
 export type LockQuoteRequest = {
   items: CartItem[];
   total: number;
 };
 
 export type LockQuoteResponse = {
+  quoteLockId: string;
   items: CartItem[];
   total: number;
   lockSeconds: number;
