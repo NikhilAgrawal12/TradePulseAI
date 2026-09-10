@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
 import type { Stock } from "../types/stock";
 import { toMoney } from "./money";
 
 const STOCKS_STREAM_RECONNECT_MS = 3000;
+const STOCKS_POLL_INTERVAL_MS = 15_000;
 const ALL_STOCKS_STREAM_QUERY = "__all__";
 
 function normalizeStocks(rawStocks: Stock[]): Stock[] {
@@ -27,6 +29,7 @@ export function useStocks() {
     let mounted = true;
     let eventSource: EventSource | null = null;
     let reconnectTimer: number | null = null;
+    let pollTimer: number | null = null;
 
     const handlePayload = (rawData: string) => {
       if (!mounted) {
@@ -91,12 +94,48 @@ export function useStocks() {
       };
     };
 
+    const pollLatestStocks = async () => {
+      try {
+        const response = await axios.get<Stock[]>("/api/stocks");
+        if (!mounted) {
+          return;
+        }
+
+        const nextStocks = Array.isArray(response.data) ? normalizeStocks(response.data) : [];
+        setStocks((current) => {
+          if (nextStocks.length === 0 && current.length > 0) {
+            return current;
+          }
+          return nextStocks;
+        });
+        setError(null);
+        setLoading(false);
+      } catch {
+        if (mounted) {
+          setStocks((current) => {
+            if (current.length === 0) {
+              setError("Unable to load stocks right now. Please try again shortly.");
+              setLoading(false);
+            }
+            return current;
+          });
+        }
+      }
+    };
+
     connect();
+    void pollLatestStocks();
+    pollTimer = window.setInterval(() => {
+      void pollLatestStocks();
+    }, STOCKS_POLL_INTERVAL_MS);
 
     return () => {
       mounted = false;
       if (reconnectTimer != null) {
         window.clearTimeout(reconnectTimer);
+      }
+      if (pollTimer != null) {
+        window.clearInterval(pollTimer);
       }
       if (eventSource) {
         eventSource.close();

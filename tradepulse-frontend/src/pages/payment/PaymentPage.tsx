@@ -46,11 +46,42 @@ export function PaymentPage() {
     items?: CartItem[];
   } | null;
 
-  const items = state?.items?.length ? state.items : cart;
+  const sourceItems = state?.items?.length ? state.items : cart;
+  const [checkoutItems, setCheckoutItems] = useState<CartItem[]>(sourceItems);
   const [lockedQuote, setLockedQuote] = useState<LockedQuoteState | null>(null);
 
   useEffect(() => {
-    if (lockedQuote || items.length === 0) {
+    if (checkoutItems.length === 0 && sourceItems.length > 0) {
+      setCheckoutItems(sourceItems);
+    }
+  }, [checkoutItems.length, sourceItems]);
+
+  const refreshLockedQuote = async (): Promise<LockedQuoteState> => {
+    setQuoteLoading(true);
+    setQuoteError(null);
+    try {
+      const fallbackTotal = roundMoney(checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0));
+      const response = await lockOrderQuote({
+        items: checkoutItems,
+        total: fallbackTotal,
+      });
+      const normalizedLockSeconds = response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS;
+      const nextLockedQuote: LockedQuoteState = {
+        quoteLockId: response.quoteLockId,
+        items: response.items,
+        total: roundMoney(response.total),
+        lockSeconds: normalizedLockSeconds,
+      };
+      setLockedQuote(nextLockedQuote);
+      setSecondsLeft(normalizedLockSeconds);
+      return nextLockedQuote;
+    } finally {
+      setQuoteLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (lockedQuote || checkoutItems.length === 0) {
       return;
     }
 
@@ -58,24 +89,10 @@ export function PaymentPage() {
 
     const loadLockedQuote = async () => {
       try {
-        setQuoteLoading(true);
-        setQuoteError(null);
-        const fallbackTotal = roundMoney(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
-        const response = await lockOrderQuote({
-          items,
-          total: fallbackTotal,
-        });
+        await refreshLockedQuote();
         if (cancelled) {
           return;
         }
-        const normalizedLockSeconds = response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS;
-        setLockedQuote({
-          quoteLockId: response.quoteLockId,
-          items: response.items,
-          total: roundMoney(response.total),
-          lockSeconds: normalizedLockSeconds,
-        });
-        setSecondsLeft(normalizedLockSeconds);
       } catch (lockError) {
         if (cancelled) {
           return;
@@ -96,7 +113,7 @@ export function PaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [items, lockedQuote]);
+  }, [checkoutItems, lockedQuote]);
 
   const displayItems = useMemo(() => lockedQuote?.items ?? [], [lockedQuote?.items]);
 
@@ -105,11 +122,11 @@ export function PaymentPage() {
     [displayItems, lockedQuote?.total],
   );
   const priceUpdated = useMemo(() => {
-    if (!lockedQuote || items.length === 0) {
+    if (!lockedQuote || checkoutItems.length === 0) {
       return false;
     }
 
-    const sourceByStockId = new Map(items.map((item) => [String(item.stockId), roundMoney(item.price)]));
+    const sourceByStockId = new Map(checkoutItems.map((item) => [String(item.stockId), roundMoney(item.price)]));
     return lockedQuote.items.some((item) => {
       const sourcePrice = sourceByStockId.get(String(item.stockId));
       if (sourcePrice === undefined) {
@@ -117,7 +134,7 @@ export function PaymentPage() {
       }
       return Math.abs(sourcePrice - roundMoney(item.price)) >= 0.01;
     });
-  }, [items, lockedQuote]);
+  }, [checkoutItems, lockedQuote]);
 
   const hasSufficientBalance = !isWalletLoading && balance >= total;
 
@@ -148,21 +165,56 @@ export function PaymentPage() {
   }, [navigate, processing, secondsLeft, showSuccess]);
 
   const handlePayWithWallet = async () => {
-    if (!lockedQuote?.quoteLockId) {
-      setError("Unable to find your locked quote. Please review your cart and try again.");
-      return;
-    }
-
     setError(null);
     setProcessing(true);
 
     try {
+      let activeQuote = lockedQuote;
+      if (!activeQuote?.quoteLockId) {
+        activeQuote = await refreshLockedQuote();
+      }
+      if (!activeQuote?.quoteLockId) {
+        setError("Unable to lock fresh stock prices right now. Please try again.");
+        return;
+      }
 
-      const response = await completeOrder({
-        quoteLockId: lockedQuote.quoteLockId,
-      });
-      if (!response.status || response.status.toUpperCase() !== "COMPLETED") {
-        setError("Payment was not completed. Please try again.");
+      const placeOrder = async (quoteLockId: string, items: CartItem[], total: number) => {
+        const response = await completeOrder({
+          quoteLockId,
+          items,
+          total,
+        });
+        if (!response.status || response.status.toUpperCase() !== "COMPLETED") {
+          throw new Error("Payment was not completed. Please try again.");
+        }
+        return response;
+      };
+
+      let response: Awaited<ReturnType<typeof completeOrder>> | null = null;
+      let completionError: unknown = null;
+      try {
+        response = await placeOrder(activeQuote.quoteLockId, activeQuote.items, activeQuote.total);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to complete payment right now. Please try again.";
+        const normalized = message.toLowerCase();
+        const isLockFailure = normalized.includes("locked quote") || normalized.includes("price lock");
+        if (!isLockFailure) {
+          completionError = err;
+        } else {
+          try {
+            activeQuote = await refreshLockedQuote();
+            response = await placeOrder(activeQuote.quoteLockId, activeQuote.items, activeQuote.total);
+          } catch (retryError) {
+            completionError = retryError;
+          }
+        }
+      }
+
+      if (!response) {
+        const message = completionError instanceof Error
+          ? completionError.message
+          : "Unable to complete payment right now. Please try again.";
+        setError(message);
         return;
       }
 
@@ -173,8 +225,8 @@ export function PaymentPage() {
       setReceipt({
         orderNumber: placedOrder?.orderNumber,
         paidAtIso: placedOrder?.createdAtIso ?? new Date().toISOString(),
-        total,
-        itemCount: displayItems.length,
+        total: activeQuote.total,
+        itemCount: activeQuote.items.length,
       });
       setShowSuccess(true);
     } catch (err) {
@@ -186,7 +238,7 @@ export function PaymentPage() {
     }
   };
 
-  if (items.length === 0 && !showSuccess) {
+  if (checkoutItems.length === 0 && !showSuccess) {
     return (
       <>
         <Header />

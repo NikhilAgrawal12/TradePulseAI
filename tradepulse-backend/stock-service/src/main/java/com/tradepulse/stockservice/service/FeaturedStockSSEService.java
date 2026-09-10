@@ -32,9 +32,10 @@ import java.util.concurrent.TimeUnit;
 public class FeaturedStockSSEService {
 
     private static final Logger log = LoggerFactory.getLogger(FeaturedStockSSEService.class);
-    private static final long SSE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    private static final long SSE_TIMEOUT = 0L;
     private static final int SSE_RECONNECT_MS = 3000;
     private static final int EVENT_COALESCE_MS = 150;
+    private static final int HEARTBEAT_INTERVAL_SECONDS = 25;
     private static final int SEARCH_RESULT_LIMIT = 50;
     private static final String ALL_STOCKS_STREAM_QUERY = "__all__";
 
@@ -57,6 +58,12 @@ public class FeaturedStockSSEService {
             t.setDaemon(true);
             return t;
         });
+        this.eventBroadcastExecutor.scheduleAtFixedRate(
+                this::sendHeartbeatToAllClients,
+                HEARTBEAT_INTERVAL_SECONDS,
+                HEARTBEAT_INTERVAL_SECONDS,
+                TimeUnit.SECONDS
+        );
     }
 
     /**
@@ -224,6 +231,24 @@ public class FeaturedStockSSEService {
             }
         } catch (Exception ex) {
             log.debug("Error during broadcast cycle: {}", ex.getMessage());
+        }
+    }
+
+    private void sendHeartbeatToAllClients() {
+        if (emitters.isEmpty()) {
+            return;
+        }
+
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat")
+                        .data(System.currentTimeMillis())
+                        .reconnectTime(SSE_RECONNECT_MS));
+            } catch (IOException ex) {
+                emitters.remove(emitter);
+                emitterSearchTerms.remove(emitter.hashCode());
+            }
         }
     }
 

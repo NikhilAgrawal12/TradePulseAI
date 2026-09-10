@@ -125,7 +125,10 @@ public class CartService {
         }
 
         QuoteLock quoteLock = quoteLockRepository.findByIdAndUserId(request.getQuoteLockId().trim(), userId)
-                .orElseThrow(() -> new IllegalArgumentException("Locked quote not found. Please review your cart and try again."));
+                .orElseThrow(() -> {
+                    log.warn("Locked quote lookup miss for userId={} and quoteLockId={}", userId, request.getQuoteLockId());
+                    return new IllegalArgumentException("Locked quote not found. Please review your cart and try again.");
+                });
 
         validateQuoteLockForPayment(quoteLock);
 
@@ -166,7 +169,7 @@ public class CartService {
         return new CompleteOrderResponseDTO(savedOrder.getId(), response.getAccountId(), PAYMENT_STATUS_COMPLETED);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LockedOrderQuoteResponseDTO lockOrderQuote(Long userId, CompleteOrderRequestDTO request) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("Valid userId is required.");
@@ -176,7 +179,12 @@ public class CartService {
         }
 
         CompleteOrderRequestDTO quotedRequest = buildFreshQuotedRequest(request);
-        QuoteLock savedQuoteLock = quoteLockRepository.save(buildQuoteLock(userId, quotedRequest));
+        QuoteLock savedQuoteLock = quoteLockRepository.saveAndFlush(buildQuoteLock(userId, quotedRequest));
+        log.info("Created quote lock {} for userId={} with {} items; expiresAt={}",
+                savedQuoteLock.getId(),
+                userId,
+                savedQuoteLock.getItems() == null ? 0 : savedQuoteLock.getItems().size(),
+                savedQuoteLock.getExpiresAt());
 
         LockedOrderQuoteResponseDTO response = new LockedOrderQuoteResponseDTO();
         response.setItems(quotedRequest.getItems());

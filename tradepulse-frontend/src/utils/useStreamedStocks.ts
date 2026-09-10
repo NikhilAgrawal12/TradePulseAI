@@ -4,6 +4,7 @@ import type { Stock } from "../types/stock";
 import { toMoney } from "./money";
 
 const LAST_STOCKS_CACHE_KEY = "tradepulse:last-streamed-stocks";
+const STOCKS_POLL_INTERVAL_MS = 15_000;
 
 function normalizeStocks(rawStocks: Stock[]): Stock[] {
   return rawStocks.map((stock) => ({
@@ -47,10 +48,14 @@ function writeCachedStocks(stocks: Stock[]): void {
 export function useStreamedStocks() {
   const [stocks, setStocks] = useState<Stock[]>(() => readCachedStocks());
   const hadCachedStocksAtBoot = useRef(stocks.length > 0);
+  const latestStocksCountRef = useRef(stocks.length);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const stocksCount = stocks.length;
   const searchRequestSerial = useRef(0);
+
+  useEffect(() => {
+    latestStocksCountRef.current = stocks.length;
+  }, [stocks.length]);
 
   useEffect(() => {
     let mounted = true;
@@ -72,7 +77,7 @@ export function useStreamedStocks() {
           setStocks(data);
           setError(null);
         } catch {
-          if (mounted && requestId === searchRequestSerial.current && stocksCount === 0) {
+          if (mounted && requestId === searchRequestSerial.current && latestStocksCountRef.current === 0) {
             setError("Unable to load stock data right now.");
           }
         }
@@ -103,7 +108,7 @@ export function useStreamedStocks() {
     return () => {
       mounted = false;
     };
-  }, [searchTerm, stocksCount]);
+  }, [searchTerm]);
 
   // SSE connection for featured stocks
   useEffect(() => {
@@ -117,7 +122,7 @@ export function useStreamedStocks() {
         const nextStocks = Array.isArray(data) ? normalizeStocks(data as Stock[]) : [];
 
         // Guard against transient empty payloads during reconnect/startup so we don't wipe valid cache.
-        if (!searchTerm.trim() && nextStocks.length === 0 && stocksCount > 0) {
+        if (!searchTerm.trim() && nextStocks.length === 0 && latestStocksCountRef.current > 0) {
           return;
         }
 
@@ -151,7 +156,7 @@ export function useStreamedStocks() {
 
 
         eventSource.onerror = () => {
-          if (mounted && stocksCount === 0) {
+          if (mounted && latestStocksCountRef.current === 0) {
             setError("Unable to load stock data right now.");
           }
           if (eventSource) {
@@ -166,7 +171,7 @@ export function useStreamedStocks() {
           }, 3000);
         };
       } catch {
-        if (mounted && stocksCount === 0) {
+        if (mounted && latestStocksCountRef.current === 0) {
           setError("Unable to load stock data right now.");
         }
       }
@@ -180,7 +185,49 @@ export function useStreamedStocks() {
         eventSource.close();
       }
     };
-  }, [searchTerm, stocksCount]);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const query = searchTerm.trim();
+
+    const pollLatestStocks = async () => {
+      try {
+        const response = query
+          ? await axios.get<Stock[]>("/api/stocks/search", { params: { query } })
+          : await axios.get<Stock[]>("/api/stocks/featured");
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextStocks = Array.isArray(response.data) ? normalizeStocks(response.data) : [];
+        if (!query && nextStocks.length === 0 && latestStocksCountRef.current > 0) {
+          return;
+        }
+
+        setStocks(nextStocks);
+        if (!query) {
+          writeCachedStocks(nextStocks);
+        }
+        setError(null);
+      } catch {
+        if (!cancelled && latestStocksCountRef.current === 0) {
+          setError("Unable to load stock data right now.");
+        }
+      }
+    };
+
+    void pollLatestStocks();
+    const intervalId = window.setInterval(() => {
+      void pollLatestStocks();
+    }, STOCKS_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [searchTerm]);
 
   return { stocks, error, searchTerm, setSearchTerm };
 }

@@ -53,7 +53,7 @@ Gateway fronts all frontend stock traffic:
 - gateway forwards to stock-service routes under `/stocks/...`
 
 Result:
-- frontend never calls stock-service container directly
+- frontend never calls stock-service directly
 - routing remains consistent for local and hosted environments
 
 ## 5. Frontend home-page runtime flow

@@ -1,10 +1,10 @@
 # Database Design
 
-TradePulse uses **database-per-service** ownership. Each main backend service persists to its own PostgreSQL database container in local Docker.
+TradePulse uses **database-per-service** ownership. Each main backend service persists to its own PostgreSQL database instance.
 
 ## 1. Data ownership model
 
-| Service | Database Container | Owns |
+| Service | Database Instance | Owns |
 |---|---|---|
 | Auth Service | `auth-service-db` | users and credentials |
 | Customer Service | `customer-service-db` | customer profiles and watchlists |

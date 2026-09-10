@@ -28,6 +28,7 @@ class Settings:
     massive_api_base_url: str = os.getenv("MASSIVE_API_BASE_URL", "https://api.massive.com")
     massive_api_key: str = os.getenv("MASSIVE_API_KEY", "")
     massive_news_limit: int = int(os.getenv("MASSIVE_NEWS_LIMIT", "5"))
+    massive_news_max_pages: int = int(os.getenv("MASSIVE_NEWS_MAX_PAGES", "10"))
     ohlc_years_back: int = int(os.getenv("OHLC_YEARS_BACK", "3"))
     ohlc_retention_buffer_days: int = int(os.getenv("OHLC_RETENTION_BUFFER_DAYS", "90"))
     ohlc_adjusted: bool = _to_bool(os.getenv("OHLC_ADJUSTED"), True)
@@ -37,6 +38,8 @@ class Settings:
     freshness_poll_interval_minutes: int = int(os.getenv("FRESHNESS_POLL_INTERVAL_MINUTES", "30"))
     freshness_morning_hour_et: int = int(os.getenv("FRESHNESS_MORNING_HOUR_ET", "5"))
     freshness_morning_minute_et: int = int(os.getenv("FRESHNESS_MORNING_MINUTE_ET", "0"))
+    freshness_market_close_hour_et: int = int(os.getenv("FRESHNESS_MARKET_CLOSE_HOUR_ET", "18"))
+    freshness_market_close_minute_et: int = int(os.getenv("FRESHNESS_MARKET_CLOSE_MINUTE_ET", "0"))
     freshness_timezone: str = os.getenv("FRESHNESS_TIMEZONE", "America/New_York")
 
 

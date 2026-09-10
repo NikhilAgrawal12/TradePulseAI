@@ -1,6 +1,6 @@
 # TradePulse
 
-TradePulse is a production-grade stock trading simulation platform built with Spring Boot microservices, React + TypeScript, and a comprehensive infrastructure stack. It covers authentication, stock market data, watchlists, cart, wallet, checkout, order history, portfolio management, and ML-driven trade signal generation.
+TradePulse is a production-grade stock trading simulation platform built with Spring Boot microservices, React + TypeScript, and a service-oriented runtime stack. It covers authentication, stock market data, watchlists, cart, wallet, checkout, order history, portfolio management, and ML-driven trade signal generation.
 
 ---
 
@@ -45,7 +45,7 @@ TradePulse/
 │   ├── portfolio-service (4007)
 │   ├── notification-service (4008)
 │   ├── ml-service (4010)
-│   └── docker-compose.persistent.yml
+│   └── scripts/
 │
 └── tradepulse-frontend/
     ├── src/
@@ -136,7 +136,7 @@ Full setup details in `QUICK_START.md`.
 | **Frontend** | React 18, TypeScript, Vite, React Router, Axios |
 | **State** | React Context API (Cart, Wallet, Orders, Watchlist, MarketStatus) |
 | **Real-Time** | Server-Sent Events (SSE), Massive WebSocket API |
-| **Infra** | Docker Compose, 5 PostgreSQL containers, Kafka broker |
+| **Infra** | Service runtime scripts, Nginx edge proxy, PostgreSQL, Kafka broker |
 
 See `TECH_STACK.md` for the full breakdown.
 

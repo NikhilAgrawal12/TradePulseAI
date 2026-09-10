@@ -363,6 +363,7 @@ class StockDataRepository:
             SELECT
                 m.stock_id,
                 s.ticker AS symbol,
+                m.latest_trading_date,
                 m.prediction_action,
                 m.prediction_confidence,
                 m.prediction_probability_buy,
@@ -413,6 +414,17 @@ class StockDataRepository:
               ON o.stock_id = m.stock_id
              AND o.trading_date = m.latest_trading_date
             WHERE m.latest_trading_date IS NOT NULL
+              AND m.return_5d IS NOT NULL
+              AND m.return_10d IS NOT NULL
+              AND m.return_20d IS NOT NULL
+              AND m.volatility_5d IS NOT NULL
+              AND m.volatility_10d IS NOT NULL
+              AND o.volatility_20d IS NOT NULL
+              AND m.sma20_distance IS NOT NULL
+              AND m.sma50_distance IS NOT NULL
+              AND m.rsi_14 IS NOT NULL
+              AND m.macd IS NOT NULL
+              AND m.volume_change IS NOT NULL
             ORDER BY m.stock_id
             """
         )

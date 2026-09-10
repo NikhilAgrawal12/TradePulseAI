@@ -253,16 +253,46 @@ def _next_morning_run_at_utc(now_utc: datetime | None = None) -> datetime:
     return run_local.astimezone(timezone.utc)
 
 
-def _target_trading_date(now_utc: datetime | None = None) -> date:
-    now_utc = now_utc or datetime.now(timezone.utc)
-    local_day = now_utc.astimezone(_get_freshness_timezone()).date()
-    if local_day.weekday() < 5:
-        return local_day
-
-    cursor = local_day
+def _previous_trading_day(day: date) -> date:
+    cursor = day - timedelta(days=1)
     while cursor.weekday() >= 5:
         cursor -= timedelta(days=1)
     return cursor
+
+
+def _target_trading_date(now_utc: datetime | None = None) -> date:
+    now_utc = now_utc or datetime.now(timezone.utc)
+    tz = _get_freshness_timezone()
+    local_now = now_utc.astimezone(tz)
+    local_day = local_now.date()
+
+    if local_day.weekday() >= 5:
+        cursor = local_day
+        while cursor.weekday() >= 5:
+            cursor -= timedelta(days=1)
+        return cursor
+
+    close_hour = max(0, min(int(getattr(settings, "freshness_market_close_hour_et", 18)), 23))
+    close_minute = max(0, min(int(getattr(settings, "freshness_market_close_minute_et", 0)), 59))
+    close_time_local = time(hour=close_hour, minute=close_minute)
+
+    # Before market-close publication window, the latest complete OHLC day is the previous trading day.
+    if local_now.time() < close_time_local:
+        return _previous_trading_day(local_day)
+
+    return local_day
+
+
+def _trading_days_between(start_day: date, end_day: date) -> int:
+    if start_day > end_day:
+        return 0
+    days = 0
+    cursor = start_day
+    while cursor <= end_day:
+        if cursor.weekday() < 5:
+            days += 1
+        cursor += timedelta(days=1)
+    return days
 
 
 def _schedule_next_retry(reference_utc: datetime | None = None) -> datetime:
@@ -359,6 +389,24 @@ def _check_freshness_and_sync(trigger: str) -> None:
     if ohlc_fresh and not metrics_fresh:
         try:
             _run_analytics_sync(trigger=f"{trigger}_metrics_refresh", force_metrics_refresh=True)
+        except Exception:
+            next_retry = _schedule_next_retry(datetime.now(timezone.utc))
+            state["next_retry_at"] = next_retry.isoformat()
+        return
+
+    if latest_db_date is None:
+        try:
+            _run_analytics_sync(trigger=f"{trigger}_bootstrap")
+        except Exception:
+            next_retry = _schedule_next_retry(datetime.now(timezone.utc))
+            state["next_retry_at"] = next_retry.isoformat()
+        return
+
+    missing_trading_days = _trading_days_between(latest_db_date + timedelta(days=1), expected_trading_date)
+    if missing_trading_days > 1:
+        # Backfill first when we are materially behind; provider probe for "today" can block progress.
+        try:
+            _run_analytics_sync(trigger=f"{trigger}_backfill")
         except Exception:
             next_retry = _schedule_next_retry(datetime.now(timezone.utc))
             state["next_retry_at"] = next_retry.isoformat()
@@ -479,6 +527,57 @@ def _save_model_to_disk(payload: dict[str, Any]) -> None:
     model_file = Path(settings.model_path)
     model_file.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(payload, model_file)
+
+
+def _prediction_is_stale(cached: dict[str, Any], history: Any) -> bool:
+    generated_at = cached.get("prediction_generated_at")
+    latest_trading = history.iloc[0].get("trading_date") if not history.empty else None
+
+    if generated_at is None or latest_trading is None:
+        return True
+
+    if hasattr(latest_trading, "date"):
+        latest_trading_date = latest_trading.date()
+    else:
+        latest_trading_date = latest_trading
+
+    if hasattr(generated_at, "date"):
+        generated_date = generated_at.date()
+    else:
+        return True
+
+    return generated_date < latest_trading_date
+
+
+def _generate_prediction_snapshot(stock_id: int, history: Any) -> dict[str, Any] | None:
+    if state["estimator"] is None or state.get("horizon_days") is None or state.get("model_version") is None:
+        return None
+
+    prediction_input = build_prediction_row(history)
+    signal = predict_action(
+        estimator=state["estimator"],
+        prediction_row=prediction_input,
+        horizon_days=int(state["horizon_days"]),
+        decision_threshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
+    )
+
+    snapshot_row = {
+        "stock_id": stock_id,
+        "prediction_action": str(signal["action"]),
+        "prediction_confidence": float(signal["confidence"]),
+        "prediction_probability_buy": float(signal["probability_buy"]),
+        "prediction_probability_sell": float(signal["probability_sell"]),
+        "prediction_confidence_edge": float(signal["confidence_edge"]),
+        "prediction_probability_gap": float(signal["probability_gap"]),
+        "prediction_conviction_label": str(signal["conviction_label"]),
+        "prediction_reasoning": json.dumps(signal["reasoning"]),
+        "prediction_model_version": str(state["model_version"]),
+        "prediction_horizon_days": int(state["horizon_days"]),
+        "prediction_decision_threshold": float(state.get("decision_threshold", ACTION_THRESHOLD)),
+        "prediction_generated_at": datetime.now(timezone.utc),
+    }
+    repository.store_prediction_snapshots([snapshot_row])
+    return repository.fetch_prediction_snapshot(stock_id=stock_id, model_version=str(state["model_version"]))
 
 
 @app.on_event("startup")
@@ -615,10 +714,17 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         raise HTTPException(status_code=404, detail=f"No historical rows found for stock_id={stock_id}")
 
     cached = repository.fetch_prediction_snapshot(stock_id=stock_id, model_version=str(state["model_version"]))
+    if cached is None or _prediction_is_stale(cached, history):
+        try:
+            cached = _generate_prediction_snapshot(stock_id=stock_id, history=history)
+        except Exception:
+            logger.exception("Failed to generate on-demand prediction snapshot for stock_id=%s", stock_id)
+            cached = None
+
     if cached is None:
         raise HTTPException(
             status_code=503,
-            detail="Prediction snapshot unavailable. Run sync/training to populate stock_metrics.",
+            detail="Prediction snapshot unavailable. Metrics may still be refreshing; retry shortly.",
         )
 
     model_metrics = repository.fetch_model_metrics(str(state["model_version"])) if state["model_version"] else None

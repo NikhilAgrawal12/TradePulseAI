@@ -14,7 +14,11 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -30,12 +34,15 @@ public class MarketStatusCacheService implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(MarketStatusCacheService.class);
     private static final long REFRESH_INTERVAL_SECONDS = 60;
     private static final long STALE_THRESHOLD_SECONDS = 60;
-    private static final long SSE_TIMEOUT_MS = 5 * 60 * 1000;
+    private static final long SSE_TIMEOUT_MS = 0L;
+    private static final long SSE_HEARTBEAT_INTERVAL_SECONDS = 25;
+    private static final int SSE_RECONNECT_MS = 3000;
+    private static final ZoneId MARKET_TIMEZONE = ZoneId.of("America/New_York");
 
     private final RestClient restClient;
     private final String apiKey;
     private final ScheduledExecutorService scheduler;
-    private final AtomicReference<CachedStatus> statusRef = new AtomicReference<>(fallbackStatus());
+    private final AtomicReference<CachedStatus> statusRef = new AtomicReference<>(currentFallbackStatus());
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
     public MarketStatusCacheService(
@@ -60,6 +67,12 @@ public class MarketStatusCacheService implements ApplicationRunner {
                 REFRESH_INTERVAL_SECONDS,
                 TimeUnit.SECONDS
         );
+        scheduler.scheduleAtFixedRate(
+                this::sendHeartbeatToClients,
+                SSE_HEARTBEAT_INTERVAL_SECONDS,
+                SSE_HEARTBEAT_INTERVAL_SECONDS,
+                TimeUnit.SECONDS
+        );
 
         log.info("Market status cache started with {}s refresh interval.", REFRESH_INTERVAL_SECONDS);
     }
@@ -68,6 +81,12 @@ public class MarketStatusCacheService implements ApplicationRunner {
         CachedStatus cached = statusRef.get();
         boolean stale = cached.lastUpdated() == null
                 || cached.lastUpdated().plusSeconds(STALE_THRESHOLD_SECONDS).isBefore(Instant.now());
+
+        if (stale) {
+            CachedStatus fallback = currentFallbackStatus();
+            statusRef.compareAndSet(cached, fallback);
+            return toDto(fallback, false);
+        }
 
         return toDto(cached, stale);
     }
@@ -84,7 +103,7 @@ public class MarketStatusCacheService implements ApplicationRunner {
             emitter.send(SseEmitter.event()
                     .name("market-status")
                     .data(getCurrentStatus())
-                    .reconnectTime(3000));
+                    .reconnectTime(SSE_RECONNECT_MS));
         } catch (Exception ex) {
             emitters.remove(emitter);
         }
@@ -117,7 +136,24 @@ public class MarketStatusCacheService implements ApplicationRunner {
                 emitter.send(SseEmitter.event()
                         .name("market-status")
                         .data(dto)
-                        .reconnectTime(3000));
+                        .reconnectTime(SSE_RECONNECT_MS));
+            } catch (Exception ex) {
+                emitters.remove(emitter);
+            }
+        }
+    }
+
+    private void sendHeartbeatToClients() {
+        if (emitters.isEmpty()) {
+            return;
+        }
+
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat")
+                        .data(System.currentTimeMillis())
+                        .reconnectTime(SSE_RECONNECT_MS));
             } catch (Exception ex) {
                 emitters.remove(emitter);
             }
@@ -126,7 +162,10 @@ public class MarketStatusCacheService implements ApplicationRunner {
 
     private void refreshCache() {
         if (apiKey == null || apiKey.isBlank()) {
-            log.debug("Skipping market status refresh because massive.api.key is missing.");
+            CachedStatus fallback = currentFallbackStatus();
+            statusRef.set(fallback);
+            broadcastCurrentStatus();
+            log.debug("Using local market status fallback because massive.api.key is missing.");
             return;
         }
 
@@ -140,7 +179,10 @@ public class MarketStatusCacheService implements ApplicationRunner {
                     .body(JsonNode.class);
 
             if (response == null) {
-                log.warn("Received null response from /v1/marketstatus/now. Keeping previous cache value.");
+                CachedStatus fallback = currentFallbackStatus();
+                statusRef.set(fallback);
+                broadcastCurrentStatus();
+                log.warn("Received null response from /v1/marketstatus/now. Using local market status fallback.");
                 return;
             }
 
@@ -148,6 +190,9 @@ public class MarketStatusCacheService implements ApplicationRunner {
             statusRef.set(mapped);
             broadcastCurrentStatus();
         } catch (Exception ex) {
+            CachedStatus fallback = currentFallbackStatus();
+            statusRef.set(fallback);
+            broadcastCurrentStatus();
             log.warn("Failed to refresh market status cache: {}", ex.getMessage());
         }
     }
@@ -224,16 +269,33 @@ public class MarketStatusCacheService implements ApplicationRunner {
         }
     }
 
-    private CachedStatus fallbackStatus() {
+    private CachedStatus currentFallbackStatus() {
+        ZonedDateTime nowEt = ZonedDateTime.now(MARKET_TIMEZONE);
+        DayOfWeek dayOfWeek = nowEt.getDayOfWeek();
+        LocalTime time = nowEt.toLocalTime();
+
+        SessionMeta sessionMeta;
+        if (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY) {
+            sessionMeta = new SessionMeta("closed", "Market Closed", "session-closed");
+        } else if (!time.isBefore(LocalTime.of(4, 0)) && time.isBefore(LocalTime.of(9, 30))) {
+            sessionMeta = new SessionMeta("pre-market", "Pre-Market", "session-pre-market");
+        } else if (!time.isBefore(LocalTime.of(9, 30)) && time.isBefore(LocalTime.of(16, 0))) {
+            sessionMeta = new SessionMeta("regular", "Market Open", "session-regular");
+        } else if (!time.isBefore(LocalTime.of(16, 0)) && time.isBefore(LocalTime.of(20, 0))) {
+            sessionMeta = new SessionMeta("after-hours", "After-Hours", "session-after-hours");
+        } else {
+            sessionMeta = new SessionMeta("closed", "Market Closed", "session-closed");
+        }
+
         return new CachedStatus(
-                "closed",
-                "Market Closed",
-                "session-closed",
-                "closed",
-                null,
-                null,
-                null,
-                null
+                sessionMeta.session(),
+                sessionMeta.label(),
+                sessionMeta.cssClass(),
+                "derived",
+                sessionMeta.session(),
+                sessionMeta.session(),
+                nowEt.toInstant(),
+                Instant.now()
         );
     }
 

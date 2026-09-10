@@ -262,7 +262,7 @@ Used for:
 
 ## 6. Persistence model
 
-Each major service owns its own PostgreSQL database container in local Docker.
+Each major service owns its own PostgreSQL database instance.
 
 - auth-service-db
 - customer-service-db

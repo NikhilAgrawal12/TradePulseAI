@@ -24,6 +24,10 @@ export const API_MARKET_STATUS_FALLBACK: SessionMeta = {
   lastUpdatedMs: null,
 };
 
+export function getMarketSessionFallback(now: Date = new Date()): SessionMeta {
+  return getMarketSession(now);
+}
+
 type BackendMarketStatusResponse = {
   session?: string;
   label?: string;
@@ -80,7 +84,7 @@ function asMarketSession(value: string | undefined): MarketSession | null {
 
 function toSessionMeta(payload: BackendMarketStatusResponse | null | undefined): SessionMeta {
   if (!payload) {
-    return API_MARKET_STATUS_FALLBACK;
+    return getMarketSessionFallback();
   }
 
   const session = asMarketSession(payload?.session);
@@ -98,7 +102,7 @@ function toSessionMeta(payload: BackendMarketStatusResponse | null | undefined):
     Date.now() - lastUpdatedMs <= MARKET_STATUS_MAX_AGE_MS;
 
   if (!session || payload?.stale === true || !isFresh) {
-    return API_MARKET_STATUS_FALLBACK;
+    return getMarketSessionFallback();
   }
 
   const label = payload.label;
@@ -118,12 +122,12 @@ export async function getMarketSessionFromBackend(): Promise<SessionMeta> {
   try {
     const response = await fetch("/api/stocks/market-status", { signal: controller.signal });
     if (!response.ok) {
-      return API_MARKET_STATUS_FALLBACK;
+      return getMarketSessionFallback();
     }
 
     return toSessionMeta((await response.json()) as BackendMarketStatusResponse);
   } catch {
-    return API_MARKET_STATUS_FALLBACK;
+    return getMarketSessionFallback();
   } finally {
     window.clearTimeout(timeoutId);
   }

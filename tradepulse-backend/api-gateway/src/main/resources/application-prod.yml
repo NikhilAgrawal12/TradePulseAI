@@ -1,5 +1,6 @@
 server:
   port: 4004 # Gateway listens on port 4004
+  forward-headers-strategy: framework
   netty:
     connection-timeout: 60000 # 60 seconds for establishing connections
   http2:
@@ -20,7 +21,7 @@ spring:
       routes:
 
         - id: auth-service-route
-          uri: http://host.docker.internal:4005
+          uri: ${AUTH_SERVICE_URL:http://auth-service:4005}
           predicates:
             - Path=/auth/**
           filters:
@@ -29,7 +30,7 @@ spring:
 
         - id: customer-register-route
           order: -1
-          uri: http://host.docker.internal:4000
+          uri: ${CUSTOMER_SERVICE_URL:http://customer-service:4000}
           predicates:
             - Path=/api/customers/register
             - Method=POST
@@ -38,7 +39,7 @@ spring:
             - RateLimit=15,60,ip
 
         - id: customer-service-route
-          uri: http://host.docker.internal:4000
+          uri: ${CUSTOMER_SERVICE_URL:http://customer-service:4000}
           predicates:
             - Path=/api/customers,/api/customers/**
           filters:
@@ -47,7 +48,7 @@ spring:
             - RateLimit=90,60,user
 
         - id: portfolio-service-route
-          uri: http://host.docker.internal:4007
+          uri: ${PORTFOLIO_SERVICE_URL:http://portfolio-service:4007}
           predicates:
             - Path=/api/portfolio,/api/portfolio/**
           filters:
@@ -57,7 +58,9 @@ spring:
 
         - id: stock-sse-stream-route
           order: -2
-          uri: http://host.docker.internal:4003
+          uri: ${STOCK_SERVICE_URL:http://stock-service:4003}
+          metadata:
+            response-timeout: 86400000
           predicates:
             - Path=/api/stocks/stream/**
           filters:
@@ -65,7 +68,7 @@ spring:
             - RateLimit=1000,60,ip
 
         - id: stock-service-route
-          uri: http://host.docker.internal:4003
+          uri: ${STOCK_SERVICE_URL:http://stock-service:4003}
           predicates:
             - Path=/api/stocks,/api/stocks/**
           filters:
@@ -73,7 +76,7 @@ spring:
             - RateLimit=120,60,ip
 
         - id: analytics-service-route
-          uri: http://host.docker.internal:4010
+          uri: ${ANALYTICS_SERVICE_URL:http://analytics-service:4010}
           predicates:
             - Path=/api/analytics,/api/analytics/**
           filters:
@@ -82,7 +85,7 @@ spring:
 
         - id: analytics-predictions-route
           order: -1
-          uri: http://host.docker.internal:4010
+          uri: ${ANALYTICS_SERVICE_URL:http://analytics-service:4010}
           predicates:
             - Path=/api/analytics/predictions/**
           filters:
@@ -91,7 +94,7 @@ spring:
 
 
         - id: watchlist-service-route
-          uri: http://host.docker.internal:4000
+          uri: ${CUSTOMER_SERVICE_URL:http://customer-service:4000}
           predicates:
             - Path=/api/watchlist,/api/watchlist/**
           filters:
@@ -100,7 +103,7 @@ spring:
             - RateLimit=90,60,user
 
         - id: order-service-route
-          uri: http://host.docker.internal:4006
+          uri: ${ORDER_SERVICE_URL:http://order-service:4006}
           predicates:
             - Path=/api/cart,/api/cart/**,/api/orders,/api/orders/**
           filters:
@@ -110,7 +113,7 @@ spring:
 
 
         - id: wallet-service-route
-          uri: http://host.docker.internal:4001
+          uri: ${PAYMENT_SERVICE_URL:http://payment-service:4001}
           predicates:
             - Path=/api/wallet,/api/wallet/**
           filters:
@@ -119,38 +122,45 @@ spring:
             - RateLimit=80,60,user
 
         - id: api-docs-customer-route
-          uri: http://host.docker.internal:4000
+          uri: ${CUSTOMER_SERVICE_URL:http://customer-service:4000}
           predicates:
             - Path=/api-docs/customers
           filters:
             - RewritePath=/api-docs/customers,/v3/api-docs
 
         - id: api-docs-stock-route
-          uri: http://host.docker.internal:4003
+          uri: ${STOCK_SERVICE_URL:http://stock-service:4003}
           predicates:
             - Path=/api-docs/stocks
           filters:
             - RewritePath=/api-docs/stocks,/v3/api-docs
 
         - id: api-docs-order-route
-          uri: http://host.docker.internal:4006
+          uri: ${ORDER_SERVICE_URL:http://order-service:4006}
           predicates:
             - Path=/api-docs/orders
           filters:
             - RewritePath=/api-docs/orders,/v3/api-docs
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+            allowedMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+            allowedHeaders: "*"
+            allowCredentials: true
 
 auth:
   service:
-    url: ${AUTH_SERVICE_URL:http://host.docker.internal:4005}
+    url: ${AUTH_SERVICE_URL:http://auth-service:4005}
 
 customer:
   service:
-    url: ${CUSTOMER_SERVICE_URL:http://host.docker.internal:4000}
+    url: ${CUSTOMER_SERVICE_URL:http://customer-service:4000}
 
 portfolio:
   service:
-    url: ${PORTFOLIO_SERVICE_URL:http://host.docker.internal:4007}
+    url: ${PORTFOLIO_SERVICE_URL:http://portfolio-service:4007}
 
 stock:
   service:
-    url: ${STOCK_SERVICE_URL:http://host.docker.internal:4003}
+    url: ${STOCK_SERVICE_URL:http://stock-service:4003}
