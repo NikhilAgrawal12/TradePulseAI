@@ -21,7 +21,7 @@
   Auth-DB    Cust-DB    Stock-DB   Order-DB  Payment-DB
   (5000)     (5001)     (5002)     (5003)    (5004)
      └────────────────────────────────────────────────┘
-                PostgreSQL Containers
+                PostgreSQL Runtime Services
 
     ┌─────────────────────────────────────────┐
     │        Apache Kafka (Broker)            │
@@ -78,7 +78,7 @@ External Integrations:
   - Transaction management
 
 - **PostgreSQL 15** - Relational database
-  - 5 separate database containers (database-per-service)
+  - 5 separate database instances (database-per-service)
   - ACID transactions at service boundary
   - Unique constraints for data integrity
   - Composite indexes for user-scoped queries
@@ -99,7 +99,7 @@ External Integrations:
   - JSON event serialization in application payloads
   - Topics: `tradepulse.orders.events`, `tradepulse.notifications.events`
   - Consumer groups for portfolio and notification processing
-  - Persistence with local Docker volume
+  - Persistent local storage for broker state
 
 - **Protocol Buffers** - Data serialization format
   - `customer_event.proto` for Kafka events
@@ -481,9 +481,9 @@ POST /api/portfolio/sell/{stockId}
 
 ---
 
-## 🐳 Docker & Containerization
+## Runtime Orchestration
 
-### Container Services
+### Service Inventory
 ```
 api-gateway:4004 (Spring Cloud Gateway)
 auth-service:4005 (Auth microservice)
@@ -504,7 +504,7 @@ payment-service-db:5004 (PostgreSQL)
 kafka:9092 (Kafka Broker)
 ```
 
-### Docker Compose Configuration
+### Service Runtime Configuration
 - Environment-based service discovery
 - Volume persistence for databases and Kafka
 - Health checks for service readiness
@@ -518,7 +518,7 @@ kafka:9092 (Kafka Broker)
 ### Local Development
 ```
 Backend:
-1. Docker Compose stack with all services
+1. Runtime stack with all services
 2. Maven-based builds per service
 3. Spring Boot DevTools for hot reload
 4. Database migrations on startup (ddl-auto=update)
@@ -531,7 +531,7 @@ Frontend:
 ```
 
 ### Deployment Ready
-- Docker images per service
+- Deployable runtime artifacts per service
 - Environment-based configuration
 - Database migration support
 - Health check endpoints
@@ -545,7 +545,7 @@ Frontend:
 ### Available Observability
 - Spring Actuator endpoints for health checks
 - SLF4J structured logging
-- Service logs available in Docker containers
+- Service logs available through the runtime layer
 - Database query logging capabilities
 - Request/response logging in HTTP layers
 
@@ -611,7 +611,7 @@ This technology stack covers the full application surface:
 - **Data Management**: PostgreSQL, JPA/Hibernate, strategic indexing
 - **Scalability**: Stateless services, async messaging, multi-layer caching
 - **Production-Ready**: Security hardening, error handling, monitoring foundations
-- **DevOps**: Docker, environment configuration, health checks
+- **DevOps**: Runtime orchestration, environment configuration, health checks
 
 This is an industry-grade application built with production standards, not a tutorial project.
 

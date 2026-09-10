@@ -1,8 +1,10 @@
 package com.tradepulse.stockservice.service;
 
 import com.tradepulse.stockservice.model.AllStocksLastValueCache;
+import com.tradepulse.stockservice.model.FeaturedStockCache;
 import com.tradepulse.stockservice.model.Stock;
 import com.tradepulse.stockservice.repository.AllStocksLastValueCacheRepository;
+import com.tradepulse.stockservice.repository.FeaturedStockCacheRepository;
 import com.tradepulse.stockservice.repository.StockRepository;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -22,11 +24,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,6 +41,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Component
 @Order(5)
@@ -42,11 +50,16 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AllStocksLastValueCacheService.class);
     private static final String MASSIVE_DELAYED_WS_URL = "wss://delayed.massive.com/stocks";
+    private static final String MASSIVE_API_BASE_URL = "https://api.massive.com";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int SUBSCRIPTION_CHUNK_SIZE = 200;
+    private static final int FEATURED_FALLBACK_LIMIT = 50;
+    private static final long FEATURED_SNAPSHOT_REFRESH_SECONDS = 15;
+    private static final long WEBSOCKET_STALE_SECONDS = 45;
 
     private final StockRepository stockRepository;
     private final AllStocksLastValueCacheRepository allStocksLastValueCacheRepository;
+    private final FeaturedStockCacheRepository featuredStockCacheRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final JdbcTemplate jdbcTemplate;
     private final String massiveApiKey;
@@ -61,15 +74,18 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     private volatile WebSocket webSocket;
     private volatile Map<String, Stock> stockBySymbol = Map.of();
     private final Map<Long, AllStocksLastValueCache> cacheByStockId = new ConcurrentHashMap<>();
+    private final AtomicReference<Instant> lastRealtimeAggregateAt = new AtomicReference<>();
 
     public AllStocksLastValueCacheService(
             StockRepository stockRepository,
             AllStocksLastValueCacheRepository allStocksLastValueCacheRepository,
+            FeaturedStockCacheRepository featuredStockCacheRepository,
             ApplicationEventPublisher eventPublisher,
             JdbcTemplate jdbcTemplate,
             @Value("${massive.api.key:}") String massiveApiKey) {
         this.stockRepository = stockRepository;
         this.allStocksLastValueCacheRepository = allStocksLastValueCacheRepository;
+        this.featuredStockCacheRepository = featuredStockCacheRepository;
         this.eventPublisher = eventPublisher;
         this.jdbcTemplate = jdbcTemplate;
         this.massiveApiKey = massiveApiKey;
@@ -86,6 +102,12 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
         ensureCacheTableExists();
         warmInMemoryCache();
         connect();
+        scheduler.scheduleAtFixedRate(
+                this::refreshFeaturedSnapshotFallback,
+                FEATURED_SNAPSHOT_REFRESH_SECONDS,
+                FEATURED_SNAPSHOT_REFRESH_SECONDS,
+                TimeUnit.SECONDS
+        );
         log.info("All-stocks websocket cache started for {} symbols.", stockBySymbol.size());
     }
 
@@ -223,6 +245,10 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
     }
 
     private synchronized void upsertAggregate(JsonNode event) {
+        upsertAggregate(event, true);
+    }
+
+    private synchronized void upsertAggregate(JsonNode event, boolean fromRealtimeWebSocket) {
         JsonNode symbolNode = event.get("sym");
         String symbol = normalizeSymbol(symbolNode != null && !symbolNode.isNull() ? symbolNode.textValue() : null);
         if (symbol == null) {
@@ -267,24 +293,179 @@ public class AllStocksLastValueCacheService implements ApplicationRunner {
             log.warn("Failed to save stock cache entry for stock_id {}: {}", stock.getStockId(), ex.getMessage());
         }
 
+        if (fromRealtimeWebSocket) {
+            lastRealtimeAggregateAt.set(Instant.now());
+        }
+
         eventPublisher.publishEvent(new StockCacheUpdatedEvent(stock.getStockId()));
     }
 
+    private void refreshFeaturedSnapshotFallback() {
+        if (massiveApiKey == null || massiveApiKey.isBlank()) {
+            return;
+        }
+        if (isRealtimeFeedFresh()) {
+            return;
+        }
+
+        try {
+            List<String> tickers = featuredStockCacheRepository.findAllByOrderBySortOrderAsc()
+                    .stream()
+                    .map(FeaturedStockCache::getStock)
+                    .filter(stock -> stock != null && stock.getSymbol() != null && !stock.getSymbol().isBlank())
+                    .limit(FEATURED_FALLBACK_LIMIT)
+                    .map(Stock::getSymbol)
+                    .map(this::normalizeSymbol)
+                    .filter(symbol -> symbol != null && stockBySymbol.containsKey(symbol))
+                    .collect(Collectors.collectingAndThen(Collectors.toCollection(LinkedHashSet::new), ArrayList::new));
+
+            if (tickers.isEmpty()) {
+                return;
+            }
+
+            String uri = MASSIVE_API_BASE_URL
+                    + "/v2/snapshot/locale/us/markets/stocks/tickers?tickers="
+                    + String.join(",", tickers)
+                    + "&apiKey="
+                    + java.net.URLEncoder.encode(massiveApiKey, StandardCharsets.UTF_8);
+
+            HttpRequest request = HttpRequest.newBuilder(URI.create(uri)).GET().build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("Featured snapshot fallback returned HTTP {}.", response.statusCode());
+                return;
+            }
+
+            JsonNode body = OBJECT_MAPPER.readTree(response.body());
+            JsonNode tickersNode = body.path("tickers");
+            if (!tickersNode.isArray()) {
+                log.debug("Featured snapshot fallback response did not contain a tickers array.");
+                return;
+            }
+
+            int updatedCount = 0;
+            for (JsonNode tickerNode : tickersNode) {
+                if (upsertAggregateSnapshot(tickerNode)) {
+                    updatedCount++;
+                }
+            }
+
+            if (updatedCount > 0) {
+                log.info("Featured snapshot fallback refreshed {} symbols while websocket feed was stale.", updatedCount);
+            }
+        } catch (Exception ex) {
+            log.warn("Featured snapshot fallback refresh failed: {}", ex.getMessage());
+        }
+    }
+
+    private boolean upsertAggregateSnapshot(JsonNode tickerNode) {
+        JsonNode dayNode = tickerNode.path("day");
+        if (dayNode.isMissingNode() || dayNode.isNull()) {
+            return false;
+        }
+
+        String symbol = normalizeSymbol(tickerNode.path("ticker").asText(null));
+        if (symbol == null) {
+            return false;
+        }
+
+        BigDecimal open = number(dayNode.path("o"));
+        BigDecimal close = number(dayNode.path("c"));
+        BigDecimal high = number(dayNode.path("h"));
+        BigDecimal low = number(dayNode.path("l"));
+        BigDecimal vwap = number(dayNode.path("vw"));
+        JsonNode changePercentNode = tickerNode.get("todaysChangePerc");
+        BigDecimal changePercent = number(changePercentNode);
+        long volume = dayNode.path("v").asLong(0L);
+        Instant updatedAt = parseSnapshotTimestamp(tickerNode.path("updated").asLong(0L));
+
+        if (open == null || close == null || high == null || low == null) {
+            return false;
+        }
+
+        JsonNode aggregateEvent = OBJECT_MAPPER.createObjectNode()
+                .put("sym", symbol)
+                .put("o", open.doubleValue())
+                .put("c", close.doubleValue())
+                .put("h", high.doubleValue())
+                .put("l", low.doubleValue())
+                .put("vw", (vwap != null ? vwap : close).doubleValue())
+                .put("v", volume)
+                .put("e", updatedAt.toEpochMilli());
+
+        upsertAggregate(aggregateEvent, false);
+
+        if (changePercent != null) {
+            Stock stock = stockBySymbol.get(symbol);
+            if (stock != null && stock.getStockId() != null) {
+                AllStocksLastValueCache entry = cacheByStockId.get(stock.getStockId());
+                if (entry != null) {
+                    entry.setCachedChangePercent(changePercent.setScale(2, RoundingMode.HALF_UP));
+                    try {
+                        allStocksLastValueCacheRepository.save(entry);
+                    } catch (Exception ex) {
+                        log.debug("Unable to persist snapshot change percent for {}: {}", symbol, ex.getMessage());
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private Instant parseSnapshotTimestamp(long rawTimestamp) {
+        if (rawTimestamp <= 0L) {
+            return Instant.now();
+        }
+        if (rawTimestamp >= 1_000_000_000_000_000_000L) {
+            return Instant.ofEpochSecond(rawTimestamp / 1_000_000_000L, rawTimestamp % 1_000_000_000L);
+        }
+        if (rawTimestamp >= 1_000_000_000_000_000L) {
+            long millis = rawTimestamp / 1_000_000L;
+            return Instant.ofEpochMilli(millis);
+        }
+        if (rawTimestamp >= 1_000_000_000_000L) {
+            return Instant.ofEpochMilli(rawTimestamp);
+        }
+        return Instant.ofEpochSecond(rawTimestamp);
+    }
+
+    private boolean isRealtimeFeedFresh() {
+        Instant lastUpdate = lastRealtimeAggregateAt.get();
+        return lastUpdate != null && lastUpdate.plusSeconds(WEBSOCKET_STALE_SECONDS).isAfter(Instant.now());
+    }
+
     public Collection<AllStocksLastValueCache> getCacheSnapshotValues() {
+        ensureCacheHydrated();
         return new ArrayList<>(cacheByStockId.values());
     }
 
     public AllStocksLastValueCache getCacheEntryByStockId(Long stockId) {
+        ensureCacheHydrated();
         return stockId == null ? null : cacheByStockId.get(stockId);
     }
 
     public AllStocksLastValueCache getCacheEntryBySymbol(String symbol) {
+        ensureCacheHydrated();
         String normalized = normalizeSymbol(symbol);
         if (normalized == null) {
             return null;
         }
         Stock stock = stockBySymbol.get(normalized);
         return stock == null ? null : cacheByStockId.get(stock.getStockId());
+    }
+
+    private synchronized void ensureCacheHydrated() {
+        if (stockBySymbol.isEmpty()) {
+            loadStocks();
+        }
+        if (!cacheByStockId.isEmpty()) {
+            return;
+        }
+        warmInMemoryCache();
+        if (!cacheByStockId.isEmpty()) {
+            log.info("Hydrated in-memory all-stocks cache with {} entries from database.", cacheByStockId.size());
+        }
     }
 
     private BigDecimal number(JsonNode node) {

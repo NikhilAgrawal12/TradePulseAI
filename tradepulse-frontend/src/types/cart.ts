@@ -24,6 +24,8 @@ export type CompleteOrderResponse = {
 
 export type CompleteOrderRequest = {
   quoteLockId: string;
+  items?: CartItem[];
+  total?: number;
 };
 
 export type LockQuoteRequest = {

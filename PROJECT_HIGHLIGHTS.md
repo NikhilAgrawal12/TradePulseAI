@@ -117,9 +117,9 @@
 - Pagination with page/size normalization
 - Input validation and business rule enforcement
 
-✅ **Docker & DevOps**
-- Multi-container orchestration with Docker Compose
-- PostgreSQL containers for each service database
+✅ **Runtime & DevOps**
+- Service orchestration through runtime scripts and manifests
+- Isolated PostgreSQL instances for each service database
 - Kafka broker with persistent volumes
 - Environment-based configuration management
 - Custom PowerShell scripts for local workflow automation
@@ -262,7 +262,7 @@
 - **Apache Kafka** with JSON event payloads and outbox relay publishing
 - **gRPC** with Protocol Buffers for service-to-service communication
 - **Maven** for dependency management
-- **Docker** for containerization
+- **Service runtime orchestration** for local and hosted environments
 
 ### Frontend
 - **React 18** with TypeScript
@@ -274,7 +274,7 @@
 - **TailwindCSS** for responsive UI
 
 ### Infrastructure & DevOps
-- **Docker & Docker Compose** for local orchestration
+- **Service runtime manifests and scripts** for local orchestration
 - **PostgreSQL** for persistence (multiple instances)
 - **Kafka** for event streaming
 - **API Gateway** for unified entry point

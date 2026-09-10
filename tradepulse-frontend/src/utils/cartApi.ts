@@ -50,9 +50,14 @@ export async function clearCartItems(): Promise<CartItem[]> {
 
 export async function completeOrder(payload: CompleteOrderRequest): Promise<CompleteOrderResponse> {
   try {
+    const normalizedPayload: CompleteOrderRequest = {
+      quoteLockId: payload.quoteLockId,
+      items: payload.items ? normalizeCartItems(payload.items) : undefined,
+      total: payload.total == null ? undefined : toMoney(payload.total),
+    };
     const response = await axios.post<CompleteOrderResponse>(
       "/api/cart/complete-order",
-      payload,
+      normalizedPayload,
       {
         headers: buildAuthHeaders({ includeEmail: true }),
         timeout: COMPLETE_ORDER_TIMEOUT_MS,

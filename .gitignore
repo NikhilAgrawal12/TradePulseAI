@@ -4,8 +4,6 @@ out/
 # Maven build output
 **/target/
 
-# CDK synthesized output
-**/cdk.out/
 
 # IntelliJ project files (optional - keep .idea for team settings)
 *.iml
@@ -17,6 +15,21 @@ Thumbs.db
 # Logs
 *.log
 
+# Infra/debug artifacts
+aws_identity_*.json
+ssm_*.json
+ssm_*.txt
+tmp_ssm_*.txt
+tmp_ssm_*.log
+python_*_check*.txt
+python_exec*.txt
+deploy_*.json
+deploy_poll.log
+run_ssm_rebuild*.txt
+run_ssm_rebuild.log
+massive_key_check_local.txt
+pip_boto3_install.txt
+
 # Python
 __pycache__/
 *.pyc
@@ -24,4 +37,10 @@ __pycache__/
 
 # Node
 node_modules/
+
+# CDK outputs
+**/cdk.out/
+**/cdk.out.*/
+**/cdk.context.json
+**/cdk-outputs.json
 

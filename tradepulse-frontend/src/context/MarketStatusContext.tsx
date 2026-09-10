@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import {
   API_MARKET_STATUS_FALLBACK,
   getMarketSessionFromBackend,
+  getMarketSessionFallback,
   subscribeToMarketStatus,
   type SessionMeta,
 } from "../utils/marketSession";
@@ -15,7 +16,7 @@ const MarketStatusContext = createContext<MarketStatusContextValue>({
 });
 
 export function MarketStatusProvider({ children }: { children: ReactNode }) {
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(API_MARKET_STATUS_FALLBACK);
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta>(() => getMarketSessionFallback());
   const isBootstrapInFlightRef = useRef(false);
 
   useEffect(() => {

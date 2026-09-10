@@ -27,7 +27,7 @@ services:
       - tradepulse
 
   auth-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -51,7 +51,7 @@ services:
       - tradepulse
 
   customer-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -75,7 +75,7 @@ services:
       - tradepulse
 
   order-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -99,7 +99,7 @@ services:
       - tradepulse
 
   payment-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -123,7 +123,7 @@ services:
       - tradepulse
 
   portfolio-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -147,7 +147,7 @@ services:
       - tradepulse
 
   stock-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -227,7 +227,7 @@ services:
       - tradepulse
 
   analytics-service-db:
-    image: postgres:latest
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -481,11 +481,20 @@ networks:
 
 volumes:
   auth_db_data:
+    name: tradepulse-backend_auth_db_data
   cust_db_data:
+    name: tradepulse-backend_cust_db_data
   order_db_data:
+    name: tradepulse-backend_order_db_data
   payment_db_data:
+    name: tradepulse-backend_payment_db_data
   portfolio_db_data:
+    name: tradepulse-backend_portfolio_db_data
   stock_db_data:
+    name: tradepulse-backend_stock_db_data
   analytics_db_data:
+    name: tradepulse-backend_analytics_db_data
   kafka_data:
+    name: tradepulse-backend_kafka_data
   ml_model_data:
+    name: tradepulse-backend_ml_model_data

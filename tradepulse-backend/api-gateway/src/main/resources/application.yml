@@ -58,6 +58,8 @@ spring:
         - id: stock-sse-stream-route
           order: -2
           uri: http://stock-service:4003
+          metadata:
+            response-timeout: 86400000
           predicates:
             - Path=/api/stocks/stream/**
           filters:

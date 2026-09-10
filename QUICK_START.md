@@ -1,12 +1,11 @@
 # Quick Start
 
-This guide is for running TradePulse locally on Windows with Docker Desktop, Node.js, and Java.
+This guide is for running TradePulse locally on Windows with Node.js and Java.
 
 ## 1. Prerequisites
 
 ### Required
 
-- Docker Desktop with Compose support
 - Node.js 20+
 - npm 10+
 - Java 21
@@ -22,14 +21,14 @@ This guide is for running TradePulse locally on Windows with Docker Desktop, Nod
 
 - frontend: `tradepulse-frontend/`
 - backend: `tradepulse-backend/`
-- backend compose stack: `tradepulse-backend/docker-compose.persistent.yml`
+- backend runtime manifest: `tradepulse-backend/` (service manifest files)
 - backend helper scripts: `tradepulse-backend/scripts/`
 
 ## 3. Backend environment variables
 
-Create `tradepulse-backend/.env` before starting the backend stack.
+Create `tradepulse-backend/.env` before starting backend services.
 
-Minimum variables used by the compose file:
+Minimum variables used by the backend runtime:
 
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
@@ -48,7 +47,7 @@ Minimum variables used by the compose file:
 - `MAIL_SMTP_TIMEOUT`
 - `MAIL_SMTP_WRITE_TIMEOUT`
 
-## 4. Start the backend stack
+## 4. Start backend services
 
 From the repository root, the normal local path is the PowerShell helper:
 
@@ -63,13 +62,6 @@ Useful alternatives:
 Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend\scripts"
 .\start-persistent.ps1
 .\stop-persistent.ps1
-```
-
-Direct compose command:
-
-```powershell
-Set-Location "C:\Users\nikhi\Desktop\TradePulse\tradepulse-backend"
-docker compose --env-file .env -p tradepulse-persistent -f docker-compose.persistent.yml up -d --build
 ```
 
 ## 5. Start the frontend
@@ -98,7 +90,7 @@ npm run build
 - `4003` — Stock Service
 - `4006` — Order Service
 - `4002` — Analytics Service
-- `5000` to `5004` — PostgreSQL containers
+- `5000` to `5004` — PostgreSQL service ports
 - `9002` — Payment gRPC
 - `9003` — Stock gRPC
 - `9004` — Portfolio sync gRPC
@@ -106,7 +98,7 @@ npm run build
 
 ## 8. First-run verification checklist
 
-After the stack starts:
+After services start:
 
 1. Open the frontend home page
 2. Confirm featured stocks load
@@ -142,7 +134,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4004/api/stocks/featured/hea
 
 ### Frontend works but APIs fail
 
-Check that the gateway container is healthy and exposed on `4004`.
+Check that the gateway service is healthy and exposed on `4004`.
 
 ### Backend build fails from terminal with Java errors
 
@@ -158,7 +150,7 @@ Check mail environment variables and auth-service logs.
 
 ## 11. Suggested local workflow
 
-1. Start backend stack
+1. Start backend services
 2. Run frontend in Vite dev mode
 3. Use browser devtools and service logs together
 4. Rebuild only the affected services when changing backend logic

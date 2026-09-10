@@ -691,7 +691,7 @@ TradePulse is built on proven, scalable patterns from day one:
 - ✅ Database-per-service for independent growth
 - ✅ Multi-tier caching for performance
 - ✅ Event-driven architecture for decoupling
-- ✅ Kubernetes-ready containerization
+- ✅ Kubernetes-ready runtime design
 - ✅ Observable from the start
 - ✅ Production-grade error handling
 
