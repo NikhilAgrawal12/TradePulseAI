@@ -38,5 +38,6 @@ export type LockQuoteResponse = {
   items: CartItem[];
   total: number;
   lockSeconds: number;
+  expiresAt?: string;
 };
 
