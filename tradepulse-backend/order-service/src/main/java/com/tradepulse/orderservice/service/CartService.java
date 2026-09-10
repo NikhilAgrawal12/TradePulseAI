@@ -191,6 +191,7 @@ public class CartService {
         response.setTotal(quotedRequest.getTotal());
         response.setQuoteLockId(savedQuoteLock.getId());
         response.setLockSeconds(PRICE_LOCK_SECONDS);
+        response.setExpiresAt(savedQuoteLock.getExpiresAt());
         return response;
     }
 

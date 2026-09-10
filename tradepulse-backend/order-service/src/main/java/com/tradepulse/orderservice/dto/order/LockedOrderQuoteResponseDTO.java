@@ -1,6 +1,7 @@
 package com.tradepulse.orderservice.dto.order;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 public class LockedOrderQuoteResponseDTO {
@@ -9,6 +10,7 @@ public class LockedOrderQuoteResponseDTO {
     private List<CompleteOrderItemRequestDTO> items;
     private BigDecimal total;
     private int lockSeconds;
+    private Instant expiresAt;
 
     public String getQuoteLockId() {
         return quoteLockId;
@@ -41,6 +43,14 @@ public class LockedOrderQuoteResponseDTO {
 
     public void setLockSeconds(int lockSeconds) {
         this.lockSeconds = lockSeconds;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
     }
 }
 

@@ -99,12 +99,19 @@ export async function lockOrderQuote(payload: LockQuoteRequest): Promise<LockQuo
     }
   );
 
+  const normalizedLockSeconds = Number.isFinite(response.data.lockSeconds) ? response.data.lockSeconds : 15;
+  const parsedExpiresAtMs = typeof response.data.expiresAt === "string" ? Date.parse(response.data.expiresAt) : Number.NaN;
+  const normalizedExpiresAt = Number.isNaN(parsedExpiresAtMs)
+    ? new Date(Date.now() + normalizedLockSeconds * 1000).toISOString()
+    : new Date(parsedExpiresAtMs).toISOString();
+
   return {
     ...response.data,
     quoteLockId: response.data.quoteLockId,
     items: normalizeCartItems(response.data.items ?? []),
     total: toMoney(response.data.total),
-    lockSeconds: Number.isFinite(response.data.lockSeconds) ? response.data.lockSeconds : 15,
+    lockSeconds: normalizedLockSeconds,
+    expiresAt: normalizedExpiresAt,
   };
 }
 

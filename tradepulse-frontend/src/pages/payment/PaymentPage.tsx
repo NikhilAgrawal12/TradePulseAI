@@ -16,6 +16,7 @@ type LockedQuoteState = {
   items: CartItem[];
   total: number;
   lockSeconds: number;
+  expiresAtMs: number;
 };
 
 export function PaymentPage() {
@@ -66,14 +67,19 @@ export function PaymentPage() {
         total: fallbackTotal,
       });
       const normalizedLockSeconds = response.lockSeconds > 0 ? response.lockSeconds : PRICE_LOCK_SECONDS;
+      const parsedExpiresAtMs = typeof response.expiresAt === "string" ? Date.parse(response.expiresAt) : Number.NaN;
+      const expiresAtMs = Number.isNaN(parsedExpiresAtMs)
+        ? Date.now() + normalizedLockSeconds * 1000
+        : parsedExpiresAtMs;
       const nextLockedQuote: LockedQuoteState = {
         quoteLockId: response.quoteLockId,
         items: response.items,
         total: roundMoney(response.total),
         lockSeconds: normalizedLockSeconds,
+        expiresAtMs,
       };
       setLockedQuote(nextLockedQuote);
-      setSecondsLeft(normalizedLockSeconds);
+      setSecondsLeft(Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000)));
       return nextLockedQuote;
     } finally {
       setQuoteLoading(false);
@@ -150,19 +156,15 @@ export function PaymentPage() {
     }
 
     const timerId = window.setInterval(() => {
-      setSecondsLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(timerId);
-          return 0;
-        }
-        return current - 1;
-      });
+      setSecondsLeft((lockedQuote?.expiresAtMs ?? Date.now()) - Date.now() <= 0
+        ? 0
+        : Math.ceil(((lockedQuote?.expiresAtMs ?? Date.now()) - Date.now()) / 1000));
     }, 1000);
 
     return () => {
       window.clearInterval(timerId);
     };
-  }, [navigate, processing, secondsLeft, showSuccess]);
+  }, [lockedQuote?.expiresAtMs, navigate, processing, secondsLeft, showSuccess]);
 
   const handlePayWithWallet = async () => {
     setError(null);
@@ -176,6 +178,9 @@ export function PaymentPage() {
       if (!activeQuote?.quoteLockId) {
         setError("Unable to lock fresh stock prices right now. Please try again.");
         return;
+      }
+      if (activeQuote.expiresAtMs - Date.now() <= 2000) {
+        activeQuote = await refreshLockedQuote();
       }
 
       const placeOrder = async (quoteLockId: string, items: CartItem[], total: number) => {
