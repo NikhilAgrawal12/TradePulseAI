@@ -220,12 +220,10 @@ public class EmailNotificationService {
                 String symbol = getString(item, "symbol", getString(item, "stockId", "N/A"));
                 String quantity = getString(item, "quantity", "0");
                 String price = getString(item, "price", "0.00");
-                String lineTotal = getString(item, "lineTotal", formatLineTotal(price, quantity));
-                lines.add(String.format("Stock %d  : %s\nQuantity %d: %s %s\nPrice %d   : $%s per share\nLine %d    : $%s",
+                lines.add(String.format("Stock %d  : %s\nQuantity %d: %s %s\nPrice %d   : $%s per share",
                         i + 1, symbol,
                         i + 1, quantity, shareUnit(quantity),
-                        i + 1, price,
-                        i + 1, lineTotal));
+                        i + 1, price));
             }
             if (!lines.isEmpty()) {
                 return String.join("\n\n", lines);
@@ -243,14 +241,5 @@ public class EmailNotificationService {
                 """.formatted(symbol, quantity, shareUnit(quantity), price).stripTrailing();
     }
 
-    private String formatLineTotal(String price, String quantity) {
-        try {
-            BigDecimal p = new BigDecimal(price);
-            BigDecimal q = new BigDecimal(quantity);
-            return p.multiply(q).setScale(2, RoundingMode.HALF_UP).toPlainString();
-        } catch (Exception exception) {
-            return "0.00";
-        }
-    }
 }
 
