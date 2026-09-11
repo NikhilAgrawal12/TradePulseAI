@@ -106,6 +106,7 @@ public class OutboxEventEnqueuer {
             data.put("total", order.getTotal() != null ? order.getTotal().toPlainString() : "0.00");
 
             if (lockedRequest.getItems() != null && !lockedRequest.getItems().isEmpty()) {
+                data.put("items", toNotificationItems(lockedRequest.getItems()));
                 CompleteOrderItemRequestDTO first = lockedRequest.getItems().getFirst();
                 data.put("stockId", first.getStockId());
                 data.put("symbol", first.getSymbol());
@@ -133,6 +134,24 @@ public class OutboxEventEnqueuer {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private List<Map<String, Object>> toNotificationItems(List<CompleteOrderItemRequestDTO> items) {
+        return items.stream().map(item -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("stockId", item.getStockId());
+            m.put("symbol", item.getSymbol());
+            if (item.getQuantity() != null) {
+                m.put("quantity", item.getQuantity().toPlainString());
+            }
+            if (item.getPrice() != null) {
+                m.put("price", item.getPrice().toPlainString());
+            }
+            if (item.getPrice() != null && item.getQuantity() != null) {
+                m.put("lineTotal", item.getPrice().multiply(item.getQuantity()).toPlainString());
+            }
+            return m;
+        }).toList();
+    }
 
     private OutboxEvent newEntry(String orderId, String eventType, String topic, String payload, String partitionKey) {
         OutboxEvent entry = new OutboxEvent();

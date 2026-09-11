@@ -9,6 +9,10 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -142,24 +146,20 @@ public class EmailNotificationService {
                     fullName = "Valued Customer";
                 }
                 String orderId = getString(data, "orderId", "N/A");
-                String symbol   = getString(data, "symbol", getString(data, "stockId", "N/A"));
-                String quantity = getString(data, "quantity", "0");
-                String price    = getString(data, "price", "0.00");
                 String total    = getString(data, "total", "0.00");
+                String itemsBlock = buildPurchasedItemsBlock(data);
                 yield """
                         Hi %s,
 
                         Your stock purchase order has been completed successfully.
                         Order ID  : %s
-                        Stock     : %s
-                        Quantity  : %s %s
-                        Price     : $%s per share
+                        %s
                         Total     : $%s
 
                         Your portfolio has been updated.
 
                         — The TradePulse Team
-                        """.formatted(fullName, orderId, symbol, quantity, shareUnit(quantity), price, total);
+                        """.formatted(fullName, orderId, itemsBlock, total);
             }
             case "STOCK_SOLD" -> {
                 String firstName = getString(data, "firstName", "");
@@ -203,6 +203,53 @@ public class EmailNotificationService {
             return new java.math.BigDecimal(quantity).compareTo(java.math.BigDecimal.ONE) == 0 ? "share" : "shares";
         } catch (NumberFormatException exception) {
             return "shares";
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String buildPurchasedItemsBlock(Map<String, Object> data) {
+        Object rawItems = data != null ? data.get("items") : null;
+        if (rawItems instanceof List<?> list && !list.isEmpty()) {
+            List<String> lines = new ArrayList<>();
+            for (int i = 0; i < list.size(); i++) {
+                Object raw = list.get(i);
+                if (!(raw instanceof Map<?, ?> itemMapRaw)) {
+                    continue;
+                }
+                Map<String, Object> item = (Map<String, Object>) itemMapRaw;
+                String symbol = getString(item, "symbol", getString(item, "stockId", "N/A"));
+                String quantity = getString(item, "quantity", "0");
+                String price = getString(item, "price", "0.00");
+                String lineTotal = getString(item, "lineTotal", formatLineTotal(price, quantity));
+                lines.add(String.format("Stock %d  : %s\nQuantity %d: %s %s\nPrice %d   : $%s per share\nLine %d    : $%s",
+                        i + 1, symbol,
+                        i + 1, quantity, shareUnit(quantity),
+                        i + 1, price,
+                        i + 1, lineTotal));
+            }
+            if (!lines.isEmpty()) {
+                return String.join("\n\n", lines);
+            }
+        }
+
+        // Backward-compatible fallback when old payload shape is received.
+        String symbol = getString(data, "symbol", getString(data, "stockId", "N/A"));
+        String quantity = getString(data, "quantity", "0");
+        String price = getString(data, "price", "0.00");
+        return """
+                Stock     : %s
+                Quantity  : %s %s
+                Price     : $%s per share
+                """.formatted(symbol, quantity, shareUnit(quantity), price).stripTrailing();
+    }
+
+    private String formatLineTotal(String price, String quantity) {
+        try {
+            BigDecimal p = new BigDecimal(price);
+            BigDecimal q = new BigDecimal(quantity);
+            return p.multiply(q).setScale(2, RoundingMode.HALF_UP).toPlainString();
+        } catch (Exception exception) {
+            return "0.00";
         }
     }
 }
