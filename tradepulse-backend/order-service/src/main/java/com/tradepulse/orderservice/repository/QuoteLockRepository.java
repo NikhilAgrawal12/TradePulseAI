@@ -13,6 +13,10 @@ public interface QuoteLockRepository extends JpaRepository<QuoteLock, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = "items")
     Optional<QuoteLock> findByIdAndUserId(String id, Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = "items")
+    Optional<QuoteLock> findFirstByUserIdAndStatusOrderByCreatedAtDesc(Long userId, String status);
 }
 
 
