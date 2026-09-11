@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class NotificationKafkaProducer {
@@ -52,10 +53,26 @@ public class NotificationKafkaProducer {
             event.put("userId", userId);
             event.put("timestamp", Instant.now().toString());
             event.put("data", data);
-            kafkaTemplate.send(notificationsTopic, objectMapper.writeValueAsString(event));
+            String payload = objectMapper.writeValueAsString(event);
+            sendWithAck(userId, payload);
             log.info("Published {} notification for userId={}", eventType, userId);
         } catch (Exception ex) {
             log.error("Failed to publish {} notification for userId={}: {}", eventType, userId, ex.getMessage(), ex);
         }
+    }
+
+    private void sendWithAck(Long userId, String payload) throws Exception {
+        String key = userId != null ? String.valueOf(userId) : null;
+        Exception last = null;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                kafkaTemplate.send(notificationsTopic, key, payload).get(5, TimeUnit.SECONDS);
+                return;
+            } catch (Exception ex) {
+                last = ex;
+                log.warn("Notification publish attempt {} failed for userId={}: {}", attempt, userId, ex.getMessage());
+            }
+        }
+        throw last != null ? last : new IllegalStateException("Unknown Kafka publish failure");
     }
 }
