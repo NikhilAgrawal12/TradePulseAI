@@ -124,10 +124,13 @@ public class CartService {
             throw new IllegalArgumentException("A valid locked quote is required before completing order.");
         }
 
-        QuoteLock quoteLock = quoteLockRepository.findByIdAndUserId(request.getQuoteLockId().trim(), userId)
-                .orElseThrow(() -> {
-                    log.warn("Locked quote lookup miss for userId={} and quoteLockId={}", userId, request.getQuoteLockId());
-                    return new IllegalArgumentException("Locked quote not found. Please review your cart and try again.");
+        String requestedQuoteLockId = request.getQuoteLockId().trim();
+        QuoteLock quoteLock = quoteLockRepository.findByIdAndUserId(requestedQuoteLockId, userId)
+                .orElseGet(() -> {
+                    log.warn("Locked quote lookup miss for userId={} and quoteLockId={}. Falling back to latest active lock.",
+                            userId, requestedQuoteLockId);
+                    return quoteLockRepository.findFirstByUserIdAndStatusOrderByCreatedAtDesc(userId, QUOTE_LOCK_STATUS_LOCKED)
+                            .orElseThrow(() -> new IllegalArgumentException("Locked quote not found. Please review your cart and try again."));
                 });
 
         validateQuoteLockForPayment(quoteLock);
