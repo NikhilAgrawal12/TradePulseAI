@@ -67,6 +67,29 @@ type PasswordForm = {
   confirmPassword: string;
 };
 
+type WalletSnapshot = {
+  balance?: number | string | null;
+};
+
+type PortfolioSnapshot = {
+  summary?: {
+    totalPositions?: number | null;
+  };
+  holdings?: Array<unknown> | null;
+};
+
+type OrderSnapshot = {
+  status?: string | null;
+};
+
+type DeletionChecklistState = {
+  walletBalance: number;
+  holdingsCount: number;
+  activeOrdersCount: number;
+};
+
+const FINAL_ORDER_STATUSES = new Set(["COMPLETED", "CANCELLED", "FAILED", "REJECTED", "EXPIRED"]);
+
 const emptyProfile: CustomerProfile = {
   userId: 0,
   firstName: "",
@@ -120,6 +143,17 @@ export function AccountManagementPage() {
   const [statesLoading, setStatesLoading] = useState(false);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
+  const [deleteChecklistLoading, setDeleteChecklistLoading] = useState(false);
+  const [deleteChecklistError, setDeleteChecklistError] = useState("");
+  const [deleteActionError, setDeleteActionError] = useState("");
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteConfirmationChecked, setDeleteConfirmationChecked] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteChecklist, setDeleteChecklist] = useState<DeletionChecklistState>({
+    walletBalance: 0,
+    holdingsCount: 0,
+    activeOrdersCount: 0,
+  });
 
   const token = getStoredToken();
   const emailFromToken = getEmailFromToken(token);
@@ -291,6 +325,72 @@ export function AccountManagementPage() {
 
     loadProfile();
   }, [navigate, syncLocationSelections, token, userIdFromToken]);
+
+  useEffect(() => {
+    if (!token || !userIdFromToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadDeletionChecklist = async () => {
+      setDeleteChecklistLoading(true);
+      setDeleteChecklistError("");
+
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const [walletResponse, portfolioResponse, ordersResponse] = await Promise.all([
+          axios.get<WalletSnapshot>("/api/wallet/me", { headers }),
+          axios.get<PortfolioSnapshot>("/api/portfolio?page=0&size=1", { headers }),
+          axios.get<OrderSnapshot[]>("/api/orders", { headers }),
+        ]);
+
+        const walletBalance = Number(walletResponse.data?.balance ?? 0);
+        const holdingsCount =
+          typeof portfolioResponse.data?.summary?.totalPositions === "number"
+            ? Math.max(portfolioResponse.data.summary.totalPositions, 0)
+            : Array.isArray(portfolioResponse.data?.holdings)
+              ? portfolioResponse.data.holdings.length
+              : 0;
+        const activeOrdersCount = (ordersResponse.data ?? []).filter((order) => {
+          const status = order?.status?.trim().toUpperCase();
+          return !status || !FINAL_ORDER_STATUSES.has(status);
+        }).length;
+
+        if (!cancelled) {
+          setDeleteChecklist({
+            walletBalance: Number.isFinite(walletBalance) ? walletBalance : 0,
+            holdingsCount,
+            activeOrdersCount,
+          });
+          setDeleteConfirmationChecked(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (axios.isAxiosError(err) && err.response?.status === 401) {
+            navigate("/login");
+            return;
+          }
+          setDeleteChecklistError("Unable to load the deletion checklist right now. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setDeleteChecklistLoading(false);
+        }
+      }
+    };
+
+    void loadDeletionChecklist();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, token, userIdFromToken]);
+
+  const isWalletClear = Math.abs(deleteChecklist.walletBalance) < 0.000001;
+  const isHoldingsClear = deleteChecklist.holdingsCount === 0;
+  const isOrdersClear = deleteChecklist.activeOrdersCount === 0;
+  const isDeleteChecklistSatisfied = isWalletClear && isHoldingsClear && isOrdersClear;
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -644,6 +744,63 @@ export function AccountManagementPage() {
     }
   };
 
+  const openDeleteConfirmation = () => {
+    setDeleteActionError("");
+
+    if (!token || !userIdFromToken) {
+      navigate("/login");
+      return;
+    }
+
+    if (!isDeleteChecklistSatisfied) {
+      setDeleteActionError("Please clear the checklist before deleting your account.");
+      return;
+    }
+
+    if (!deleteConfirmationChecked) {
+      setDeleteActionError("Please confirm that you understand this cannot be undone.");
+      return;
+    }
+
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!token || !userIdFromToken) {
+      setIsDeleteConfirmOpen(false);
+      navigate("/login");
+      return;
+    }
+
+    setDeleteSaving(true);
+    try {
+      await axios.delete("/api/customers/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setIsDeleteConfirmOpen(false);
+      localStorage.removeItem("authToken");
+      sessionStorage.removeItem("authToken");
+      window.location.replace("/login");
+      return;
+    } catch (err) {
+      if (axios.isAxiosError(err) && typeof err.response?.data?.message === "string") {
+        setDeleteActionError(err.response.data.message);
+      } else {
+        setDeleteActionError("Unable to delete your account right now.");
+      }
+    } finally {
+      setDeleteSaving(false);
+    }
+  };
+
+  const closeDeleteConfirmation = () => {
+    if (deleteSaving) {
+      return;
+    }
+    setIsDeleteConfirmOpen(false);
+  };
+
   return (
     <>
       <Header />
@@ -921,9 +1078,125 @@ export function AccountManagementPage() {
                 <button type="submit" className="am-btn-save" disabled={loading || saving}>{saving ? "Saving..." : "Save changes"}</button>
                 {success && <p className="am-message am-success am-inline-success">{success}</p>}
               </div>
+
+              <div className="am-delete-container">
+                <div className="am-form-header">
+                  <h2>Delete Account</h2>
+                  <p>Before deleting your account, complete every checklist item below.</p>
+                  <p>Your customer profile, watchlist, and sign-in access will be removed permanently.</p>
+                </div>
+
+                {deleteChecklistError && <p className="am-message am-error">{deleteChecklistError}</p>}
+                {deleteActionError && <p className="am-message am-error">{deleteActionError}</p>}
+
+                <ul className="am-delete-checklist">
+                  <li>
+                    <span className="am-checklist-label">Wallet balance</span>
+                    <span className={`am-checklist-state ${isWalletClear ? "is-complete" : "is-pending"}`}>
+                      {deleteChecklistLoading
+                        ? "Checking..."
+                        : isWalletClear
+                          ? "Clear"
+                          : `${deleteChecklist.walletBalance.toFixed(2)} remaining`}
+                    </span>
+                  </li>
+                  <li>
+                    <span className="am-checklist-label">Watchlist and holdings</span>
+                    <span className={`am-checklist-state ${isHoldingsClear ? "is-complete" : "is-pending"}`}>
+                      {deleteChecklistLoading
+                        ? "Checking..."
+                        : isHoldingsClear
+                          ? "Clear"
+                          : `${deleteChecklist.holdingsCount} open`}
+                    </span>
+                  </li>
+                  <li>
+                    <span className="am-checklist-label">Active orders</span>
+                    <span className={`am-checklist-state ${isOrdersClear ? "is-complete" : "is-pending"}`}>
+                      {deleteChecklistLoading
+                        ? "Checking..."
+                        : isOrdersClear
+                          ? "Clear"
+                          : `${deleteChecklist.activeOrdersCount} open`}
+                    </span>
+                  </li>
+                </ul>
+
+                <label className="am-delete-confirmation">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmationChecked}
+                    onChange={(event) => {
+                      setDeleteConfirmationChecked(event.target.checked);
+                      setDeleteActionError("");
+                    }}
+                    disabled={deleteChecklistLoading || deleteSaving}
+                  />
+                  <span>I understand this cannot be undone.</span>
+                </label>
+
+                <div className="am-delete-actions">
+                  <button
+                    type="button"
+                    className="am-btn-save"
+                    onClick={() => {
+                        openDeleteConfirmation();
+                    }}
+                    disabled={deleteChecklistLoading || deleteSaving || !isDeleteChecklistSatisfied || !deleteConfirmationChecked}
+                  >
+                    {deleteSaving ? "Deleting account..." : "Delete Account"}
+                  </button>
+                </div>
+              </div>
             </form>
           </section>
         </div>
+
+        {isDeleteConfirmOpen && (
+          <div
+            className="am-modal-overlay"
+            role="presentation"
+            onClick={closeDeleteConfirmation}
+          >
+            <div
+              className="am-modal am-delete-modal"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="delete-account-modal-title"
+              aria-describedby="delete-account-modal-description"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <h3 id="delete-account-modal-title">Delete account permanently?</h3>
+              <p id="delete-account-modal-description">
+                This will permanently remove your customer profile, watchlist, and sign-in access.
+              </p>
+              <p className="am-delete-modal-warning">This action cannot be undone.</p>
+
+              <div className="am-modal-actions">
+                <button
+                  type="button"
+                  className="am-btn-secondary"
+                  onClick={closeDeleteConfirmation}
+                  disabled={deleteSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="am-btn-danger"
+                  onClick={() => {
+                    void handleDeleteAccount();
+                  }}
+                  disabled={deleteSaving}
+                >
+                  {deleteSaving ? "Deleting account..." : "Yes, delete account"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );

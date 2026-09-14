@@ -1,4 +1,4 @@
-/* ── Page wrapper ── */
+﻿/* Page wrapper */
 .am-page {
   min-height: calc(100vh - 60px);
   margin-top: 60px;
@@ -9,7 +9,7 @@
     linear-gradient(135deg, #f0fdf4 0%, #ecf5ed 50%, #f7fef5 100%);
 }
 
-/* ── Two-column layout ── */
+/* Two-column layout */
 .am-container {
   max-width: 1000px;
   margin: 0 auto;
@@ -18,7 +18,7 @@
   align-items: flex-start;
 }
 
-/* ─────────────── Sidebar ─────────────── */
+/* Sidebar */
 .am-sidebar {
   width: 230px;
   flex-shrink: 0;
@@ -96,15 +96,15 @@
   color: #15803d;
 }
 
-/* ─────────────── Panel ─────────────── */
+/* Panel */
 .am-panel {
   flex: 1;
   min-width: 0;
 }
 
 .am-form {
-  background: #ffffff;
-  border: 1px solid rgba(21, 128, 61, 0.12);
+  background: #f0fdf4;
+  border: 1px solid rgba(21, 128, 61, 0.16);
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(21, 128, 61, 0.1);
   padding: 30px 28px;
@@ -126,6 +126,158 @@
   margin-top: 6px;
   color: #4d735f;
   font-size: 0.9rem;
+}
+
+.am-delete-container {
+  margin-top: 22px;
+  background: #fff5f5;
+  border: 1px solid #f6cfcf;
+  border-radius: 16px;
+  padding: 24px 22px;
+  box-shadow: 0 10px 40px rgba(185, 28, 28, 0.08);
+}
+
+.am-delete-checklist {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.am-delete-checklist li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #f3d6d6;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fffdfd;
+}
+
+.am-checklist-label {
+  color: #6e3f3f;
+  font-size: 0.88rem;
+}
+
+.am-checklist-state {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.am-checklist-state.is-complete {
+  color: #146c3a;
+  background: #e9f8ef;
+}
+
+.am-checklist-state.is-pending {
+  color: #a33a3a;
+  background: #ffeaea;
+}
+
+.am-delete-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0 16px;
+  color: #7a4040;
+  font-size: 0.88rem;
+}
+
+.am-delete-confirmation input {
+  margin-top: 2px;
+}
+
+.am-delete-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.am-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1200;
+}
+
+.am-modal {
+  width: min(100%, 460px);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.26);
+  padding: 24px;
+}
+
+.am-delete-modal {
+  border: 1px solid #f2caca;
+}
+
+.am-delete-modal h3 {
+  margin: 0;
+  color: #7f1d1d;
+  font-size: 1.2rem;
+}
+
+.am-delete-modal p {
+  margin: 12px 0 0;
+  color: #5f4141;
+  line-height: 1.55;
+}
+
+.am-delete-modal-warning {
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.am-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.am-btn-secondary,
+.am-btn-danger {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.am-btn-secondary {
+  background: #f3f4f6;
+  color: #1f2937;
+  box-shadow: 0 10px 24px rgba(148, 163, 184, 0.2);
+}
+
+.am-btn-danger {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(220, 38, 38, 0.26);
+}
+
+.am-btn-secondary:hover:not(:disabled),
+.am-btn-danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.am-btn-secondary:disabled,
+.am-btn-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 /* Form grid */
@@ -388,7 +540,7 @@
   margin: 0;
 }
 
-/* ── Responsive ── */
+/* Responsive */
 @media (max-width: 720px) {
   .am-container {
     flex-direction: column;
