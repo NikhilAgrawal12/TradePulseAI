@@ -39,6 +39,7 @@ const features = [
 export function AboutPage() {
 	useEffect(() => {
 		document.title = "About | TradePulse";
+		window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 	}, []);
 
 	return (
