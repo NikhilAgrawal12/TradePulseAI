@@ -109,6 +109,10 @@ Responsibilities:
 - account credential reads and updates
 - forgot-password code and reset flow
 
+Operational note:
+
+- forgot-password mail delivery is treated as a non-blocking side effect; temporary SMTP issues should not take down the auth request path
+
 ### Customer Service
 
 Responsibilities:

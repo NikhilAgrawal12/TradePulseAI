@@ -11,6 +11,10 @@ This document summarizes the live responsibilities of each backend service in th
 - forgot-password / reset-password flow
 - user lookup and lifecycle operations used by other services
 
+Operational note:
+
+- forgot-password email delivery is best-effort; auth-service does not fail the request solely because SMTP or mail transport is unavailable
+
 ## customer-service
 
 ### Main responsibilities
