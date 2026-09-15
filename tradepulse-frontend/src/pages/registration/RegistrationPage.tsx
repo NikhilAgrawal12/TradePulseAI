@@ -56,6 +56,11 @@ export function RegistrationPage() {
     postalCode: "",
   });
 
+  const hasInlineValidationErrors = hasSubmitted && Object.keys(validationErrors).length > 0;
+  const submitFeedbackMessage = hasInlineValidationErrors
+    ? "Please fix the highlighted fields above before creating your account."
+    : "";
+
   useEffect(() => {
     document.title = "Register | TradePulse";
     // Prevent preserved scroll position from landing mid/bottom form on navigation.
@@ -642,6 +647,14 @@ export function RegistrationPage() {
                 </button>
               </div>
               {hasSubmitted && validationErrors.confirmPassword && <span className="validation-error">{validationErrors.confirmPassword}</span>}
+            </div>
+
+            <div
+              className={`registration-submit-feedback ${submitFeedbackMessage ? "has-message" : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              {submitFeedbackMessage || "\u00A0"}
             </div>
 
             <button type="submit" className="registration-submit-btn" disabled={loading}>
