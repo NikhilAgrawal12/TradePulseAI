@@ -602,7 +602,7 @@ def startup() -> None:
             age_hours = (datetime.now(timezone.utc) - last_trained).total_seconds() / 3600
             if age_hours >= settings.retrain_interval_hours:
                 logger.info(
-                    "ML model is %.1f hours old (interval=%dh) — retraining on startup.",
+                    "ML model is %.1f hours old (interval=%dh) ΓÇö retraining on startup.",
                     age_hours,
                     settings.retrain_interval_hours,
                 )
@@ -638,8 +638,30 @@ def shutdown() -> None:
     stop_event.set()
 
 
-@app.get("/health")
-def health() -> dict[str, Any]:
+def _live_health_snapshot() -> dict[str, Any]:
+    now_utc = datetime.now(timezone.utc)
+    expected_trading_date = _target_trading_date(now_utc)
+    latest_db_date = analytics_sync_service.get_latest_ohlc_trading_date()
+    latest_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+
+    state["expected_trading_date"] = expected_trading_date.isoformat()
+    state["last_successful_trading_date"] = latest_db_date.isoformat() if latest_db_date else None
+    state["last_metrics_trading_date"] = latest_metrics_date.isoformat() if latest_metrics_date else None
+
+    ohlc_fresh = latest_db_date is not None and latest_db_date >= expected_trading_date
+    metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= expected_trading_date
+
+    if ohlc_fresh and metrics_fresh:
+        state["freshness_status"] = "fresh"
+        state["next_retry_at"] = None
+        if state.get("last_sync_status") == "never":
+            state["last_sync_status"] = "ok_cached"
+            state["last_sync_finished_at"] = now_utc.isoformat()
+    elif latest_db_date is None:
+        state["freshness_status"] = "waiting_provider"
+    else:
+        state["freshness_status"] = "stale"
+
     return {
         "status": "up",
         "model_loaded": state["estimator"] is not None,
@@ -660,6 +682,21 @@ def health() -> dict[str, Any]:
         "next_retry_at": state["next_retry_at"],
         "next_morning_run_at": state["next_morning_run_at"],
     }
+
+
+@app.get("/health")
+def health() -> dict[str, Any]:
+    return _live_health_snapshot()
+
+
+@app.post("/v1/admin/sync-nightly")
+def admin_sync_nightly() -> dict[str, Any]:
+    return _run_analytics_sync(trigger="manual_admin", force_metrics_refresh=True)
+
+
+@app.get("/v1/admin/sync-status")
+def admin_sync_status() -> dict[str, Any]:
+    return _live_health_snapshot()
 
 
 

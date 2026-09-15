@@ -392,9 +392,10 @@ services:
       FRESHNESS_MORNING_HOUR_ET: 5
       FRESHNESS_MORNING_MINUTE_ET: 0
       FRESHNESS_TIMEZONE: America/New_York
-      ML_DEFAULT_DAYS_BACK: 365
+      ML_DEFAULT_DAYS_BACK: 730
       ML_DEFAULT_HORIZON_DAYS: 5
       ML_MAX_TRAINING_STOCKS: 100
+      ML_WEEKLY_FEATURE_DAYS_BACK: 730
       ML_TRAIN_ON_STARTUP: true
       ML_RETRAIN_INTERVAL_HOURS: 168
     volumes:
@@ -482,19 +483,28 @@ networks:
 volumes:
   auth_db_data:
     name: tradepulse-backend_auth_db_data
+    external: true
   cust_db_data:
     name: tradepulse-backend_cust_db_data
+    external: true
   order_db_data:
     name: tradepulse-backend_order_db_data
+    external: true
   payment_db_data:
     name: tradepulse-backend_payment_db_data
+    external: true
   portfolio_db_data:
     name: tradepulse-backend_portfolio_db_data
+    external: true
   stock_db_data:
     name: tradepulse-backend_stock_db_data
+    external: true
   analytics_db_data:
     name: tradepulse-backend_analytics_db_data
+    external: true
   kafka_data:
     name: tradepulse-backend_kafka_data
+    external: true
   ml_model_data:
     name: tradepulse-backend_ml_model_data
+    external: true
