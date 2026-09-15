@@ -162,8 +162,8 @@ public class ForgotPasswordService {
         String body = "Your TradePulse verification code is " + code + ".";
 
         if (mailSender == null) {
-            log.error("Mail sender is not configured. Cannot deliver forgot-password code to {}", email);
-            throw new IllegalStateException("Email delivery is not configured. Please contact support.");
+            log.warn("Mail sender is not configured. Skipping forgot-password email delivery for {}", email);
+            return;
         }
 
         try {
@@ -175,7 +175,7 @@ public class ForgotPasswordService {
             mailSender.send(message);
         } catch (Exception ex) {
             log.error("Failed to send forgot-password email to {}", email, ex);
-            throw new IllegalStateException("Unable to send verification code. Please try again.");
+            // Keep flow non-blocking when SMTP provider is temporarily unavailable.
         }
     }
 
