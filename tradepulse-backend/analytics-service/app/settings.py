@@ -16,9 +16,10 @@ class Settings:
     )
     model_path: str = os.getenv("ML_MODEL_PATH", "/ml-model/tradepulse_model.joblib")
     service_port: int = int(os.getenv("ML_SERVICE_PORT", "4010"))
-    default_days_back: int = int(os.getenv("ML_DEFAULT_DAYS_BACK", "365"))
+    default_days_back: int = int(os.getenv("ML_DEFAULT_DAYS_BACK", "730"))
     default_horizon_days: int = int(os.getenv("ML_DEFAULT_HORIZON_DAYS", "5"))
     max_training_stocks: int = int(os.getenv("ML_MAX_TRAINING_STOCKS", "100"))
+    weekly_feature_days_back: int = int(os.getenv("ML_WEEKLY_FEATURE_DAYS_BACK", "730"))
     train_on_startup: bool = _to_bool(os.getenv("ML_TRAIN_ON_STARTUP"), True)
     retrain_interval_hours: int = int(os.getenv("ML_RETRAIN_INTERVAL_HOURS", "168"))
 

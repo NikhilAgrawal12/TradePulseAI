@@ -50,6 +50,93 @@ class AnalyticsSyncService:
             latest = connection.execute(text("SELECT MAX(latest_trading_date) FROM stock_metrics")).scalar_one_or_none()
         return latest if isinstance(latest, date) else None
 
+    def _weekly_feature_history_days(self) -> int:
+        return max(7, int(getattr(self._settings, "weekly_feature_days_back", 730)))
+
+    def _weekly_feature_stock_limit(self) -> int:
+        configured_limit = int(getattr(self._settings, "max_training_stocks", 50))
+        return max(1, min(configured_limit, 50))
+
+    def _weekly_feature_cutoff_date(self, reference_date: date | None = None) -> date:
+        reference_date = reference_date or datetime.now(timezone.utc).date()
+        return reference_date - timedelta(days=max(0, self._weekly_feature_history_days() - 1))
+
+    def _fetch_ranked_stock_ids(self, connection: Any) -> list[int]:
+        stock_limit = self._weekly_feature_stock_limit()
+        rows = connection.execute(
+            text(
+                """
+                SELECT stock_id
+                FROM stocks
+                ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                LIMIT :stock_limit
+                """
+            ),
+            {"stock_limit": stock_limit},
+        ).scalars().all()
+        return [int(stock_id) for stock_id in rows if stock_id is not None]
+
+    def _needs_weekly_feature_backfill(self) -> bool:
+        cutoff_date = self._weekly_feature_cutoff_date()
+        reference_date = datetime.now(timezone.utc).date()
+        expected_weeks = max(1, ((reference_date - cutoff_date).days // 7) + 1)
+        stock_limit = self._weekly_feature_stock_limit()
+
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            ranked_stock_count = int(
+                connection.execute(
+                    text(
+                        """
+                        SELECT COUNT(*)
+                        FROM (
+                            SELECT stock_id
+                            FROM stocks
+                            ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                            LIMIT :stock_limit
+                        ) ranked_stocks
+                        """
+                    ),
+                    {"stock_limit": stock_limit},
+                ).scalar()
+                or 0
+            )
+            coverage = connection.execute(
+                text(
+                    """
+                    SELECT
+                        MIN(date) AS min_date,
+                        COUNT(*) AS row_count,
+                        COUNT(DISTINCT stock_id) AS stock_count,
+                        COUNT(DISTINCT date_trunc('week', date)) AS week_count
+                    FROM ml_weekly_features
+                    WHERE stock_id IN (
+                        SELECT stock_id
+                        FROM stocks
+                        ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                        LIMIT :stock_limit
+                    )
+                    """
+                ),
+                {"stock_limit": stock_limit},
+            ).mappings().one()
+
+        if ranked_stock_count == 0:
+            return False
+
+        min_date = coverage.get("min_date")
+        row_count = int(coverage.get("row_count") or 0)
+        stock_count = int(coverage.get("stock_count") or 0)
+        week_count = int(coverage.get("week_count") or 0)
+
+        if row_count == 0 or stock_count < ranked_stock_count:
+            return True
+        if not isinstance(min_date, date) or min_date > cutoff_date + timedelta(days=7):
+            return True
+        if week_count < max(8, expected_weeks // 2):
+            return True
+
+        return False
+
     def is_provider_ohlc_available_for_date(self, trading_date: date) -> bool:
         api_key = getattr(self._settings, "massive_api_key", "")
         if not api_key:
@@ -576,7 +663,26 @@ class AnalyticsSyncService:
             upserted_metric_count = self._upsert_metrics(metric_rows)
             self._refresh_latest_news_for_metrics()
 
-            weekly_rows = self._upsert_weekly_features_from_metrics_snapshot()
+            if self._needs_weekly_feature_backfill():
+                weekly_feature_frame = feat.select(
+                    "stock_id",
+                    "trading_date",
+                    "return_5d",
+                    "return_10d",
+                    "return_20d",
+                    "volatility_5d",
+                    "volatility_10d",
+                    "volatility_20d",
+                    "sma20_distance",
+                    "sma50_distance",
+                    F.col("rsi_14").alias("rsi"),
+                    "macd",
+                    "volume_change",
+                    "label",
+                ).toPandas()
+                weekly_rows = self._rebuild_weekly_features_from_ohlc_history(weekly_feature_frame)
+            else:
+                weekly_rows = self._upsert_weekly_features_from_metrics_snapshot()
 
             return max(ohlc_updated_rows, upserted_metric_count), weekly_rows
         finally:
@@ -893,14 +999,125 @@ class AnalyticsSyncService:
 
         return len(updates)
 
+    def _rebuild_weekly_features_from_ohlc_history(self, feature_frame: pd.DataFrame) -> int:
+        cutoff_date = self._weekly_feature_cutoff_date()
+        stock_limit = self._weekly_feature_stock_limit()
+
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            ranked_stock_ids = self._fetch_ranked_stock_ids(connection)
+
+        rows = _build_weekly_feature_rows(
+            feature_frame,
+            allowed_stock_ids=set(ranked_stock_ids),
+            end_date=datetime.now(timezone.utc).date(),
+            history_days=self._weekly_feature_history_days(),
+        )
+
+        insert_sql = text(
+            """
+            INSERT INTO ml_weekly_features (
+                stock_id,
+                date,
+                return_5d,
+                return_10d,
+                return_20d,
+                volatility_5d,
+                volatility_10d,
+                volatility_20d,
+                sma20_distance,
+                sma50_distance,
+                rsi,
+                macd,
+                volume_change,
+                label,
+                created_at
+            ) VALUES (
+                :stock_id,
+                :date,
+                :return_5d,
+                :return_10d,
+                :return_20d,
+                :volatility_5d,
+                :volatility_10d,
+                :volatility_20d,
+                :sma20_distance,
+                :sma50_distance,
+                :rsi,
+                :macd,
+                :volume_change,
+                :label,
+                NOW()
+            )
+            ON CONFLICT (stock_id, date)
+            DO UPDATE SET
+                return_5d = EXCLUDED.return_5d,
+                return_10d = EXCLUDED.return_10d,
+                return_20d = EXCLUDED.return_20d,
+                volatility_5d = EXCLUDED.volatility_5d,
+                volatility_10d = EXCLUDED.volatility_10d,
+                volatility_20d = EXCLUDED.volatility_20d,
+                sma20_distance = EXCLUDED.sma20_distance,
+                sma50_distance = EXCLUDED.sma50_distance,
+                rsi = EXCLUDED.rsi,
+                macd = EXCLUDED.macd,
+                volume_change = EXCLUDED.volume_change,
+                label = EXCLUDED.label
+            """
+        )
+
+        with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM ml_weekly_features
+                    WHERE stock_id IN (
+                        SELECT stock_id
+                        FROM stocks
+                        ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                        LIMIT :stock_limit
+                    )
+                    """
+                ),
+                {"stock_limit": stock_limit},
+            )
+            for chunk in _chunks(rows, 500):
+                connection.execute(insert_sql, chunk)
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM ml_weekly_features
+                    WHERE date < :cutoff_date
+                    """
+                ),
+                {"cutoff_date": cutoff_date},
+            )
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM ml_weekly_features
+                    WHERE stock_id NOT IN (
+                        SELECT stock_id
+                        FROM stocks
+                        ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
+                        LIMIT :stock_limit
+                    )
+                    """
+                ),
+                {"stock_limit": stock_limit},
+            )
+
+        return len(rows)
+
     def _upsert_weekly_features_from_metrics_snapshot(self) -> int:
+        cutoff_date = self._weekly_feature_cutoff_date()
+        stock_limit = self._weekly_feature_stock_limit()
         sql = text(
             """
             WITH ranked_stocks AS (
                 SELECT stock_id
                 FROM stocks
                 ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
-                LIMIT 50
+                LIMIT :stock_limit
             ),
             latest_ohlc AS (
                 SELECT o.stock_id, o.trading_date, o.volatility_20d
@@ -992,8 +1209,8 @@ class AnalyticsSyncService:
         )
 
         with self._repository._engine.begin() as connection:  # pylint: disable=protected-access
-            inserted_rows = int(connection.execute(sql).scalar() or 0)
-            connection.execute(text("DELETE FROM ml_weekly_features WHERE date < CURRENT_DATE - INTERVAL '365 days'"))
+            inserted_rows = int(connection.execute(sql, {"stock_limit": stock_limit}).scalar() or 0)
+            connection.execute(text("DELETE FROM ml_weekly_features WHERE date < :cutoff_date"), {"cutoff_date": cutoff_date})
             connection.execute(
                 text(
                     """
@@ -1002,10 +1219,11 @@ class AnalyticsSyncService:
                         SELECT stock_id
                         FROM stocks
                         ORDER BY COALESCE(market_cap, 0) DESC, stock_id ASC
-                        LIMIT 50
+                        LIMIT :stock_limit
                     )
                     """
-                )
+                ),
+                {"stock_limit": stock_limit},
             )
 
         return inserted_rows
@@ -1032,6 +1250,87 @@ def _to_optional_float(value: Any) -> float | None:
 def _chunks(values: list[dict[str, Any]], size: int):
     for index in range(0, len(values), size):
         yield values[index : index + size]
+
+
+def _build_weekly_feature_rows(
+    feature_frame: pd.DataFrame,
+    *,
+    allowed_stock_ids: set[int],
+    end_date: date,
+    history_days: int,
+) -> list[dict[str, Any]]:
+    if feature_frame.empty or not allowed_stock_ids:
+        return []
+
+    required_columns = [
+        "return_5d",
+        "return_10d",
+        "return_20d",
+        "volatility_5d",
+        "volatility_10d",
+        "volatility_20d",
+        "sma20_distance",
+        "sma50_distance",
+        "rsi",
+        "macd",
+        "volume_change",
+        "label",
+    ]
+
+    data = feature_frame.copy()
+    data["trading_date"] = pd.to_datetime(data["trading_date"], errors="coerce")
+    data = data[data["trading_date"].notna()].copy()
+    data = data[data["stock_id"].isin(allowed_stock_ids)].copy()
+    if data.empty:
+        return []
+
+    cutoff_timestamp = pd.Timestamp(end_date - timedelta(days=max(0, history_days - 1)))
+    data = data[data["trading_date"] >= cutoff_timestamp].copy()
+    if data.empty:
+        return []
+
+    for column in required_columns:
+        if column not in data.columns:
+            data[column] = pd.NA
+
+    data = data.replace([float("inf"), float("-inf")], pd.NA)
+    data = data.dropna(subset=required_columns).copy()
+    if data.empty:
+        return []
+
+    data["week_start"] = data["trading_date"] - pd.to_timedelta(data["trading_date"].dt.weekday, unit="D")
+    data = (
+        data.sort_values(["stock_id", "trading_date"])
+        .groupby(["stock_id", "week_start"], as_index=False)
+        .tail(1)
+        .sort_values(["stock_id", "trading_date"])
+        .reset_index(drop=True)
+    )
+
+    rows: list[dict[str, Any]] = []
+    for _, row in data.iterrows():
+        trading_date_value = row["trading_date"]
+        trading_date = trading_date_value.date() if hasattr(trading_date_value, "date") else trading_date_value
+        rows.append(
+            {
+                "stock_id": int(row["stock_id"]),
+                "date": trading_date,
+                "return_5d": _to_optional_float(row["return_5d"]),
+                "return_10d": _to_optional_float(row["return_10d"]),
+                "return_20d": _to_optional_float(row["return_20d"]),
+                "volatility_5d": _to_optional_float(row["volatility_5d"]),
+                "volatility_10d": _to_optional_float(row["volatility_10d"]),
+                "volatility_20d": _to_optional_float(row["volatility_20d"]),
+                "sma20_distance": _to_optional_float(row["sma20_distance"]),
+                "sma50_distance": _to_optional_float(row["sma50_distance"]),
+                "rsi": _to_optional_float(row["rsi"]),
+                "macd": _to_optional_float(row["macd"]),
+                "volume_change": _to_optional_float(row["volume_change"]),
+                "label": int(row["label"]),
+            }
+        )
+
+    return rows
 
 
 _NEWS_TEXT_SPLIT_RE = re.compile(r"[^a-z0-9]+")
