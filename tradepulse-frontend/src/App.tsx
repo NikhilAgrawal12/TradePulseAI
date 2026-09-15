@@ -12,25 +12,29 @@ import {OrdersPage} from "./pages/orders/OrdersPage";
 import {AccountManagementPage} from "./pages/account-management/AccountManagementPage";
 import {WalletPage} from "./pages/wallet/WalletPage";
 import {StockAnalyticsPage} from "./pages/stock-analytics/StockAnalyticsPage";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 function App() {
 
   return (
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="registration" element={<RegistrationPage />} />
-        <Route path="about" element={<AboutPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
-        <Route path="portfolio" element={<PortfolioPage />} />
-        <Route path="watchlist" element={<WatchlistPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
-        <Route path="payment" element={<PaymentPage />} />
-        <Route path="orders" element={<OrdersPage />} />
-        <Route path="account-management" element={<AccountManagementPage />} />
-        <Route path="wallet" element={<WalletPage />} />
-        <Route path="stocks/:stockId/analytics" element={<StockAnalyticsPage />} />
-      </Routes>
+      <>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="registration" element={<RegistrationPage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="portfolio" element={<PortfolioPage />} />
+          <Route path="watchlist" element={<WatchlistPage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="payment" element={<PaymentPage />} />
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="account-management" element={<AccountManagementPage />} />
+          <Route path="wallet" element={<WalletPage />} />
+          <Route path="stocks/:stockId/analytics" element={<StockAnalyticsPage />} />
+        </Routes>
+      </>
   );
 
 }
