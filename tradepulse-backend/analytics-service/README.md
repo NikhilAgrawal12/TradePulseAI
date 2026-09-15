@@ -7,6 +7,7 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - Keeps a `stocks` replica synced from stock-service (`GET /stocks`) on every analytics sync run
 - Fetches grouped daily OHLC from Massive API
 - Computes `stock_metrics` + `ml_weekly_features` via PySpark, sourcing overlapping OHLC volatility values directly from `stock_daily_ohlc`
+- Backfills `ml_weekly_features` from OHLC-derived history for the top 50 stocks, retaining up to 2 years with one snapshot row per stock per week
 - Trains using `ml_weekly_features` (technical feature set + `label`)
 - Fetches latest Massive news and stores it in `stock_metrics.latest_news`
 - Trains and serves a buy/sell signal model (logistic regression, random forest, gradient boosting, xgboost, knn, svm)
@@ -37,6 +38,7 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - `ML_MODEL_PATH`
 - `ML_SERVICE_PORT`
 - `ML_DEFAULT_DAYS_BACK`
+- `ML_WEEKLY_FEATURE_DAYS_BACK`
 - `ML_DEFAULT_HORIZON_DAYS`
 - `ML_MAX_TRAINING_STOCKS`
 - `ML_TRAIN_ON_STARTUP`

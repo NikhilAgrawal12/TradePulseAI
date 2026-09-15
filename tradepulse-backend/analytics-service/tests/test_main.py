@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 import pandas as pd
@@ -19,8 +19,13 @@ def _reset_state() -> None:
             "training_status": "pending",
             "training_error": None,
             "last_trained_at": None,
+            "last_sync_status": "never",
+            "last_sync_error": None,
+            "last_sync_finished_at": None,
+            "last_sync_stats": None,
             "freshness_status": "unknown",
             "last_successful_trading_date": None,
+            "last_metrics_trading_date": None,
             "expected_trading_date": None,
             "last_provider_check_at": None,
             "next_retry_at": None,
@@ -42,6 +47,8 @@ def test_startup_survives_missing_training_data(monkeypatch) -> None:
     monkeypatch.setattr(main.repository, "initialize_tables", lambda: None)
     monkeypatch.setattr(main, "_load_model_from_disk", lambda: False)
     monkeypatch.setattr(main, "_run_startup_training", lambda: None)
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: None)
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: None)
 
     created_threads: list[object] = []
 
@@ -111,6 +118,8 @@ def test_startup_background_training_updates_status(monkeypatch) -> None:
         return _Trained()
 
     monkeypatch.setattr(main, "_train_model", _train_ok)
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: None)
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: None)
 
     main._run_startup_training()
 
@@ -130,6 +139,8 @@ def test_startup_background_training_handles_missing_data(monkeypatch) -> None:
         default_horizon_days=5,
         max_training_stocks=100,
     ))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: None)
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: None)
 
     def _raise_no_data(*_args, **_kwargs):
         raise ValueError("No stock rows found for training window.")
@@ -143,6 +154,63 @@ def test_startup_background_training_handles_missing_data(monkeypatch) -> None:
     assert health["model_loaded"] is False
     assert health["training_status"] == "waiting_for_data"
     assert "No stock rows" in health["training_error"]
+
+
+def test_health_reflects_live_db_state(monkeypatch) -> None:
+    _reset_state()
+    main.state.update(
+        {
+            "last_sync_status": "ok",
+            "last_sync_finished_at": "2026-09-12T00:00:00+00:00",
+            "freshness_status": "stale",
+            "expected_trading_date": "2026-09-11",
+            "last_successful_trading_date": "2026-09-11",
+            "last_metrics_trading_date": "2026-09-11",
+        }
+    )
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 14))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 14))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 14))
+
+    health = main.health()
+
+    assert health["freshness_status"] == "fresh"
+    assert health["last_successful_trading_date"] == "2026-09-14"
+    assert health["last_metrics_trading_date"] == "2026-09-14"
+    assert health["expected_trading_date"] == "2026-09-14"
+
+
+def test_admin_sync_nightly_triggers_full_sync(monkeypatch) -> None:
+    _reset_state()
+
+    captured: dict[str, object] = {}
+
+    def fake_sync(trigger: str, force_metrics_refresh: bool = False):
+        captured["trigger"] = trigger
+        captured["force_metrics_refresh"] = force_metrics_refresh
+        return {"trigger": trigger, "finished_at": "2026-09-14T00:00:00+00:00"}
+
+    monkeypatch.setattr(main, "_run_analytics_sync", fake_sync)
+
+    response = main.admin_sync_nightly()
+
+    assert response["trigger"] == "manual_admin"
+    assert captured["trigger"] == "manual_admin"
+    assert captured["force_metrics_refresh"] is True
+
+
+def test_admin_sync_status_matches_health_snapshot(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 14))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 14))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 14))
+
+    response = main.admin_sync_status()
+
+    assert response["status"] == "up"
+    assert response["freshness_status"] == "fresh"
 
 
 def test_persist_trained_model_saves_candidate_metrics(monkeypatch) -> None:
@@ -284,7 +352,7 @@ def test_get_prediction_reads_snapshot_only(monkeypatch) -> None:
     monkeypatch.setattr(
         main.repository,
         "fetch_latest_stock_row",
-        lambda stock_id: pd.DataFrame([{"stock_id": stock_id, "symbol": "AAPL"}]),
+        lambda stock_id: pd.DataFrame([{"stock_id": stock_id, "symbol": "AAPL", "trading_date": datetime(2026, 8, 6, tzinfo=timezone.utc)}]),
     )
     monkeypatch.setattr(
         main.repository,
@@ -345,9 +413,10 @@ def test_get_prediction_returns_503_when_snapshot_missing(monkeypatch) -> None:
     monkeypatch.setattr(
         main.repository,
         "fetch_latest_stock_row",
-        lambda stock_id: pd.DataFrame([{"stock_id": stock_id, "symbol": "AAPL"}]),
+        lambda stock_id: pd.DataFrame([{"stock_id": stock_id, "symbol": "AAPL", "trading_date": datetime(2026, 8, 6, tzinfo=timezone.utc)}]),
     )
     monkeypatch.setattr(main.repository, "fetch_prediction_snapshot", lambda stock_id, model_version: None)
+    monkeypatch.setattr(main, "predict_action", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("force regeneration failure")))
 
     try:
         main.get_prediction(stock_id=1)
