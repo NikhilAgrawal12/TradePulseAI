@@ -58,6 +58,8 @@ export function RegistrationPage() {
 
   useEffect(() => {
     document.title = "Register | TradePulse";
+    // Prevent preserved scroll position from landing mid/bottom form on navigation.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
 
   useEffect(() => {
