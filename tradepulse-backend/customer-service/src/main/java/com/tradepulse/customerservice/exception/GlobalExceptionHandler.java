@@ -52,6 +52,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errors);
     }
 
+    @ExceptionHandler(AccountDeletionPrecheckFailedException.class)
+    public ResponseEntity<Map<String, String>> handleAccountDeletionPrecheckFailedException(AccountDeletionPrecheckFailedException ex) {
+        log.warn("Account deletion checklist failed: {}", ex.getMessage());
+        Map<String, String> errors = new HashMap<>();
+        errors.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errors);
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, String>> handleDataAccessException(DataAccessException ex) {
         log.error("Database access failure", ex);
@@ -59,6 +67,4 @@ public class GlobalExceptionHandler {
         errors.put("message", "Customer service database is unavailable or schema is invalid");
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errors);
     }
-
-
 }

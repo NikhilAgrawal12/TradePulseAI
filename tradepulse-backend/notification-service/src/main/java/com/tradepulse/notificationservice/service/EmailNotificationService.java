@@ -9,8 +9,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -68,11 +66,12 @@ public class EmailNotificationService {
 
     private String buildSubject(NotificationEvent event) {
         return switch (event.getEventType()) {
-            case "ACCOUNT_CREATED"   -> "Welcome to TradePulse – Account Created";
-            case "WALLET_DEPOSIT"    -> "TradePulse – Wallet Deposit Successful";
-            case "WALLET_WITHDRAWAL" -> "TradePulse – Wallet Withdrawal Successful";
-            case "STOCK_PURCHASED"   -> "TradePulse – Order Completed";
-            case "STOCK_SOLD"        -> "TradePulse – Sell Order Settled";
+            case "ACCOUNT_CREATED"   -> "Welcome to TradePulse - Account Created";
+            case "ACCOUNT_DELETED"   -> "TradePulse - Account Deleted";
+            case "WALLET_DEPOSIT"    -> "TradePulse - Wallet Deposit Successful";
+            case "WALLET_WITHDRAWAL" -> "TradePulse - Wallet Withdrawal Successful";
+            case "STOCK_PURCHASED"   -> "TradePulse - Order Completed";
+            case "STOCK_SOLD"        -> "TradePulse - Sell Order Settled";
             default -> null;
         };
     }
@@ -95,9 +94,16 @@ public class EmailNotificationService {
                         You can now log in, add funds to your wallet, and start trading.
 
                         Happy trading!
-                        — The TradePulse Team
+                        - The TradePulse Team
                         """.formatted(fullName);
             }
+            case "ACCOUNT_DELETED" -> """
+                    Your TradePulse account has been deleted successfully.
+
+                    If this action was not performed by you, please contact support immediately.
+
+                    - The TradePulse Team
+                    """;
             case "WALLET_DEPOSIT" -> {
                 String firstName = getString(data, "firstName", "");
                 String lastName = getString(data, "lastName", "");
@@ -115,7 +121,7 @@ public class EmailNotificationService {
                         Transaction ID : %s
                         New Balance    : $%s
 
-                        — The TradePulse Team
+                        - The TradePulse Team
                         """.formatted(fullName, amount, transactionId, balance);
             }
             case "WALLET_WITHDRAWAL" -> {
@@ -135,7 +141,7 @@ public class EmailNotificationService {
                         Transaction ID : %s
                         New Balance    : $%s
 
-                        — The TradePulse Team
+                        - The TradePulse Team
                         """.formatted(fullName, amount, transactionId, balance);
             }
             case "STOCK_PURCHASED" -> {
@@ -158,7 +164,7 @@ public class EmailNotificationService {
 
                         Your portfolio has been updated.
 
-                        — The TradePulse Team
+                        - The TradePulse Team
                         """.formatted(fullName, orderId, itemsBlock, total);
             }
             case "STOCK_SOLD" -> {
@@ -181,7 +187,7 @@ public class EmailNotificationService {
                         Price    : $%s per share
                         Total    : $%s credited to your wallet
 
-                        — The TradePulse Team
+                        - The TradePulse Team
                         """.formatted(fullName, symbol, quantity, shareUnit(quantity), price, total);
             }
             default -> "A new activity has been recorded on your TradePulse account.";
@@ -230,7 +236,6 @@ public class EmailNotificationService {
             }
         }
 
-        // Backward-compatible fallback when old payload shape is received.
         String symbol = getString(data, "symbol", getString(data, "stockId", "N/A"));
         String quantity = getString(data, "quantity", "0");
         String price = getString(data, "price", "0.00");
@@ -240,6 +245,4 @@ public class EmailNotificationService {
                 Price     : $%s per share
                 """.formatted(symbol, quantity, shareUnit(quantity), price).stripTrailing();
     }
-
 }
-

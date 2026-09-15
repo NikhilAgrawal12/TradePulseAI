@@ -52,7 +52,28 @@ Design intent:
 - order-service is the single orchestration boundary for checkout.
 - frontend does not call payment or portfolio services directly.
 
-## 4. Consistency boundaries by domain
+## 4. Account deletion saga (Customer profile + Auth identity)
+
+Primary orchestrator:
+- `tradepulse-backend/customer-service/src/main/java/com/tradepulse/customerservice/service/CustomerService.java`
+
+Entry endpoint:
+- `DELETE /api/customers/me`
+
+Runtime flow:
+1. customer-service resolves the authenticated customer by `userId`.
+2. customer-service fetches deletion checklist status from wallet, portfolio, and order services.
+3. if blockers exist (wallet balance, holdings, active orders), customer-service returns a `409` conflict.
+4. if checklist is clear, customer-service deletes watchlist rows and customer profile in its local transaction.
+5. customer-service calls auth-service delete (`/auth/users/{userId}`) to remove login identity.
+6. customer-service publishes `ACCOUNT_DELETED` to the notifications topic.
+
+Consistency notes:
+- customer-service local data deletion is transactional.
+- if auth deletion fails, the request fails and the local transaction rolls back.
+- callers should treat delete as non-idempotent and retry only with current checklist status.
+
+## 5. Consistency boundaries by domain
 
 - auth-service: user credentials and identity
 - customer-service: customer profile, watchlist, portfolio state
@@ -66,7 +87,7 @@ Logical keys across services:
 - `user_id` links user-owned domain records
 - `stock_id` links stock-owned domain records
 
-## 5. Failure handling examples
+## 6. Failure handling examples
 
 ### Registration failure after auth created
 - customer insert fails
@@ -83,14 +104,20 @@ Logical keys across services:
 - `ORDER_COMPLETED` remains durable in Kafka / consumer retry flow
 - portfolio-service retries processing; on repeated failure, the record can be sent to DLQ depending on listener error handling
 
-## 6. Current strengths
+### Account deletion blocked by business state
+- wallet balance is not zero, or active holdings/orders remain
+- customer-service returns `409` with checklist message
+- no customer/auth records are deleted
+
+## 7. Current strengths
 
 - explicit orchestration boundaries are clear in code
 - registration compensation prevents common split-write inconsistency
 - checkout service order is deterministic (quote -> payment -> order + outbox -> Kafka consumer update)
+- account deletion checks business preconditions before destructive operations
 - gateway-enforced identity propagation supports correct ownership scoping
 
-## 7. Current limitations and planned hardening
+## 8. Current limitations and planned hardening
 
 Recommended next steps for stronger production guarantees:
 
@@ -100,7 +127,7 @@ Recommended next steps for stronger production guarantees:
 4. Monitor Kafka lag / DLQ volume as part of operational readiness.
 5. Add replay tooling for failed portfolio event recovery.
 
-## 8. Design philosophy summary
+## 9. Design philosophy summary
 
 TradePulse deliberately avoids distributed two-phase commit and instead uses practical microservice consistency:
 - orchestrated workflow steps

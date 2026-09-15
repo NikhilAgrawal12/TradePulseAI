@@ -44,6 +44,14 @@ public class kafkaProducer {
         }
     }
 
+    public void sendAccountDeletedEvent(Long userId) {
+        try {
+            kafkaTemplate.send(notificationsTopic, buildAccountDeletedEventJson(userId));
+        } catch (Exception e) {
+            log.error("Error sending ACCOUNT_DELETED notification event for userId={}", userId, e);
+        }
+    }
+
     private String buildEventJson(Customer customer) throws Exception {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("firstName", customer.getFirstName());
@@ -55,6 +63,15 @@ public class kafkaProducer {
         event.put("timestamp", Instant.now().toString());
         event.put("data", data);
 
+        return objectMapper.writeValueAsString(event);
+    }
+
+    private String buildAccountDeletedEventJson(Long userId) throws Exception {
+        Map<String, Object> event = new LinkedHashMap<>();
+        event.put("eventType", "ACCOUNT_DELETED");
+        event.put("userId", userId);
+        event.put("timestamp", Instant.now().toString());
+        event.put("data", Map.of());
         return objectMapper.writeValueAsString(event);
     }
 }

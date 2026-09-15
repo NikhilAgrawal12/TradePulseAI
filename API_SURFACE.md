@@ -85,6 +85,7 @@ Routed through the gateway under `/api/customers` → `customer-service`.
 | `POST` | `/api/customers/register` | Register new user + customer profile in a single saga (creates auth user and customer record) | Frontend |
 | `GET` | `/api/customers/me` | Get authenticated user's customer profile | Frontend, API Gateway |
 | `PUT` | `/api/customers/me` | Update authenticated user's customer profile | Frontend |
+| `DELETE` | `/api/customers/me` | Delete authenticated account after checklist validation (wallet zero, no holdings, no active orders) | Frontend |
 | `GET` | `/api/customers/user/{userId}` | Get customer by userId — internal service-to-service only | notification-service, order-service, portfolio-service |
 
 ### Request body — POST /api/customers/register
@@ -106,6 +107,16 @@ Routed through the gateway under `/api/customers` → `customer-service`.
   "lastName": "string",
   "phone": "string"
 }
+```
+
+### Response notes — DELETE /api/customers/me
+
+- Returns `204 No Content` when deletion succeeds.
+- Returns `409 Conflict` when checklist preconditions are not satisfied.
+- Typical `409` body:
+
+```json
+{ "message": "Account deletion checklist is incomplete: Wallet balance must be zero. Sell all portfolio holdings." }
 ```
 
 ---

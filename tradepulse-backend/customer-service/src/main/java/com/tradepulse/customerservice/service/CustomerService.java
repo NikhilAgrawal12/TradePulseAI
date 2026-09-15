@@ -1,21 +1,26 @@
 package com.tradepulse.customerservice.service;
 
+import com.tradepulse.customerservice.client.AccountChecklistClient;
 import com.tradepulse.customerservice.client.AuthServiceClient;
 import com.tradepulse.customerservice.dto.customer.CustomerRegistrationRequestDTO;
 import com.tradepulse.customerservice.dto.customer.CustomerRequestDTO;
 import com.tradepulse.customerservice.dto.customer.CustomerResponseDTO;
+import com.tradepulse.customerservice.exception.AccountDeletionPrecheckFailedException;
 import com.tradepulse.customerservice.exception.CustomerNotFoundException;
 import com.tradepulse.customerservice.exception.EmailAlreadyExistsException;
 import com.tradepulse.customerservice.kafka.kafkaProducer;
 import com.tradepulse.customerservice.mapper.CustomerMapper;
 import com.tradepulse.customerservice.model.Customer;
 import com.tradepulse.customerservice.repository.CustomerRepository;
+import com.tradepulse.customerservice.repository.WatchlistItemRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -24,12 +29,21 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final AuthServiceClient authServiceClient;
+    private final AccountChecklistClient accountChecklistClient;
+    private final WatchlistItemRepository watchlistItemRepository;
     private final kafkaProducer kafkaProducer;
 
-    public CustomerService(CustomerRepository customerRepository, AuthServiceClient authServiceClient, kafkaProducer kafkaProducer) {
-
+    public CustomerService(
+            CustomerRepository customerRepository,
+            AuthServiceClient authServiceClient,
+            AccountChecklistClient accountChecklistClient,
+            WatchlistItemRepository watchlistItemRepository,
+            kafkaProducer kafkaProducer
+    ) {
         this.customerRepository = customerRepository;
         this.authServiceClient = authServiceClient;
+        this.accountChecklistClient = accountChecklistClient;
+        this.watchlistItemRepository = watchlistItemRepository;
         this.kafkaProducer = kafkaProducer;
     }
 
@@ -54,8 +68,6 @@ public class CustomerService {
         customerRequestDTO.setUserId(authUser.userId());
 
         Customer customer = customerRepository.save(CustomerMapper.toModel(customerRequestDTO));
-
-
         kafkaProducer.sendEvent(customer);
         return CustomerMapper.toDTO(customer, normalizedEmail);
     }
@@ -111,11 +123,39 @@ public class CustomerService {
         customer.setDateOfBirth(LocalDate.parse(customerRequestDTO.getDateOfBirth()));
         customer.setPhoneNumber(customerRequestDTO.getPhoneNumber());
 
-        Customer updatedcustomer = customerRepository.save(customer);
-        return CustomerMapper.toDTO(updatedcustomer);
-
+        Customer updatedCustomer = customerRepository.save(customer);
+        return CustomerMapper.toDTO(updatedCustomer);
     }
 
+    @Transactional
+    public void deleteCurrentAccount(Long userId) {
+        customerRepository.findByUserId(userId).ifPresent(customer -> {
+            AccountChecklistClient.ChecklistStatus checklistStatus = accountChecklistClient.fetchChecklistStatus(userId);
+            List<String> blockers = new ArrayList<>();
+
+            if (checklistStatus.walletBalance() != null && checklistStatus.walletBalance().signum() != 0) {
+                blockers.add("Wallet balance must be zero.");
+            }
+            if (checklistStatus.activeHoldings() > 0) {
+                blockers.add("Sell all portfolio holdings.");
+            }
+            if (checklistStatus.activeOrders() > 0) {
+                blockers.add("Complete or cancel all active orders.");
+            }
+
+            if (!blockers.isEmpty()) {
+                throw new AccountDeletionPrecheckFailedException(
+                        "Account deletion checklist is incomplete: " + String.join(" ", blockers)
+                );
+            }
+
+            watchlistItemRepository.deleteByIdUserId(userId);
+            customerRepository.delete(customer);
+        });
+
+        authServiceClient.deleteUserById(userId);
+        kafkaProducer.sendAccountDeletedEvent(userId);
+    }
 
     public void deleteCustomer(Long userId) {
         customerRepository.deleteByUserId(userId);

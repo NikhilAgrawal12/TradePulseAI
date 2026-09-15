@@ -1,7 +1,7 @@
 package com.tradepulse.customerservice.controller;
 
-import com.tradepulse.customerservice.dto.customer.CustomerRequestDTO;
 import com.tradepulse.customerservice.dto.customer.CustomerRegistrationRequestDTO;
+import com.tradepulse.customerservice.dto.customer.CustomerRequestDTO;
 import com.tradepulse.customerservice.dto.customer.CustomerResponseDTO;
 import com.tradepulse.customerservice.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,7 +10,15 @@ import jakarta.validation.groups.Default;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/customers")
@@ -23,7 +31,6 @@ public class CustomerController {
     public CustomerController(CustomerService customerService) {
         this.customerService = customerService;
     }
-
 
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get customer by user id (internal service-to-service use)")
@@ -54,6 +61,15 @@ public class CustomerController {
         Long userId = normalizeUserId(authenticatedUserId);
         CustomerResponseDTO custResponseDTO = customerService.updateCustomer(userId, customerRequestDTO);
         return ResponseEntity.ok().body(custResponseDTO);
+    }
+
+    @DeleteMapping("/me")
+    @Operation(summary = "Delete current authenticated account")
+    public ResponseEntity<Void> deleteCurrentCustomer(
+            @RequestHeader(USER_ID_HEADER) String authenticatedUserId
+    ) {
+        customerService.deleteCurrentAccount(normalizeUserId(authenticatedUserId));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/register")
