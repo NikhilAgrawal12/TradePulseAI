@@ -96,10 +96,12 @@ export function Header() {
                     <Link to="/" className="header-link logo-link" aria-label="TradePulse home">
                         <img className="logo" src="/images/logo.png" alt="TradePulse" />
                     </Link>
-                    <Link className="nav-link header-link about-link" to="/about">
-                        <span className="nav-link-icon">ℹ️</span>
-                        <span>About Us</span>
-                    </Link>
+                    {!isLoggedIn && (
+                        <Link className="nav-link header-link about-link" to="/about">
+                            <span className="nav-link-icon">ℹ️</span>
+                            <span>About Us</span>
+                        </Link>
+                    )}
                 </div>
 
                 <nav className="center-section" aria-label="Main actions">

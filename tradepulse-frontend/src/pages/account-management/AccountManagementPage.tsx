@@ -1083,7 +1083,7 @@ export function AccountManagementPage() {
                 <div className="am-form-header">
                   <h2>Delete Account</h2>
                   <p>Before deleting your account, complete every checklist item below.</p>
-                  <p>Your customer profile, watchlist, and sign-in access will be removed permanently.</p>
+                  <p>Your customer profile, holdings, and sign-in access will be removed permanently.</p>
                 </div>
 
                 {deleteChecklistError && <p className="am-message am-error">{deleteChecklistError}</p>}
@@ -1101,7 +1101,7 @@ export function AccountManagementPage() {
                     </span>
                   </li>
                   <li>
-                    <span className="am-checklist-label">Watchlist and holdings</span>
+                    <span className="am-checklist-label">Holdings</span>
                     <span className={`am-checklist-state ${isHoldingsClear ? "is-complete" : "is-pending"}`}>
                       {deleteChecklistLoading
                         ? "Checking..."
@@ -1170,7 +1170,7 @@ export function AccountManagementPage() {
             >
               <h3 id="delete-account-modal-title">Delete account permanently?</h3>
               <p id="delete-account-modal-description">
-                This will permanently remove your customer profile, watchlist, and sign-in access.
+                This will permanently remove your customer profile, holdings, and sign-in access.
               </p>
               <p className="am-delete-modal-warning">This action cannot be undone.</p>
 
