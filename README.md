@@ -245,9 +245,3 @@ gRPC provides typed contracts via Protocol Buffers, lower latency than REST for 
 - End-to-end integration tests
 - GraphQL API layer
 - Mobile app (React Native)
-
----
-
-## License
-
-No project-wide license defined. Add one before external distribution.
