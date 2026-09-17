@@ -82,6 +82,17 @@ def _extract_artifact_feature_names(artifact: dict[str, Any]) -> list[str] | Non
     return [str(name) for name in feature_names_in.tolist()]
 
 
+def _prediction_generated_at_for_trading_day(trading_day: Any) -> datetime:
+    """Normalize prediction timestamp to the market data trading day for UI consistency."""
+    if isinstance(trading_day, datetime):
+        return trading_day.astimezone(timezone.utc) if trading_day.tzinfo else trading_day.replace(tzinfo=timezone.utc)
+
+    if isinstance(trading_day, date):
+        return datetime.combine(trading_day, time.min, tzinfo=timezone.utc)
+
+    return datetime.now(timezone.utc)
+
+
 def _persist_trained_model(trained: Any) -> None:
     now_iso = datetime.now(timezone.utc).isoformat()
     artifact = {
@@ -172,7 +183,7 @@ def _refresh_prediction_cache() -> int:
                 "prediction_model_version": str(state["model_version"]),
                 "prediction_horizon_days": int(state["horizon_days"]),
                 "prediction_decision_threshold": float(state.get("decision_threshold", ACTION_THRESHOLD)),
-                "prediction_generated_at": datetime.now(timezone.utc),
+                "prediction_generated_at": _prediction_generated_at_for_trading_day(source_row.get("trading_date")),
             }
         )
 
@@ -246,6 +257,7 @@ def _training_data_is_ready_for_retrain(now_utc: datetime | None = None) -> tupl
     expected_trading_date = _target_trading_date(now_utc)
     latest_ohlc_date = analytics_sync_service.get_latest_ohlc_trading_date()
     latest_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+    required_metrics_date = _required_metrics_trading_date(expected_trading_date, latest_ohlc_date)
 
     if latest_ohlc_date is None:
         return False, "No OHLC rows are available yet."
@@ -256,12 +268,19 @@ def _training_data_is_ready_for_retrain(now_utc: datetime | None = None) -> tupl
         )
     if latest_metrics_date is None:
         return False, "Analytics metrics have not been computed yet."
-    if latest_metrics_date < expected_trading_date:
+    if latest_metrics_date < required_metrics_date:
         return False, (
             "Analytics metrics are stale "
-            f"(latest={latest_metrics_date.isoformat()}, expected={expected_trading_date.isoformat()})."
+            f"(latest={latest_metrics_date.isoformat()}, required={required_metrics_date.isoformat()})."
         )
     return True, None
+
+
+def _required_metrics_trading_date(expected_trading_date: date, latest_ohlc_date: date | None) -> date:
+    # Keep metrics aligned to the most recent market day we already have in OHLC.
+    if latest_ohlc_date is None:
+        return expected_trading_date
+    return latest_ohlc_date if latest_ohlc_date > expected_trading_date else expected_trading_date
 
 
 def _get_freshness_timezone() -> ZoneInfo:
@@ -410,9 +429,10 @@ def _check_freshness_and_sync(trigger: str) -> None:
     state["last_successful_trading_date"] = latest_db_date.isoformat() if latest_db_date else None
     latest_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
     state["last_metrics_trading_date"] = latest_metrics_date.isoformat() if latest_metrics_date else None
+    required_metrics_date = _required_metrics_trading_date(expected_trading_date, latest_db_date)
 
     ohlc_fresh = latest_db_date is not None and latest_db_date >= expected_trading_date
-    metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= expected_trading_date
+    metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= required_metrics_date
 
     if ohlc_fresh and metrics_fresh:
         state["freshness_status"] = "fresh"
@@ -426,6 +446,12 @@ def _check_freshness_and_sync(trigger: str) -> None:
     if ohlc_fresh and not metrics_fresh:
         try:
             _run_analytics_sync(trigger=f"{trigger}_metrics_refresh", force_metrics_refresh=True)
+            refreshed_ohlc_date = analytics_sync_service.get_latest_ohlc_trading_date()
+            refreshed_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+            refreshed_required_metrics_date = _required_metrics_trading_date(expected_trading_date, refreshed_ohlc_date)
+            if refreshed_metrics_date is None or refreshed_metrics_date < refreshed_required_metrics_date:
+                state["freshness_status"] = "stale"
+                state["next_retry_at"] = _schedule_next_retry(datetime.now(timezone.utc)).isoformat()
         except Exception:
             next_retry = _schedule_next_retry(datetime.now(timezone.utc))
             state["next_retry_at"] = next_retry.isoformat()
@@ -462,6 +488,12 @@ def _check_freshness_and_sync(trigger: str) -> None:
 
     try:
         _run_analytics_sync(trigger=trigger)
+        refreshed_ohlc_date = analytics_sync_service.get_latest_ohlc_trading_date()
+        refreshed_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+        refreshed_required_metrics_date = _required_metrics_trading_date(expected_trading_date, refreshed_ohlc_date)
+        if refreshed_metrics_date is None or refreshed_metrics_date < refreshed_required_metrics_date:
+            state["freshness_status"] = "stale"
+            state["next_retry_at"] = _schedule_next_retry(datetime.now(timezone.utc)).isoformat()
     except Exception:
         next_retry = _schedule_next_retry(datetime.now(timezone.utc))
         state["next_retry_at"] = next_retry.isoformat()
@@ -598,6 +630,7 @@ def _generate_prediction_snapshot(stock_id: int, history: Any) -> dict[str, Any]
         decision_threshold=float(state.get("decision_threshold", ACTION_THRESHOLD)),
     )
 
+    latest_row = history.iloc[0] if not history.empty else None
     snapshot_row = {
         "stock_id": stock_id,
         "prediction_action": str(signal["action"]),
@@ -611,7 +644,7 @@ def _generate_prediction_snapshot(stock_id: int, history: Any) -> dict[str, Any]
         "prediction_model_version": str(state["model_version"]),
         "prediction_horizon_days": int(state["horizon_days"]),
         "prediction_decision_threshold": float(state.get("decision_threshold", ACTION_THRESHOLD)),
-        "prediction_generated_at": datetime.now(timezone.utc),
+        "prediction_generated_at": _prediction_generated_at_for_trading_day(latest_row.get("trading_date") if latest_row is not None else None),
     }
     repository.store_prediction_snapshots([snapshot_row])
     return repository.fetch_prediction_snapshot(stock_id=stock_id, model_version=str(state["model_version"]))
@@ -680,13 +713,14 @@ def _live_health_snapshot() -> dict[str, Any]:
     expected_trading_date = _target_trading_date(now_utc)
     latest_db_date = analytics_sync_service.get_latest_ohlc_trading_date()
     latest_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+    required_metrics_date = _required_metrics_trading_date(expected_trading_date, latest_db_date)
 
     state["expected_trading_date"] = expected_trading_date.isoformat()
     state["last_successful_trading_date"] = latest_db_date.isoformat() if latest_db_date else None
     state["last_metrics_trading_date"] = latest_metrics_date.isoformat() if latest_metrics_date else None
 
     ohlc_fresh = latest_db_date is not None and latest_db_date >= expected_trading_date
-    metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= expected_trading_date
+    metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= required_metrics_date
 
     if ohlc_fresh and metrics_fresh:
         state["freshness_status"] = "fresh"
@@ -838,7 +872,7 @@ def get_prediction(stock_id: int) -> PredictionResponse:
         generatedAt=(
             cached["prediction_generated_at"].isoformat()
             if hasattr(cached.get("prediction_generated_at"), "isoformat")
-            else datetime.now(timezone.utc).isoformat()
+            else _prediction_generated_at_for_trading_day(cached.get("latest_trading_date")).isoformat()
         ),
         reasoning=[str(item) for item in reasoning],
         convictionLabel=str(cached["prediction_conviction_label"]),

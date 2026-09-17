@@ -219,6 +219,20 @@ def test_scheduled_training_skips_when_analytics_data_is_stale(monkeypatch) -> N
     assert main.state["training_status"] == "trained"
 
 
+def test_training_requires_metrics_to_catch_up_with_latest_ohlc(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 16))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 17))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 16))
+
+    ready, reason = main._training_data_is_ready_for_retrain(datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc))
+
+    assert ready is False
+    assert reason is not None
+    assert "required=2026-09-17" in reason
+
+
 def test_health_reflects_live_db_state(monkeypatch) -> None:
     _reset_state()
     main.state.update(
@@ -242,6 +256,40 @@ def test_health_reflects_live_db_state(monkeypatch) -> None:
     assert health["last_successful_trading_date"] == "2026-09-14"
     assert health["last_metrics_trading_date"] == "2026-09-14"
     assert health["expected_trading_date"] == "2026-09-14"
+
+
+def test_health_is_stale_when_metrics_lag_latest_ohlc_even_if_expected_is_met(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 16))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 17))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 16))
+
+    health = main.health()
+
+    assert health["last_successful_trading_date"] == "2026-09-17"
+    assert health["last_metrics_trading_date"] == "2026-09-16"
+    assert health["expected_trading_date"] == "2026-09-16"
+    assert health["freshness_status"] == "stale"
+
+
+def test_freshness_check_schedules_retry_when_metrics_refresh_does_not_catch_up(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 16))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 17))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 16))
+    monkeypatch.setattr(main, "_run_analytics_sync", lambda *args, **kwargs: {"ok": True})
+    monkeypatch.setattr(
+        main,
+        "_schedule_next_retry",
+        lambda _reference=None: datetime(2026, 9, 17, 12, 30, tzinfo=timezone.utc),
+    )
+
+    main._check_freshness_and_sync(trigger="test")
+
+    assert main.state["freshness_status"] == "stale"
+    assert main.state["next_retry_at"] == "2026-09-17T12:30:00+00:00"
 
 
 def test_admin_sync_nightly_triggers_full_sync(monkeypatch) -> None:
@@ -459,6 +507,65 @@ def test_get_prediction_reads_snapshot_only(monkeypatch) -> None:
     assert response.probabilityGap == 0.68
     assert response.modelVersion == "v20260806000000"
     assert response.reasoning == ["momentum", "volume"]
+
+
+def test_prediction_generated_at_for_trading_day_uses_midnight_utc_for_date() -> None:
+    generated_at = main._prediction_generated_at_for_trading_day(date(2026, 9, 16))
+
+    assert generated_at == datetime(2026, 9, 16, 0, 0, tzinfo=timezone.utc)
+
+
+def test_generate_prediction_snapshot_uses_history_trading_day_timestamp(monkeypatch) -> None:
+    _reset_state()
+    main.state.update(
+        {
+            "estimator": object(),
+            "model_name": "logistic_regression",
+            "model_version": "v20260916000000",
+            "horizon_days": 5,
+        }
+    )
+
+    monkeypatch.setattr(main, "build_prediction_row", lambda _history: pd.DataFrame([{"x": 1}]))
+    monkeypatch.setattr(
+        main,
+        "predict_action",
+        lambda **_kwargs: {
+            "action": "BUY",
+            "confidence": 0.63,
+            "probability_buy": 0.6322,
+            "probability_sell": 0.3678,
+            "confidence_edge": 0.2644,
+            "probability_gap": 0.2644,
+            "conviction_label": "medium",
+            "reasoning": ["momentum"],
+        },
+    )
+
+    stored_rows: list[dict[str, object]] = []
+
+    def _store(rows):
+        stored_rows.extend(rows)
+        return len(rows)
+
+    monkeypatch.setattr(main.repository, "store_prediction_snapshots", _store)
+    monkeypatch.setattr(
+        main.repository,
+        "fetch_prediction_snapshot",
+        lambda stock_id, model_version: {
+            "stock_id": stock_id,
+            "prediction_generated_at": stored_rows[0]["prediction_generated_at"],
+            "prediction_model_version": model_version,
+        },
+    )
+
+    history = pd.DataFrame([{"stock_id": 1, "symbol": "AAPL", "trading_date": date(2026, 9, 16)}])
+    snapshot = main._generate_prediction_snapshot(stock_id=1, history=history)
+
+    assert stored_rows
+    assert stored_rows[0]["prediction_generated_at"] == datetime(2026, 9, 16, 0, 0, tzinfo=timezone.utc)
+    assert snapshot is not None
+    assert snapshot["prediction_generated_at"] == datetime(2026, 9, 16, 0, 0, tzinfo=timezone.utc)
 
 
 def test_get_prediction_returns_503_when_snapshot_missing(monkeypatch) -> None:
