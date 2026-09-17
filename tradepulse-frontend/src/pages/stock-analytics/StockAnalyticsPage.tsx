@@ -877,7 +877,6 @@ export function StockAnalyticsPage() {
 
        return {
          ...prev,
-         lastUpdated: matchedStock.lastUpdated ?? prev.lastUpdated,
          currentPerformance: {
            ...prev.currentPerformance,
            currentPrice: nextCurrentPrice,
@@ -962,8 +961,11 @@ export function StockAnalyticsPage() {
                   if (subtitleParts.length === 0) {
                     subtitleParts.push("Exchange unavailable");
                   }
+                  if (analytics.volumeMetrics.latestTradingDate) {
+                    subtitleParts.push(`Data as of ${formatDateLabel(analytics.volumeMetrics.latestTradingDate)}`);
+                  }
                   if (analytics.lastUpdated) {
-                    subtitleParts.push(`Updated ${formatDateLabel(analytics.lastUpdated)}`);
+                    subtitleParts.push(`Analytics refreshed ${formatDateLabel(analytics.lastUpdated)}`);
                   }
 
                   const dailyPct = displayDailyChangePercent ?? 0;
@@ -1029,7 +1031,7 @@ export function StockAnalyticsPage() {
                           <strong>{prediction.decisionThreshold == null ? "--" : `${formatPercent(prediction.decisionThreshold * 100, false)}%`}</strong>
                         </span>
                         <span className="analytics-ml-meta-pill subtle">
-                          <small>Updated</small>
+                          <small>Prediction Generated</small>
                           <strong>{formatDateLabel(prediction.generatedAt)}</strong>
                         </span>
                       </div>
