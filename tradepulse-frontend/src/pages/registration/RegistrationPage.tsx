@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+﻿import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import axios from "axios";
 import { Header } from "../../components/Header.tsx";
@@ -67,10 +67,9 @@ export function RegistrationPage() {
     });
   };
 
-  const hasInlineValidationErrors = hasSubmitted && Object.values(validationErrors).some((message) => Boolean(message));
-  const submitFeedbackMessage = hasInlineValidationErrors
-    ? "Please fix the highlighted fields above before creating your account."
-    : "";
+  const firstValidationErrorMessage = Object.values(validationErrors).find((message) => Boolean(message)) ?? "";
+  const hasInlineValidationErrors = hasSubmitted && Boolean(firstValidationErrorMessage);
+  const submitFeedbackMessage = hasInlineValidationErrors ? firstValidationErrorMessage : "";
 
   useEffect(() => {
     document.title = "Register | TradePulse";
@@ -671,3 +670,5 @@ export function RegistrationPage() {
     </>
   );
 }
+
+
