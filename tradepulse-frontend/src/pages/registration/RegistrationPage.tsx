@@ -56,7 +56,18 @@ export function RegistrationPage() {
     postalCode: "",
   });
 
-  const hasInlineValidationErrors = hasSubmitted && Object.keys(validationErrors).length > 0;
+  const clearValidationError = (name: string) => {
+    setValidationErrors((prev) => {
+      if (!(name in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const hasInlineValidationErrors = hasSubmitted && Object.values(validationErrors).some((message) => Boolean(message));
   const submitFeedbackMessage = hasInlineValidationErrors
     ? "Please fix the highlighted fields above before creating your account."
     : "";
@@ -196,10 +207,7 @@ export function RegistrationPage() {
     }
 
     // Validation is submit-driven; clear stale message while editing this field.
-    setValidationErrors((prev) => ({
-      ...prev,
-      [name]: "",
-    }));
+    clearValidationError(name);
   };
 
   const handleCountryChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -215,12 +223,9 @@ export function RegistrationPage() {
       state: "",
       city: "",
     }));
-    setValidationErrors((prev) => ({
-      ...prev,
-      country: "",
-      state: "",
-      city: "",
-    }));
+    clearValidationError("country");
+    clearValidationError("state");
+    clearValidationError("city");
 
     const matchedCountry = await findCountryByName(nextCountryName);
     if (!matchedCountry) {
@@ -278,11 +283,8 @@ export function RegistrationPage() {
       state: nextStateName,
       city: "",
     }));
-    setValidationErrors((prev) => ({
-      ...prev,
-      state: "",
-      city: "",
-    }));
+    clearValidationError("state");
+    clearValidationError("city");
 
     if (!selectedCountryCode) {
       return;
@@ -303,10 +305,7 @@ export function RegistrationPage() {
       ...prev,
       city: nextCityName,
     }));
-    setValidationErrors((prev) => ({
-      ...prev,
-      city: "",
-    }));
+    clearValidationError("city");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -368,6 +367,8 @@ export function RegistrationPage() {
       setLoading(false);
       return;
     }
+
+    setValidationErrors({});
 
     // Validate passwords match
     if (password !== confirmPassword) {
