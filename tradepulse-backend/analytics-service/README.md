@@ -12,9 +12,9 @@ Python FastAPI service that owns analytics storage and serves ML signals.
 - Fetches latest Massive news and stores it in `stock_metrics.latest_news`
 - Trains and serves a buy/sell signal model (logistic regression, random forest, gradient boosting, xgboost, knn, svm)
 - Precomputes and stores per-stock prediction snapshots in `stock_metrics` (`prediction_action`, probabilities, `prediction_confidence_edge`, `prediction_probability_gap`, `prediction_decision_threshold`, reasoning/version metadata), then serves them directly via API
-- Retrains model on startup/schedule (configurable)
+- Retrains model on startup/schedule (configurable), but only when OHLC + analytics metrics are fresh for the expected trading date
 - Runs freshness-driven OHLC catch-up checks at `05:00` ET, retries every 30 minutes when provider data is not available yet, and performs startup catch-up if the host was offline overnight
-- Enforces strict downstream updates: metrics/weekly refresh runs only when OHLC rows changed, and model retraining triggers immediately when weekly features are refreshed
+- Enforces strict downstream updates: metrics/weekly refresh runs only when OHLC rows changed, model retraining triggers immediately when weekly features are refreshed, and stale analytics data blocks scheduled/startup retraining
 - Backfills `stock_daily_ohlc.return_1d` before metrics refresh so OHLC-derived volatility/features are computed from complete dependency data
 - Refreshes prediction snapshot columns only when required `stock_metrics` feature columns are fully populated
 

@@ -156,6 +156,69 @@ def test_startup_background_training_handles_missing_data(monkeypatch) -> None:
     assert "No stock rows" in health["training_error"]
 
 
+def test_startup_training_waits_for_fresh_analytics_before_retraining(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "settings", SimpleNamespace(
+        train_on_startup=True,
+        retrain_interval_hours=168,
+        default_days_back=365,
+        default_horizon_days=5,
+        max_training_stocks=100,
+        freshness_check_enabled=True,
+    ))
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 17))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 16))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 16))
+    monkeypatch.setattr(main, "_train_model", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("training should be skipped")))
+
+    main._run_startup_training()
+
+    assert main.state["training_status"] == "waiting_for_freshness"
+    assert "stale" in str(main.state["training_error"])
+
+
+def test_scheduled_training_skips_when_analytics_data_is_stale(monkeypatch) -> None:
+    _reset_state()
+
+    main.state.update(
+        {
+            "estimator": object(),
+            "model_name": "logistic_regression",
+            "model_version": "v20260915000000",
+            "horizon_days": 5,
+            "training_status": "trained",
+        }
+    )
+
+    monkeypatch.setattr(main, "settings", SimpleNamespace(
+        train_on_startup=True,
+        retrain_interval_hours=168,
+        default_days_back=365,
+        default_horizon_days=5,
+        max_training_stocks=100,
+        freshness_check_enabled=True,
+    ))
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 17))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 16))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 16))
+    monkeypatch.setattr(main, "_train_model", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("training should be skipped")))
+
+    class StopAfterOneWait:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def wait(self, _seconds: float) -> bool:
+            self.calls += 1
+            return self.calls > 1
+
+    monkeypatch.setattr(main, "stop_event", StopAfterOneWait())
+
+    main._run_scheduled_training()
+
+    assert main.state["training_status"] == "trained"
+
+
 def test_health_reflects_live_db_state(monkeypatch) -> None:
     _reset_state()
     main.state.update(

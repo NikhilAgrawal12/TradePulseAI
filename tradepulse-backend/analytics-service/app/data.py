@@ -482,8 +482,7 @@ class StockDataRepository:
                 prediction_model_version = :prediction_model_version,
                 prediction_horizon_days = :prediction_horizon_days,
                 prediction_decision_threshold = :prediction_decision_threshold,
-                prediction_generated_at = :prediction_generated_at,
-                updated_at = NOW()
+                prediction_generated_at = :prediction_generated_at
             WHERE stock_id = :stock_id
             """
         )

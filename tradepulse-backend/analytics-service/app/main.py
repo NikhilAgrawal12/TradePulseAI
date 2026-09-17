@@ -198,6 +198,14 @@ def _train_model(days_back: int, horizon_days: int) -> Any:
 
 def _run_startup_training() -> None:
     try:
+        freshness_enabled = bool(getattr(settings, "freshness_check_enabled", False))
+        if freshness_enabled:
+            ready, reason = _training_data_is_ready_for_retrain()
+            if not ready:
+                state["training_status"] = "waiting_for_freshness"
+                state["training_error"] = reason
+                logger.info("Skipping ML startup training until analytics data is fresh: %s", reason)
+                return
         _train_model(
             days_back=settings.default_days_back,
             horizon_days=settings.default_horizon_days,
@@ -218,6 +226,12 @@ def _run_scheduled_training() -> None:
     # (Startup already handled overdue retraining, so we always wait a full interval here.)
     while not stop_event.wait(interval_seconds):
         try:
+            freshness_enabled = bool(getattr(settings, "freshness_check_enabled", False))
+            if freshness_enabled:
+                ready, reason = _training_data_is_ready_for_retrain()
+                if not ready:
+                    logger.info("Skipping scheduled ML retraining because analytics data is stale: %s", reason)
+                    continue
             _train_model(
                 days_back=settings.default_days_back,
                 horizon_days=settings.default_horizon_days,
@@ -225,6 +239,29 @@ def _run_scheduled_training() -> None:
         except Exception:
             # Keep scheduler alive even when one retraining run fails.
             sleep(1)
+
+
+def _training_data_is_ready_for_retrain(now_utc: datetime | None = None) -> tuple[bool, str | None]:
+    now_utc = now_utc or datetime.now(timezone.utc)
+    expected_trading_date = _target_trading_date(now_utc)
+    latest_ohlc_date = analytics_sync_service.get_latest_ohlc_trading_date()
+    latest_metrics_date = analytics_sync_service.get_latest_metrics_trading_date()
+
+    if latest_ohlc_date is None:
+        return False, "No OHLC rows are available yet."
+    if latest_ohlc_date < expected_trading_date:
+        return False, (
+            "OHLC data is stale "
+            f"(latest={latest_ohlc_date.isoformat()}, expected={expected_trading_date.isoformat()})."
+        )
+    if latest_metrics_date is None:
+        return False, "Analytics metrics have not been computed yet."
+    if latest_metrics_date < expected_trading_date:
+        return False, (
+            "Analytics metrics are stale "
+            f"(latest={latest_metrics_date.isoformat()}, expected={expected_trading_date.isoformat()})."
+        )
+    return True, None
 
 
 def _get_freshness_timezone() -> ZoneInfo:
