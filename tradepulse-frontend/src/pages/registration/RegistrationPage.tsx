@@ -67,9 +67,9 @@ export function RegistrationPage() {
     });
   };
 
-  const firstValidationErrorMessage = Object.values(validationErrors).find((message) => Boolean(message)) ?? "";
-  const hasInlineValidationErrors = hasSubmitted && Boolean(firstValidationErrorMessage);
-  const submitFeedbackMessage = hasInlineValidationErrors ? firstValidationErrorMessage : "";
+  const validationErrorMessages = Object.values(validationErrors).filter((message) => Boolean(message));
+  const hasInlineValidationErrors = hasSubmitted && validationErrorMessages.length > 0;
+  const submitFeedbackMessage = hasInlineValidationErrors ? validationErrorMessages.join(" | ") : "";
 
   useEffect(() => {
     document.title = "Register | TradePulse";
