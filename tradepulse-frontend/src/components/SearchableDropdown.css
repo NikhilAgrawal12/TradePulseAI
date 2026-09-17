@@ -58,6 +58,7 @@
 
 .searchable-dropdown-option:hover,
 .searchable-dropdown-option:focus-visible,
+.searchable-dropdown-option.is-active,
 .searchable-dropdown-option.is-selected {
   background: #f0fdf4;
   color: #15803d;
