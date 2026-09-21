@@ -316,6 +316,13 @@ def _previous_trading_day(day: date) -> date:
     return cursor
 
 
+def _next_trading_day(day: date) -> date:
+    cursor = day + timedelta(days=1)
+    while cursor.weekday() >= 5:
+        cursor += timedelta(days=1)
+    return cursor
+
+
 def _target_trading_date(now_utc: datetime | None = None) -> date:
     now_utc = now_utc or datetime.now(timezone.utc)
     tz = _get_freshness_timezone()
@@ -435,6 +442,21 @@ def _check_freshness_and_sync(trigger: str) -> None:
     metrics_fresh = latest_metrics_date is not None and latest_metrics_date >= required_metrics_date
 
     if ohlc_fresh and metrics_fresh:
+        # Expected-date freshness can still mask newer provider data (e.g., before ET close window).
+        # Probe the next trading day and pull it immediately when available.
+        if latest_db_date is not None:
+            latest_probe_day = _next_trading_day(latest_db_date)
+            local_today = now_utc.astimezone(_get_freshness_timezone()).date()
+            if latest_probe_day <= local_today:
+                state["last_provider_check_at"] = now_utc.isoformat()
+                provider_has_newer_day = analytics_sync_service.is_provider_ohlc_available_for_date(latest_probe_day)
+                if provider_has_newer_day:
+                    try:
+                        _run_analytics_sync(trigger=f"{trigger}_latest_available")
+                    except Exception:
+                        next_retry = _schedule_next_retry(datetime.now(timezone.utc))
+                        state["next_retry_at"] = next_retry.isoformat()
+                    return
         state["freshness_status"] = "fresh"
         state["next_retry_at"] = None
         if state.get("last_sync_status") == "never":

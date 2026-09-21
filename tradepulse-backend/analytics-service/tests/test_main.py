@@ -292,6 +292,50 @@ def test_freshness_check_schedules_retry_when_metrics_refresh_does_not_catch_up(
     assert main.state["next_retry_at"] == "2026-09-17T12:30:00+00:00"
 
 
+def test_next_trading_day_skips_weekend() -> None:
+    assert main._next_trading_day(date(2026, 9, 18)) == date(2026, 9, 21)
+
+
+def test_freshness_check_pulls_newer_provider_day_even_when_expected_is_fresh(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 18))
+    monkeypatch.setattr(main, "_next_trading_day", lambda _day: date(2026, 9, 19))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 18))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 18))
+    monkeypatch.setattr(main.analytics_sync_service, "is_provider_ohlc_available_for_date", lambda _day: True)
+
+    called: dict[str, object] = {}
+
+    def _fake_run(trigger: str, force_metrics_refresh: bool = False):
+        called["trigger"] = trigger
+        called["force_metrics_refresh"] = force_metrics_refresh
+        return {"ok": True}
+
+    monkeypatch.setattr(main, "_run_analytics_sync", _fake_run)
+
+    main._check_freshness_and_sync(trigger="scheduled_5am")
+
+    assert called["trigger"] == "scheduled_5am_latest_available"
+    assert called["force_metrics_refresh"] is False
+
+
+def test_freshness_check_keeps_fresh_when_newer_provider_day_not_available(monkeypatch) -> None:
+    _reset_state()
+
+    monkeypatch.setattr(main, "_target_trading_date", lambda _now=None: date(2026, 9, 18))
+    monkeypatch.setattr(main, "_next_trading_day", lambda _day: date(2026, 9, 19))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_ohlc_trading_date", lambda: date(2026, 9, 18))
+    monkeypatch.setattr(main.analytics_sync_service, "get_latest_metrics_trading_date", lambda: date(2026, 9, 18))
+    monkeypatch.setattr(main.analytics_sync_service, "is_provider_ohlc_available_for_date", lambda _day: False)
+    monkeypatch.setattr(main, "_run_analytics_sync", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("sync should not run")))
+
+    main._check_freshness_and_sync(trigger="scheduled_5am")
+
+    assert main.state["freshness_status"] == "fresh"
+    assert main.state["next_retry_at"] is None
+
+
 def test_admin_sync_nightly_triggers_full_sync(monkeypatch) -> None:
     _reset_state()
 
