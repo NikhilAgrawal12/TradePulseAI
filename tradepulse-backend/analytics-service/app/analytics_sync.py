@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -477,20 +479,8 @@ class AnalyticsSyncService:
         base_frame["trading_date"] = pd.to_datetime(base_frame["trading_date"]).dt.date
 
         # Spark needs a JVM; auto-wire JAVA_HOME/PATH when Java is installed but not exported.
-        ensure_java_runtime(logger)
-
-        try:
-            spark = (
-                SparkSession.builder.master("local[*]")
-                .appName("tradepulse-analytics-nightly")
-                .config("spark.ui.enabled", "false")
-                .getOrCreate()
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                "PySpark could not start because Java was not found. "
-                "Install JDK 11+ and set JAVA_HOME (or add java to PATH)."
-            ) from exc
+        java_path = ensure_java_runtime(logger)
+        spark = self._create_spark_session_with_retry(java_path=java_path)
 
         try:
             sdf = spark.createDataFrame(base_frame.to_dict("records"))
@@ -687,6 +677,39 @@ class AnalyticsSyncService:
             return max(ohlc_updated_rows, upserted_metric_count), weekly_rows
         finally:
             spark.stop()
+
+    def _create_spark_session_with_retry(self, java_path: str | None) -> SparkSession:
+        attempts = max(1, int(getattr(self._settings, "spark_startup_max_attempts", 3)))
+        initial_backoff = max(0.0, float(getattr(self._settings, "spark_startup_initial_backoff_seconds", 2.0)))
+        max_backoff = max(initial_backoff, float(getattr(self._settings, "spark_startup_max_backoff_seconds", 15.0)))
+        java_home = os.getenv("JAVA_HOME") or "<unset>"
+        last_error: Exception | None = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                return (
+                    SparkSession.builder.master("local[*]")
+                    .appName("tradepulse-analytics-nightly")
+                    .config("spark.ui.enabled", "false")
+                    .getOrCreate()
+                )
+            except Exception as exc:  # pragma: no cover - depends on JVM/runtime state
+                last_error = exc
+                root = _root_cause_message(exc)
+                logger.exception(
+                    "PySpark startup failed (attempt %d/%d). JAVA_HOME=%s java=%s root_cause=%s",
+                    attempt,
+                    attempts,
+                    java_home,
+                    java_path or "<not-found>",
+                    root,
+                )
+                if attempt < attempts:
+                    delay = min(max_backoff, initial_backoff * (2 ** (attempt - 1)))
+                    if delay > 0:
+                        time.sleep(delay)
+
+        raise RuntimeError(_spark_start_error_message(last_error, java_path=java_path, java_home=java_home)) from last_error
 
     def _persist_ohlc_updates(self, updates: pd.DataFrame) -> int:
         if updates.empty:
@@ -1236,6 +1259,26 @@ def _to_rounded(value: Any) -> float | None:
         return round(float(value), 2)
     except (TypeError, ValueError):
         return None
+
+
+def _root_cause_message(exc: BaseException) -> str:
+    root = exc
+    while True:
+        cause = root.__cause__ or root.__context__
+        if cause is None:
+            break
+        root = cause
+    message = str(root).strip() or "no-details"
+    return f"{type(root).__name__}: {message}"
+
+
+def _spark_start_error_message(exc: BaseException | None, *, java_path: str | None, java_home: str) -> str:
+    root_message = _root_cause_message(exc) if exc else "unknown"
+    return (
+        "PySpark could not start after retries. "
+        "Ensure JDK 11+ is installed and reachable. "
+        f"JAVA_HOME={java_home}, java={java_path or '<not-found>'}, root_cause={root_message}"
+    )
 
 
 def _to_optional_float(value: Any) -> float | None:

@@ -4,7 +4,7 @@ from datetime import date
 
 import pandas as pd
 
-from app.analytics_sync import _build_weekly_feature_rows
+from app.analytics_sync import _build_weekly_feature_rows, _root_cause_message, _spark_start_error_message
 
 
 REQUIRED_FEATURES = {
@@ -83,4 +83,22 @@ def test_build_weekly_feature_rows_filters_old_and_incomplete_rows() -> None:
         (date(2026, 9, 8), 2.0),
         (date(2026, 9, 15), 3.0),
     ]
+
+
+def test_root_cause_message_returns_deepest_exception() -> None:
+    try:
+        try:
+            raise ConnectionRefusedError("gateway refused")
+        except ConnectionRefusedError as exc:
+            raise RuntimeError("spark init failed") from exc
+    except RuntimeError as err:
+        assert _root_cause_message(err) == "ConnectionRefusedError: gateway refused"
+
+
+def test_spark_start_error_message_includes_runtime_context() -> None:
+    err = RuntimeError("outer")
+    message = _spark_start_error_message(err, java_path=None, java_home="<unset>")
+    assert "PySpark could not start after retries" in message
+    assert "JAVA_HOME=<unset>" in message
+    assert "java=<not-found>" in message
 
